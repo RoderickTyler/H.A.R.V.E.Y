@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>BlockSense — HARVEY</title>
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700;900&family=Share+Tech+Mono&family=Rajdhani:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://js.puter.com/v2/"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -375,206 +376,250 @@ tr:hover td{background:rgba(0,212,255,.03)}
 </div>
 
 <script>
-const DATASET="d_8b84c4ee58e3cfc0ece0d773c8ca6abc";
-const API="https://data.gov.sg/api/action/datastore_search";
-let loading=false, qn=0;
-const msgsEl=document.getElementById("msgs");
-const ciEl=document.getElementById("ci");
-const sbEl=document.getElementById("sb");
+// ════════════════════════════════════════════
+//  HARVEY — HDB Analytics & Research Valuation Engine for You
+//  BlockSense — blocksense.estatrix.workers.dev
+// ════════════════════════════════════════════
+
+const DATASET = "d_8b84c4ee58e3cfc0ece0d773c8ca6abc";
+const API     = "https://data.gov.sg/api/action/datastore_search";
+
+// ── ElevenLabs via Puter.js — FREE, no API key ──
+// Asher voice ID — swap this once you have it from your ElevenLabs account
+// Current: "nPczCjzI2devNBz1zQrb" = Daniel (British, authoritative, deep)
+// To use Asher: log in to elevenlabs.io → Voice Library → find Asher → copy ID → paste below
+const HARVEY_VOICE_ID = "nPczCjzI2devNBz1zQrb"; // swap to Asher ID when ready
+const HARVEY_SPEED    = 1.5; // 1.5x faster as requested
+
+let loading = false, qn = 0, voiceOn = true;
+let currentAudio = null;
+
+const msgsEl = document.getElementById("msgs");
+const ciEl   = document.getElementById("ci");
+const sbEl   = document.getElementById("sb");
 
 // ── CLOCK ──
 function tick(){
-  const n=new Date();
-  document.getElementById("clk").textContent=n.toLocaleTimeString("en-SG",{hour12:false});
-  document.getElementById("dt").textContent=n.toLocaleDateString("en-SG",{weekday:"short",day:"2-digit",month:"short",year:"numeric"}).toUpperCase();
+  const n = new Date();
+  document.getElementById("clk").textContent = n.toLocaleTimeString("en-SG",{hour12:false});
+  document.getElementById("dt").textContent  = n.toLocaleDateString("en-SG",{weekday:"short",day:"2-digit",month:"short",year:"numeric"}).toUpperCase();
 }
-tick();setInterval(tick,1000);
-let txc=189432;
-document.getElementById("txcount").textContent=txc.toLocaleString();
+tick(); setInterval(tick,1000);
+
+let txc = 189432;
+document.getElementById("txcount").textContent = txc.toLocaleString();
 setInterval(()=>{txc+=Math.floor(Math.random()*2);document.getElementById("txcount").textContent=txc.toLocaleString()},10000);
 
 ciEl.addEventListener("input",()=>{ciEl.style.height="auto";ciEl.style.height=Math.min(ciEl.scrollHeight,80)+"px"});
 ciEl.addEventListener("keydown",e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();handleInput()}});
 function bot(){msgsEl.scrollTop=msgsEl.scrollHeight}
 function esc(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;")}
-
-// ── CONVERSATION STATE ──
-let mode="greet";
-let ctx={};
-
-// ── IDLE TIMER ──
-const IDLE_MS=10*60*1000; // 10 minutes
-let idleTimer=null;
-let isIdle=false;
-
-function resetIdle(){
-  if(isIdle)wakeFromIdle();
-  isIdle=false;
-  clearTimeout(idleTimer);
-  idleTimer=setTimeout(goIdle,IDLE_MS);
-}
-
-function goIdle(){
-  if(isIdle)return;
-  isIdle=true;
-  synth&&synth.cancel();
-  // Show idle screen overlay
-  const d=document.createElement("div");d.id="idle-overlay";
-  d.style.cssText="position:fixed;inset:0;background:rgba(3,8,15,0.92);z-index:8888;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;cursor:pointer";
-  d.innerHTML=`
-    <div style="position:relative;width:160px;height:160px;display:flex;align-items:center;justify-content:center">
-      <svg style="position:absolute;inset:0;width:100%;height:100%" viewBox="0 0 160 160" fill="none">
-        <circle cx="80" cy="80" r="72" stroke="rgba(0,212,255,0.12)" stroke-width="1" stroke-dasharray="4 4" style="animation:spin 20s linear infinite"/>
-        <circle cx="80" cy="80" r="60" stroke="rgba(0,212,255,0.2)" stroke-width="1.5" stroke-dasharray="8 3" style="animation:spin 12s linear infinite reverse"/>
-        <circle cx="80" cy="80" r="48" stroke="rgba(0,212,255,0.35)" stroke-width="2" style="animation:spin 7s linear infinite"/>
-        <circle cx="80" cy="80" r="36" stroke="rgba(0,212,255,0.55)" stroke-width="2.5" stroke-dasharray="3 5" style="animation:spin 4s linear infinite reverse"/>
-        <circle cx="80" cy="80" r="24" stroke="rgba(0,212,255,0.7)" stroke-width="1.5"/>
-        <circle cx="80" cy="80" r="24" stroke="rgba(0,212,255,0.08)" stroke-width="16" fill="none"/>
-        <g stroke="rgba(0,212,255,0.5)" stroke-width="1.5">
-          <line x1="80" y1="4" x2="80" y2="14"/><line x1="80" y1="146" x2="80" y2="156"/>
-          <line x1="4" y1="80" x2="14" y2="80"/><line x1="146" y1="80" x2="156" y2="80"/>
-        </g>
-        <circle cx="80" cy="4" r="3" fill="rgba(0,212,255,0.8)"/>
-        <circle cx="80" cy="156" r="3" fill="rgba(0,212,255,0.6)"/>
-        <circle cx="4" cy="80" r="3" fill="rgba(0,212,255,0.6)"/>
-        <circle cx="156" cy="80" r="3" fill="rgba(0,212,255,0.8)"/>
-      </svg>
-      <div style="z-index:2;text-align:center;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%)">
-        <div style="font-family:'Orbitron',monospace;font-size:13px;font-weight:700;color:rgba(0,212,255,0.4);letter-spacing:4px;text-shadow:0 0 20px rgba(0,212,255,0.2)">HARVEY</div>
-        <div style="font-family:'Share Tech Mono',monospace;font-size:8px;color:rgba(0,212,255,0.25);letter-spacing:2px;margin-top:4px">STANDBY</div>
-      </div>
-    </div>
-    <div style="font-family:'Share Tech Mono',monospace;font-size:11px;color:rgba(0,212,255,0.35);letter-spacing:2px;animation:idlepulse 3s ease-in-out infinite">SYSTEM IDLE</div>
-    <div style="font-family:'Share Tech Mono',monospace;font-size:9px;color:rgba(0,212,255,0.2);letter-spacing:1px">CLICK ANYWHERE · SAY "WAKE UP HARVEY"</div>
-    <style>
-      @keyframes idlepulse{0%,100%{opacity:.3}50%{opacity:.8}}
-    </style>`;
-  d.onclick=wakeFromIdle;
-  document.body.appendChild(d);
-  // Speak idle line after a short delay
-  setTimeout(()=>{
-    const idleLine=["Going to standby mode, sir. Say wake up Harvey when you need me.","Entering idle mode. I'll be here when you need me, sir.","Standing by, sir. Just say wake up Harvey to resume."];
-    speak(rand(idleLine));
-  },300);
-}
-
-function wakeFromIdle(){
-  if(!isIdle)return;
-  isIdle=false;
-  document.getElementById("idle-overlay")?.remove();
-  resetIdle();
-  const wakeLines=["Welcome back, sir. What can I help you with?","Good to have you back, sir. How may I assist?","Systems active, sir. What are you looking for?"];
-  const reply=rand(wakeLines);
-  harveyMsg(reply,[{label:"▶ RESALE TRANSACTIONS",val:"transactions"},{label:"▶ FLAT VALUATION",val:"valuation"}]);
-  speak(reply);
-  mode="menu";
-}
-
-// Reset idle on any interaction
-document.addEventListener("mousemove",resetIdle);
-document.addEventListener("keydown",resetIdle);
-document.addEventListener("click",resetIdle);
-document.addEventListener("touchstart",resetIdle);
-
-
-// ── HARVEY RESPONSE LINES ──
-const H={
-  greet:[
-    "Good day, sir. What can I help you with today? Would you like to explore resale transactions, or are you looking for an estimated value of a specific flat?",
-    "Welcome back, sir. Shall we look at recent resale transactions, or would you prefer an estimated valuation for a flat?",
-    "Good to see you, sir. I can pull up resale transactions or help estimate the value of a flat. Which would you prefer?"
-  ],
-  wakeReply:[
-    "Good day, sir. I'm listening. What would you like to know?",
-    "Yes sir, Harvey here. How can I help?",
-    "At your service, sir. Go ahead."
-  ],
-  menuPrompt:"Please say <strong>transactions</strong> to browse recent sales, or <strong>valuation</strong> to estimate a flat's value.",
-  askTown:"Which town are you interested in, sir? For example — Tampines, Queenstown, Bishan, or any other HDB estate.",
-  askFlatType:"And what flat type? For instance — 3-room, 4-room, 5-room, or executive.",
-  askBlock:"Do you have a specific block in mind, sir? If not, just say <strong>any</strong> and I'll show the full town results.",
-  askValTown:"Of course, sir. Which town is the flat located in?",
-  askValType:"What flat type are we valuing, sir?",
-  askValStorey:"Which storey range, sir? For example — low floor, mid floor, or high floor.",
-  searching:["Stand by, sir. Scanning the database now.","Accessing records. One moment, sir.","Cross-referencing the data. Please wait, sir."],
-  found:(n,town,type)=>{
-    const t=town?" in "+town.charAt(0)+town.slice(1).toLowerCase():"";
-    const f=type?" for "+type.toLowerCase()+" flats":"";
-    return `I found ${n} transaction${n!==1?"s":""}${f}${t}, sir. Here are the results.`;
-  },
-  none:"I couldn't find any matching records for that, sir. You may want to try a different town or flat type.",
-  more:"Is there anything else I can help you with, sir? You can search again or ask for a valuation.",
-  err:"I'm unable to reach the database at the moment, sir. Please check your connection and try again.",
-  notUnderstood:"I didn't quite catch that, sir. Could you rephrase? You can say a town name, flat type, or type your query directly."
-};
-
 function rand(arr){return arr[Math.floor(Math.random()*arr.length)]}
 
-// ── RENDER HELPERS ──
+// ── SPEAK via ElevenLabs / Puter.js ──
+async function speak(txt){
+  if(!voiceOn || !txt) return;
+  const clean = txt.replace(/<[^>]*>/g," ").replace(/\s+/g," ").trim();
+  if(!clean) return;
+  // Stop any current speech
+  if(currentAudio){ currentAudio.pause(); currentAudio = null; }
+  try {
+    const audio = await puter.ai.txt2speech(clean,{
+      provider: "elevenlabs",
+      voice: HARVEY_VOICE_ID,
+      model: "eleven_flash_v2_5"  // fastest model
+    });
+    // Apply 1.5x speed without pitch change
+    audio.playbackRate = HARVEY_SPEED;
+    audio.preservesPitch = true;
+    currentAudio = audio;
+    document.querySelector(".hrw")?.classList.add("speaking");
+    audio.onended = ()=>{ document.querySelector(".hrw")?.classList.remove("speaking"); currentAudio=null; };
+    audio.play();
+  } catch(e) {
+    // Fallback to browser TTS if puter fails
+    const u = new SpeechSynthesisUtterance(clean);
+    u.rate = HARVEY_SPEED; u.pitch = 0.75; u.volume = 0.9;
+    u.onstart = ()=>document.querySelector(".hrw")?.classList.add("speaking");
+    u.onend   = ()=>document.querySelector(".hrw")?.classList.remove("speaking");
+    window.speechSynthesis.speak(u);
+  }
+}
+
+// ── VOICE TOGGLE ──
+const vtb = document.createElement("button");
+vtb.className="vtog"; vtb.textContent="🔊 HARVEY ON";
+vtb.onclick=()=>{
+  voiceOn=!voiceOn;
+  vtb.textContent = voiceOn ? "🔊 HARVEY ON" : "🔇 HARVEY OFF";
+  vtb.style.color  = voiceOn ? "var(--c2)" : "var(--t3)";
+  if(!voiceOn){ if(currentAudio){currentAudio.pause();currentAudio=null;} window.speechSynthesis.cancel(); }
+};
+document.querySelector(".tb-right").prepend(vtb);
+
+// ── CONVERSATION STATE ──
+let mode = "boot"; // boot → menu → search_needtown → search_needtype → val_needtown → val_needtype → free
+let ctx  = {};
+
+// ── HARVEY LINES ──
+const H = {
+  boot: [
+    "Good day, sir.",
+    "Welcome back, sir.",
+    "Good to see you, sir."
+  ],
+  menuPrompt: "What would you like to do? Search resale transactions, or check an estimated value?",
+  // Two options presented as chips — no Harvey question voice, just display
+  askTown:     "Which town, sir?",
+  askFlatType: "And the flat type?",
+  askValTown:  "Which town is the flat in, sir?",
+  askValType:  "What flat type, sir?",
+  searching:   ["Stand by, sir.","One moment, sir.","Accessing records, sir."],
+  found:(n,town,type)=>{
+    const t = town ? " in "+town.charAt(0)+town.slice(1).toLowerCase() : "";
+    const f = type ? ", "+type.toLowerCase() : "";
+    return `${n} result${n!==1?"s":""}${f}${t}, sir.`;
+  },
+  valResult:(med,low,high,n)=>
+    `Based on ${n} recent sales, estimated between $${Math.round(low/1000)}K and $${Math.round(high/1000)}K. Median $${Math.round(med/1000)}K, sir.`,
+  none:   "No records found, sir. Try a different town or flat type.",
+  more:   "Anything else, sir?",
+  err:    "Database unavailable, sir. Please check your connection.",
+  wakeReply: ["Yes sir.","At your service, sir.","Go ahead, sir."],
+  idle:   ["Going to standby, sir.","Entering idle mode, sir."],
+  wakeUp: ["Welcome back, sir.","Systems active, sir.","Ready, sir."]
+};
+
+// ── RENDER ──
 function harveyMsg(html, chips=[]){
-  const d=document.createElement("div");d.className="msg-ai";
-  let chipsHtml="";
-  if(chips.length) chipsHtml=`<div class="chips" style="margin-top:8px">${chips.map(c=>`<span class="chip" onclick="chipClick('${c.val}')">${c.label}</span>`).join("")}</div>`;
-  d.innerHTML=`<span class="mlbl">// HARVEY</span><div class="mbub">${html}${chipsHtml}</div>`;
-  msgsEl.appendChild(d);bot();
-  return d;
+  document.getElementById("welcome")?.remove();
+  const d = document.createElement("div"); d.className="msg-ai";
+  let ch = chips.length ? `<div class="chips" style="margin-top:8px">${chips.map(c=>`<span class="chip" onclick="chipClick('${c.val.replace(/'/g,"\\'")}')">▶ ${c.label}</span>`).join("")}</div>` : "";
+  d.innerHTML = `<span class="mlbl">// HARVEY</span><div class="mbub">${html}${ch}</div>`;
+  msgsEl.appendChild(d); bot();
 }
 
 function userMsg(text){
   document.getElementById("welcome")?.remove();
-  const d=document.createElement("div");d.className="msg-user";
-  d.innerHTML=`<div class="mbub">${esc(text)}</div>`;
-  msgsEl.appendChild(d);bot();
+  const d = document.createElement("div"); d.className="msg-user";
+  d.innerHTML = `<div class="mbub">${esc(text)}</div>`;
+  msgsEl.appendChild(d); bot();
   addRecent(text);
-  qn++;document.getElementById("hnum").textContent=qn;
+  qn++; document.getElementById("hnum").textContent = qn;
 }
 
 function thinkingMsg(){
-  const d=document.createElement("div");d.className="msg-ai";d.id="ti";
-  d.innerHTML=`<span class="mlbl">// HARVEY SEARCHING DATA.GOV.SG</span><div class="mbub"><div class="typing"><div class="tdot"></div><div class="tdot"></div><div class="tdot"></div></div></div>`;
-  msgsEl.appendChild(d);bot();
+  const d=document.createElement("div"); d.className="msg-ai"; d.id="ti";
+  d.innerHTML=`<span class="mlbl">// HARVEY — LIVE DATA</span><div class="mbub"><div class="typing"><div class="tdot"></div><div class="tdot"></div><div class="tdot"></div></div></div>`;
+  msgsEl.appendChild(d); bot();
 }
-function rmThinking(){document.getElementById("ti")?.remove()}
+function rmThinking(){ document.getElementById("ti")?.remove() }
 
 function addRecent(text){
-  const empty=document.getElementById("rlist").querySelector("div[style]");
-  if(empty)empty.remove();
-  const d=document.createElement("div");d.className="ritem";
-  const short=text.length>26?text.slice(0,26)+"…":text;
-  d.innerHTML=`${esc(short)}<span class="rp">▶</span><span class="rt">${new Date().toLocaleTimeString("en-SG",{hour12:false})}</span>`;
-  d.onclick=()=>chipClick(text);
-  document.getElementById("rlist").insertBefore(d,document.getElementById("rlist").firstChild);
-  if(document.getElementById("rlist").children.length>8)document.getElementById("rlist").lastChild.remove();
+  const empty = document.getElementById("rlist").querySelector("div[style]");
+  if(empty) empty.remove();
+  const d = document.createElement("div"); d.className="ritem";
+  d.innerHTML = `${esc(text.length>26?text.slice(0,26)+"…":text)}<span class="rp">▶</span><span class="rt">${new Date().toLocaleTimeString("en-SG",{hour12:false})}</span>`;
+  d.onclick = ()=>chipClick(text);
+  document.getElementById("rlist").insertBefore(d, document.getElementById("rlist").firstChild);
+  if(document.getElementById("rlist").children.length > 8) document.getElementById("rlist").lastChild.remove();
+}
+
+function showResultsTable(records, params){
+  if(!records||records.length===0){
+    harveyMsg(H.none); speak(H.none);
+    setTimeout(()=>harveyMsg(H.more,[{label:"SEARCH AGAIN",val:"search"},{label:"CHECK VALUE",val:"valuation"}]),900);
+    mode="menu"; return;
+  }
+  const prices = records.map(r=>parseInt(r.resale_price));
+  const sorted = [...prices].sort((a,b)=>a-b);
+  const median = sorted[Math.floor(sorted.length/2)];
+  const shown  = records.slice(0,8);
+  const rows   = shown.map(r=>`<tr>
+    <td>BLK ${esc(r.block)} ${esc(r.street_name)}</td>
+    <td>${esc(r.flat_type)}</td>
+    <td>${esc(r.storey_range)}</td>
+    <td>${esc(r.floor_area_sqm)}m²</td>
+    <td class="pc">$${parseInt(r.resale_price).toLocaleString()}</td>
+  </tr>`).join("");
+  const msg = H.found(records.length, params.town, params.flat_type);
+  const d = document.createElement("div"); d.className="msg-ai"; d.style.maxWidth="100%";
+  d.innerHTML=`
+    <span class="mlbl">// ${records.length} RECORD${records.length!==1?"S":""}</span>
+    <div class="mbub">${msg}</div>
+    <div class="rwrap">
+      <div class="rcard">
+        <div class="rh">
+          <span class="rtitle">⬡ ${esc((params.town||"ALL")+" · "+(params.flat_type||"ALL TYPES"))}</span>
+          <span class="rcnt">${records.length} RECORDS · ${shown.length} SHOWN</span>
+        </div>
+        <div style="overflow-x:auto"><table>
+          <thead><tr><th>BLOCK &amp; STREET</th><th>TYPE</th><th>STOREY</th><th>AREA</th><th>PRICE</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table></div>
+      </div>
+      <div class="srow">
+        <div class="sc"><span class="svv">$${Math.round(median/1000)}K</span><span class="sll">MEDIAN</span></div>
+        <div class="sc"><span class="svv">$${Math.round(Math.min(...prices)/1000)}K</span><span class="sll">LOWEST</span></div>
+        <div class="sc"><span class="svv">$${Math.round(Math.max(...prices)/1000)}K</span><span class="sll">HIGHEST</span></div>
+      </div>
+    </div>`;
+  msgsEl.appendChild(d); bot();
+  speak(msg);
+  setTimeout(()=>harveyMsg(H.more,[{label:"SEARCH AGAIN",val:"search"},{label:"CHECK VALUE",val:"valuation"},{label:"DIFFERENT TOWN",val:"different town"}]),1200);
+  mode="menu";
+}
+
+function showValuation(records, params){
+  if(!records||records.length===0){ harveyMsg(H.none); speak(H.none); mode="menu"; return; }
+  const prices = records.map(r=>parseInt(r.resale_price));
+  const sorted = [...prices].sort((a,b)=>a-b);
+  const median = sorted[Math.floor(sorted.length/2)];
+  const low    = Math.round(median*0.95/1000)*1000;
+  const high   = Math.round(median*1.05/1000)*1000;
+  const town   = params.town ? params.town.charAt(0)+params.town.slice(1).toLowerCase() : "";
+  const type   = params.flat_type ? params.flat_type.toLowerCase() : "";
+  const d = document.createElement("div"); d.className="msg-ai"; d.style.maxWidth="100%";
+  d.innerHTML=`
+    <span class="mlbl">// ESTIMATED VALUE</span>
+    <div class="mbub">Based on <strong>${records.length}</strong> recent transactions${town?" in <strong>"+town+"</strong>":""}${type?" · <strong>"+type+"</strong>":""}:</div>
+    <div class="srow" style="max-width:500px">
+      <div class="sc"><span class="svv" style="color:var(--c)">$${Math.round(low/1000)}K</span><span class="sll">LOW EST.</span></div>
+      <div class="sc"><span class="svv">$${Math.round(median/1000)}K</span><span class="sll">MEDIAN</span></div>
+      <div class="sc"><span class="svv" style="color:var(--a)">$${Math.round(high/1000)}K</span><span class="sll">HIGH EST.</span></div>
+    </div>`;
+  msgsEl.appendChild(d); bot();
+  const msg = H.valResult(median,low,high,records.length);
+  speak(msg);
+  setTimeout(()=>harveyMsg(H.more,[{label:"SEE TRANSACTIONS",val:"show transactions "+(params.town||"")+" "+(params.flat_type||"")},{label:"SEARCH AGAIN",val:"search"},{label:"DIFFERENT FLAT",val:"valuation"}]),1200);
+  mode="menu";
 }
 
 // ── QUERY PARSER ──
 const TOWNS=["ANG MO KIO","BEDOK","BISHAN","BUKIT BATOK","BUKIT MERAH","BUKIT PANJANG","BUKIT TIMAH","CENTRAL AREA","CHOA CHU KANG","CLEMENTI","GEYLANG","HOUGANG","JURONG EAST","JURONG WEST","KALLANG/WHAMPOA","MARINE PARADE","PASIR RIS","PUNGGOL","QUEENSTOWN","SEMBAWANG","SENGKANG","SERANGOON","TAMPINES","TOA PAYOH","WOODLANDS","YISHUN"];
-const FLAT_ALIASES={"1-ROOM":"1 ROOM","2-ROOM":"2 ROOM","3-ROOM":"3 ROOM","4-ROOM":"4 ROOM","5-ROOM":"5 ROOM","1RM":"1 ROOM","2RM":"2 ROOM","3RM":"3 ROOM","4RM":"4 ROOM","5RM":"5 ROOM","EXEC":"EXECUTIVE","MULTI GEN":"MULTI-GENERATION","1 ROOM":"1 ROOM","2 ROOM":"2 ROOM","3 ROOM":"3 ROOM","4 ROOM":"4 ROOM","5 ROOM":"5 ROOM","EXECUTIVE":"EXECUTIVE"};
+const FLAT_ALIASES={"1-ROOM":"1 ROOM","2-ROOM":"2 ROOM","3-ROOM":"3 ROOM","4-ROOM":"4 ROOM","5-ROOM":"5 ROOM","1RM":"1 ROOM","2RM":"2 ROOM","3RM":"3 ROOM","4RM":"4 ROOM","5RM":"5 ROOM","EXEC":"EXECUTIVE","1 ROOM":"1 ROOM","2 ROOM":"2 ROOM","3 ROOM":"3 ROOM","4 ROOM":"4 ROOM","5 ROOM":"5 ROOM","EXECUTIVE":"EXECUTIVE"};
 
-function extractTown(q){for(const t of TOWNS){if(q.includes(t))return t}return null}
-function extractFlatType(q){
-  for(const[a,v]of Object.entries(FLAT_ALIASES)){if(q.includes(a))return v}
-  return null;
-}
-function extractPrice(raw){
-  const u=raw.match(/(?:under|below|less than|max|<)\s*\$?([\d,]+)k?/i);
-  const o=raw.match(/(?:above|over|more than|min|>)\s*\$?([\d,]+)k?/i);
+function extractTown(q){ for(const t of TOWNS){if(q.includes(t))return t} return null }
+function extractFlat(q){ for(const[a,v]of Object.entries(FLAT_ALIASES)){if(q.includes(a))return v} return null }
+function extractPrices(raw){
   const res={};
+  const u=raw.match(/(?:under|below|less|max|<)\s*\$?([\d,]+)k?/i);
   if(u){let v=parseInt(u[1].replace(/,/g,""));if(/k/i.test(u[0])||v<10000)v*=1000;res.max_price=v}
+  const o=raw.match(/(?:above|over|more|min|>)\s*\$?([\d,]+)k?/i);
   if(o){let v=parseInt(o[1].replace(/,/g,""));if(/k/i.test(o[0])||v<10000)v*=1000;res.min_price=v}
-  if(/cheap|low|affordable/i.test(raw))res.sort="asc";
-  if(/expensive|high|top price|priciest/i.test(raw))res.sort="desc";
+  if(/cheap|lowest|affordable/i.test(raw))res.sort="asc";
+  if(/expensive|highest|top price/i.test(raw))res.sort="desc";
   return res;
 }
 
 // ── DATA FETCH ──
 async function fetchHDB(params){
   const filters={};
-  if(params.town)filters.town=params.town;
-  if(params.flat_type)filters.flat_type=params.flat_type;
-  if(params.block)filters.block=params.block;
+  if(params.town) filters.town=params.town;
+  if(params.flat_type) filters.flat_type=params.flat_type;
+  if(params.block) filters.block=params.block;
   let url=`${API}?resource_id=${DATASET}&limit=200`;
-  if(Object.keys(filters).length)url+=`&filters=${encodeURIComponent(JSON.stringify(filters))}`;
+  if(Object.keys(filters).length) url+=`&filters=${encodeURIComponent(JSON.stringify(filters))}`;
   const t0=Date.now();
   const r=await fetch(url);
   document.getElementById("lat").textContent=(Date.now()-t0)+"ms";
@@ -588,290 +633,213 @@ async function fetchHDB(params){
   return recs;
 }
 
-function showResults(records, params){
-  if(!records||records.length===0){
-    harveyMsg(H.none);speak(H.none);
-    setTimeout(()=>harveyMsg(H.more,[{label:"▶ SEARCH AGAIN",val:"search again"},{label:"▶ TRY VALUATION",val:"valuation"}]),1200);
-    mode="menu";return;
-  }
-  const prices=records.map(r=>parseInt(r.resale_price));
-  const sorted=[...prices].sort((a,b)=>a-b);
-  const median=sorted[Math.floor(sorted.length/2)];
-  const shown=records.slice(0,8);
-  const rows=shown.map(r=>`<tr><td>BLK ${esc(r.block)} ${esc(r.street_name)}</td><td>${esc(r.flat_type)}</td><td>${esc(r.storey_range)}</td><td>${esc(r.floor_area_sqm)}m²</td><td class="pc">$${parseInt(r.resale_price).toLocaleString()}</td></tr>`).join("");
-  const msg=H.found(records.length,params.town,params.flat_type);
-  const d=document.createElement("div");d.className="msg-ai";d.style.maxWidth="100%";
-  d.innerHTML=`
-    <span class="mlbl">// ${records.length} RECORD${records.length!==1?"S":""} FOUND</span>
-    <div class="mbub">${msg}</div>
-    <div class="rwrap">
-      <div class="rcard">
-        <div class="rh"><span class="rtitle">⬡ ${esc((params.town||"ALL TOWNS")+" · "+(params.flat_type||"ALL TYPES"))}</span><span class="rcnt">${records.length} RECORDS · ${shown.length} SHOWN</span></div>
-        <div style="overflow-x:auto"><table>
-          <thead><tr><th>BLOCK &amp; STREET</th><th>TYPE</th><th>STOREY</th><th>AREA</th><th>PRICE</th></tr></thead>
-          <tbody>${rows}</tbody>
-        </table></div>
-      </div>
-      <div class="srow">
-        <div class="sc"><span class="svv">$${Math.round(median/1000)}K</span><span class="sll">MEDIAN</span></div>
-        <div class="sc"><span class="svv">$${Math.round(Math.min(...prices)/1000)}K</span><span class="sll">LOWEST</span></div>
-        <div class="sc"><span class="svv">$${Math.round(Math.max(...prices)/1000)}K</span><span class="sll">HIGHEST</span></div>
-      </div>
-    </div>`;
-  msgsEl.appendChild(d);bot();
-  speak(msg);
-  setTimeout(()=>harveyMsg(H.more,[{label:"▶ SEARCH AGAIN",val:"search again"},{label:"▶ TRY VALUATION",val:"valuation"},{label:"▶ DIFFERENT TOWN",val:"different town"}]),1400);
-  mode="menu";
-}
+async function doSearch(){ speak(rand(H.searching)); thinkingMsg(); try{ const r=await fetchHDB(ctx); rmThinking(); showResultsTable(r,ctx); }catch(e){ rmThinking(); harveyMsg(H.err); speak(H.err); } loading=false; sbEl.disabled=false; }
+async function doVal()   { speak(rand(H.searching)); thinkingMsg(); try{ const r=await fetchHDB(ctx); rmThinking(); showValuation(r,ctx);  }catch(e){ rmThinking(); harveyMsg(H.err); speak(H.err); } loading=false; sbEl.disabled=false; }
 
-function showValuation(records, params){
-  if(!records||records.length===0){harveyMsg(H.none);speak(H.none);mode="menu";return}
-  const prices=records.map(r=>parseInt(r.resale_price));
-  const sorted=[...prices].sort((a,b)=>a-b);
-  const median=sorted[Math.floor(sorted.length/2)];
-  const low=Math.round(median*0.95/1000)*1000;
-  const high=Math.round(median*1.05/1000)*1000;
-  const msg=`Based on ${records.length} recent transactions${params.town?" in "+params.town.charAt(0)+params.town.slice(1).toLowerCase():""}${params.flat_type?" for "+params.flat_type.toLowerCase()+" flats":""}, the estimated value is between <strong>$${low.toLocaleString()}</strong> and <strong>$${high.toLocaleString()}</strong>, with a median of <strong>$${median.toLocaleString()}</strong>.`;
-  harveyMsg(msg,[{label:"▶ SEE FULL TRANSACTIONS",val:"show transactions "+((params.town||"")+" "+(params.flat_type||"")).trim()},{label:"▶ SEARCH ANOTHER",val:"search again"}]);
-  speak(`Based on ${records.length} recent transactions, the estimated value is between $${Math.round(low/1000)}K and $${Math.round(high/1000)}K.`);
-  mode="menu";
-}
-
-// ── CONVERSATION ROUTER ──
+// ── MAIN INPUT HANDLER ──
 async function handleInput(){
-  const raw=ciEl.value.trim();
-  if(!raw||loading)return;
-  loading=true;sbEl.disabled=true;
-  ciEl.value="";ciEl.style.height="auto";
+  const raw = ciEl.value.trim();
+  if(!raw||loading) return;
+  loading=true; sbEl.disabled=true;
+  ciEl.value=""; ciEl.style.height="auto";
+  resetIdle();
   userMsg(raw);
-  const q=raw.toUpperCase();
+  const q = raw.toUpperCase();
+  const town  = extractTown(q);
+  const flat  = extractFlat(q);
+  const prices= extractPrices(raw);
+  const isVal = /valuat|estimate|worth|value|price of|how much|check value|estimated/i.test(raw);
+  const isSrc = /transact|recent|sale|sold|search|show|find|list|cheap|expens|record|resale/i.test(raw);
 
-  // Always try to parse full query first (town + flat type in one go)
-  const town=extractTown(q);
-  const flat=extractFlatType(q);
-  const prices=extractPrice(raw);
-
-  if(mode==="greet"||mode==="menu"){
-    // Did they just say a greeting?
-    if(/^(hi|hello|hey|good|morning|afternoon|evening|yo|sup)/i.test(raw)){
-      const reply=rand(H.greet);
-      harveyMsg(reply,[{label:"▶ RESALE TRANSACTIONS",val:"transactions"},{label:"▶ FLAT VALUATION",val:"valuation"}]);
-      speak(reply);mode="menu";loading=false;sbEl.disabled=false;return;
-    }
-    // Valuation intent
-    if(/valuat|estimate|worth|value|price of|how much/i.test(raw)){
-      mode="valuation";
-      if(town&&flat){ctx={town,flat_type:flat,...prices};await doValuation();}
-      else if(town){ctx={town,...prices};speak(H.askValType);harveyMsg(H.askValType);mode="valuation_needtype";}
-      else{speak(H.askValTown);harveyMsg(H.askValTown);mode="valuation_needtown";}
-      loading=false;sbEl.disabled=false;return;
-    }
-    // Transaction / search intent OR has town/flat already
-    if(/transact|recent|sale|sold|search|show|find|list|cheap|expens|record/i.test(raw)||town||flat){
-      if(town&&flat){ctx={town,flat_type:flat,...prices};await doSearch();}
-      else if(town){ctx={town,...prices};speak(H.askFlatType);harveyMsg(H.askFlatType,[{label:"▶ 3-ROOM",val:"3-room"},{label:"▶ 4-ROOM",val:"4-room"},{label:"▶ 5-ROOM",val:"5-room"},{label:"▶ EXECUTIVE",val:"executive"},{label:"▶ ANY TYPE",val:"any"}]);mode="search_needtype";}
-      else{speak(H.askTown);harveyMsg(H.askTown);mode="search_needtown";}
-      loading=false;sbEl.disabled=false;return;
-    }
-    // Fallback greeting
-    const reply=rand(H.greet);
-    harveyMsg(reply,[{label:"▶ RESALE TRANSACTIONS",val:"transactions"},{label:"▶ FLAT VALUATION",val:"valuation"}]);
-    speak(reply);mode="menu";
+  if(mode==="search_needtown"||mode==="search_needtype"){
+    if(town) ctx.town=town;
+    if(flat) ctx.flat_type=flat;
+    Object.assign(ctx,prices);
+    if(ctx.town&&ctx.flat_type){ await doSearch(); }
+    else if(ctx.town){ harveyMsg(H.askFlatType,[{label:"3-ROOM",val:"3-room"},{label:"4-ROOM",val:"4-room"},{label:"5-ROOM",val:"5-room"},{label:"EXECUTIVE",val:"executive"},{label:"ANY TYPE",val:"any"}]); speak(H.askFlatType); mode="search_needtype"; loading=false; sbEl.disabled=false; }
+    else{ harveyMsg(H.askTown); speak(H.askTown); mode="search_needtown"; loading=false; sbEl.disabled=false; }
+    return;
+  }
+  if(mode==="val_needtown"||mode==="val_needtype"){
+    if(town) ctx.town=town;
+    if(flat) ctx.flat_type=flat;
+    if(ctx.town&&ctx.flat_type){ await doVal(); }
+    else if(ctx.town){ harveyMsg(H.askValType,[{label:"3-ROOM",val:"3-room"},{label:"4-ROOM",val:"4-room"},{label:"5-ROOM",val:"5-room"},{label:"EXECUTIVE",val:"executive"}]); speak(H.askValType); mode="val_needtype"; loading=false; sbEl.disabled=false; }
+    else{ harveyMsg(H.askValTown); speak(H.askValTown); mode="val_needtown"; loading=false; sbEl.disabled=false; }
+    return;
   }
 
-  else if(mode==="search_needtown"){
-    const t=extractTown(q)||town;
-    if(t){ctx.town=t;ctx.flat_type=extractFlatType(q)||ctx.flat_type;
-      if(ctx.flat_type){await doSearch();}
-      else{speak(H.askFlatType);harveyMsg(H.askFlatType,[{label:"▶ 3-ROOM",val:"3-room"},{label:"▶ 4-ROOM",val:"4-room"},{label:"▶ 5-ROOM",val:"5-room"},{label:"▶ EXECUTIVE",val:"executive"},{label:"▶ ANY TYPE",val:"any"}]);mode="search_needtype";}
-    }else{speak(H.notUnderstood);harveyMsg(H.notUnderstood);}
+  // Free-flow: detect intent from natural language
+  if(isVal){
+    ctx={...prices}; if(town)ctx.town=town; if(flat)ctx.flat_type=flat;
+    if(ctx.town&&ctx.flat_type){ await doVal(); }
+    else if(ctx.town){ harveyMsg(H.askValType,[{label:"3-ROOM",val:"3-room"},{label:"4-ROOM",val:"4-room"},{label:"5-ROOM",val:"5-room"},{label:"EXECUTIVE",val:"executive"}]); speak(H.askValType); mode="val_needtype"; loading=false; sbEl.disabled=false; }
+    else{ harveyMsg(H.askValTown); speak(H.askValTown); mode="val_needtown"; loading=false; sbEl.disabled=false; }
+    return;
   }
-
-  else if(mode==="search_needtype"){
-    const f=extractFlatType(q)||(/any|all|whatever|skip/i.test(raw)?null:flat);
-    if(f)ctx.flat_type=f;
-    await doSearch();
+  if(isSrc||town||flat){
+    ctx={...prices}; if(town)ctx.town=town; if(flat)ctx.flat_type=flat;
+    if(ctx.town&&ctx.flat_type){ await doSearch(); }
+    else if(ctx.town){ harveyMsg(H.askFlatType,[{label:"3-ROOM",val:"3-room"},{label:"4-ROOM",val:"4-room"},{label:"5-ROOM",val:"5-room"},{label:"EXECUTIVE",val:"executive"},{label:"ANY TYPE",val:"any"}]); speak(H.askFlatType); mode="search_needtype"; loading=false; sbEl.disabled=false; }
+    else{ harveyMsg(H.askTown); speak(H.askTown); mode="search_needtown"; loading=false; sbEl.disabled=false; }
+    return;
   }
-
-  else if(mode==="valuation_needtown"){
-    const t=extractTown(q)||town;
-    if(t){ctx.town=t;speak(H.askValType);harveyMsg(H.askValType,[{label:"▶ 3-ROOM",val:"3-room"},{label:"▶ 4-ROOM",val:"4-room"},{label:"▶ 5-ROOM",val:"5-room"},{label:"▶ EXECUTIVE",val:"executive"}]);mode="valuation_needtype";}
-    else{speak(H.notUnderstood);harveyMsg(H.notUnderstood);}
+  // Greetings → show two options as chips, Harvey says minimal
+  if(/^(hi|hello|hey|morning|afternoon|evening|yo|sup|good)/i.test(raw)){
+    harveyMsg(H.menuPrompt,[{label:"RESALE TRANSACTIONS",val:"search"},{label:"ESTIMATED VALUE",val:"valuation"}]);
+    speak(H.menuPrompt); mode="menu"; loading=false; sbEl.disabled=false; return;
   }
-
-  else if(mode==="valuation_needtype"){
-    const f=extractFlatType(q)||flat;
-    if(f)ctx.flat_type=f;
-    await doValuation();
+  if(/search|transactions?/i.test(raw)){
+    ctx={}; harveyMsg(H.askTown); speak(H.askTown); mode="search_needtown"; loading=false; sbEl.disabled=false; return;
   }
-
-  else{
-    // fallback — try full parse
-    if(town||flat){ctx={town,flat_type:flat,...prices};await doSearch();}
-    else{speak(H.notUnderstood);harveyMsg(H.notUnderstood,[{label:"▶ RESALE TRANSACTIONS",val:"transactions"},{label:"▶ FLAT VALUATION",val:"valuation"}]);mode="menu";}
+  if(/valuat|value|estimate|check/i.test(raw)){
+    ctx={}; harveyMsg(H.askValTown); speak(H.askValTown); mode="val_needtown"; loading=false; sbEl.disabled=false; return;
   }
-
-  loading=false;sbEl.disabled=false;
+  if(/any|skip/i.test(raw)&&(mode==="search_needtype"||mode==="val_needtype")){
+    if(mode==="search_needtype") await doSearch();
+    else await doVal();
+    return;
+  }
+  // Total fallback — prompt with two options
+  harveyMsg("How can I help, sir?",[{label:"RESALE TRANSACTIONS",val:"search"},{label:"ESTIMATED VALUE",val:"valuation"}]);
+  speak("How can I help, sir?"); mode="menu"; loading=false; sbEl.disabled=false;
 }
 
-async function doSearch(){
-  speak(rand(H.searching));thinkingMsg();
-  try{const recs=await fetchHDB(ctx);rmThinking();showResults(recs,ctx);}
-  catch(e){rmThinking();harveyMsg(H.err);speak(H.err);}
-  loading=false;sbEl.disabled=false;
+function chipClick(val){ ciEl.value=val; handleInput(); }
+function sendQuick(t){ ciEl.value=t; handleInput(); }
+function sendMessage(){ handleInput(); }
+
+// ── IDLE TIMER ──
+const IDLE_MS = 10*60*1000;
+let idleTimer=null, isIdle=false;
+
+function resetIdle(){
+  if(isIdle) wakeFromIdle();
+  isIdle=false; clearTimeout(idleTimer);
+  idleTimer=setTimeout(goIdle,IDLE_MS);
 }
-
-async function doValuation(){
-  speak(rand(H.searching));thinkingMsg();
-  try{const recs=await fetchHDB(ctx);rmThinking();showValuation(recs,ctx);}
-  catch(e){rmThinking();harveyMsg(H.err);speak(H.err);}
-  loading=false;sbEl.disabled=false;
+function goIdle(){
+  if(isIdle)return; isIdle=true;
+  if(currentAudio){currentAudio.pause();currentAudio=null;}
+  window.speechSynthesis.cancel();
+  const d=document.createElement("div"); d.id="idle-overlay";
+  d.style.cssText="position:fixed;inset:0;background:rgba(3,8,15,0.93);z-index:8888;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;cursor:pointer";
+  d.innerHTML=`
+    <div style="position:relative;width:160px;height:160px;display:flex;align-items:center;justify-content:center">
+      <svg style="position:absolute;inset:0;width:100%;height:100%" viewBox="0 0 160 160" fill="none">
+        <circle cx="80" cy="80" r="72" stroke="rgba(0,212,255,0.12)" stroke-width="1" stroke-dasharray="4 4" style="animation:spin 20s linear infinite"/>
+        <circle cx="80" cy="80" r="60" stroke="rgba(0,212,255,0.2)" stroke-width="1.5" stroke-dasharray="8 3" style="animation:spin 12s linear infinite reverse"/>
+        <circle cx="80" cy="80" r="48" stroke="rgba(0,212,255,0.35)" stroke-width="2" style="animation:spin 7s linear infinite"/>
+        <circle cx="80" cy="80" r="36" stroke="rgba(0,212,255,0.55)" stroke-width="2.5" stroke-dasharray="3 5" style="animation:spin 4s linear infinite reverse"/>
+        <circle cx="80" cy="80" r="24" stroke="rgba(0,212,255,0.7)" stroke-width="1.5"/>
+        <circle cx="80" cy="80" r="24" stroke="rgba(0,212,255,0.07)" stroke-width="16" fill="none"/>
+        <g stroke="rgba(0,212,255,0.5)" stroke-width="1.5"><line x1="80" y1="4" x2="80" y2="14"/><line x1="80" y1="146" x2="80" y2="156"/><line x1="4" y1="80" x2="14" y2="80"/><line x1="146" y1="80" x2="156" y2="80"/></g>
+        <circle cx="80" cy="4" r="3" fill="rgba(0,212,255,0.8)"/><circle cx="80" cy="156" r="3" fill="rgba(0,212,255,0.6)"/>
+        <circle cx="4" cy="80" r="3" fill="rgba(0,212,255,0.6)"/><circle cx="156" cy="80" r="3" fill="rgba(0,212,255,0.8)"/>
+      </svg>
+      <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center">
+        <div style="font-family:'Orbitron',monospace;font-size:13px;font-weight:700;color:rgba(0,212,255,0.35);letter-spacing:4px">HARVEY</div>
+        <div style="font-family:'Share Tech Mono',monospace;font-size:8px;color:rgba(0,212,255,0.2);letter-spacing:2px;margin-top:4px">STANDBY</div>
+      </div>
+    </div>
+    <div style="font-family:'Share Tech Mono',monospace;font-size:11px;color:rgba(0,212,255,0.3);letter-spacing:2px;animation:idlepulse 3s ease-in-out infinite">SYSTEM IDLE</div>
+    <div style="font-family:'Share Tech Mono',monospace;font-size:9px;color:rgba(0,212,255,0.18);letter-spacing:1px">CLICK ANYWHERE · SAY "WAKE UP HARVEY"</div>
+    <style>@keyframes idlepulse{0%,100%{opacity:.25}50%{opacity:.7}}</style>`;
+  d.onclick=wakeFromIdle;
+  document.body.appendChild(d);
+  setTimeout(()=>speak(rand(H.idle)),300);
 }
-
-function chipClick(val){
-  ciEl.value=val;
-  handleInput();
+function wakeFromIdle(){
+  if(!isIdle)return; isIdle=false;
+  document.getElementById("idle-overlay")?.remove();
+  resetIdle();
+  const msg=rand(H.wakeUp);
+  harveyMsg(msg,[{label:"RESALE TRANSACTIONS",val:"search"},{label:"ESTIMATED VALUE",val:"valuation"}]);
+  speak(msg); mode="menu";
 }
+document.addEventListener("mousemove",resetIdle,{passive:true});
+document.addEventListener("keydown",resetIdle,{passive:true});
+document.addEventListener("click",resetIdle,{passive:true});
+document.addEventListener("touchstart",resetIdle,{passive:true});
 
-function sendQuick(t){ciEl.value=t;handleInput()}
-function sendMessage(){handleInput()} // keep compatibility
+// ── WAKE WORD LISTENER ──
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+const mbEl  = document.getElementById("mb");
+const vsEl  = document.getElementById("vs");
+const vsTxt = document.getElementById("vs-txt");
+const vsSup = document.getElementById("vs-sup");
+let micActive=false, recog=null, wakeEnabled=false;
 
-// ── VOICE ENGINE ──
-const synth=window.speechSynthesis;
-let harveyVoice=null,voiceOn=true,micActive=false,recog=null;
-
-function pickVoice(){
-  const vv=synth.getVoices();
-  const prefs=["Google UK English Male","Microsoft George","Microsoft David","Daniel","en-GB","en-US"];
-  for(const p of prefs){const v=vv.find(v=>v.name.includes(p)||v.lang===p);if(v){harveyVoice=v;return}}
-  harveyVoice=vv.find(v=>v.lang.startsWith("en"))||vv[0]||null;
-}
-pickVoice();
-if(synth.onvoiceschanged!==undefined)synth.onvoiceschanged=pickVoice;
-
-function speak(txt){
-  if(!voiceOn||!synth||!txt)return;
-  // Strip HTML tags for speech
-  const clean=txt.replace(/<[^>]*>/g," ").replace(/\s+/g," ").trim();
-  synth.cancel();
-  const u=new SpeechSynthesisUtterance(clean);
-  if(harveyVoice)u.voice=harveyVoice;
-  u.rate=0.88;u.pitch=0.72;u.volume=0.92;
-  u.onstart=()=>document.querySelector(".hrw")?.classList.add("speaking");
-  u.onend=()=>document.querySelector(".hrw")?.classList.remove("speaking");
-  synth.speak(u);
-}
-
-// Voice toggle
-const vtb=document.createElement("button");
-vtb.className="vtog";vtb.textContent="🔊 HARVEY ON";
-vtb.onclick=()=>{voiceOn=!voiceOn;vtb.textContent=voiceOn?"🔊 HARVEY ON":"🔇 HARVEY OFF";vtb.style.color=voiceOn?"var(--c2)":"var(--t3)";if(!voiceOn)synth.cancel()};
-document.querySelector(".tb-right").prepend(vtb);
-
-// Speech Recognition
-const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
-const mbEl=document.getElementById("mb");
-const vsEl=document.getElementById("vs");
-const vsTxt=document.getElementById("vs-txt");
-const vsSup=document.getElementById("vs-sup");
 if(SR){
-  vsSup.textContent="🎤 HARVEY VOICE READY";vsSup.style.color="var(--g)";
-  recog=new SR();recog.continuous=false;recog.interimResults=true;recog.lang="en-SG";
-  recog.onstart=()=>{micActive=true;mbEl.classList.add("active");vsEl.style.display="flex";vsTxt.textContent="HARVEY LISTENING…";speak("Harvey listening.")};
+  vsSup.textContent='SAY "WAKE UP HARVEY" OR CLICK 🎤'; vsSup.style.color="var(--g)";
+
+  // Main mic
+  recog=new SR(); recog.continuous=false; recog.interimResults=true; recog.lang="en-SG";
+  recog.onstart=()=>{ micActive=true; mbEl.classList.add("active"); vsEl.style.display="flex"; vsTxt.textContent="HARVEY LISTENING…"; speak("Listening."); };
   recog.onresult=e=>{
     let interim="",final="";
-    for(let i=e.resultIndex;i<e.results.length;i++){
-      if(e.results[i].isFinal)final+=e.results[i][0].transcript;
-      else interim+=e.results[i][0].transcript;
-    }
+    for(let i=e.resultIndex;i<e.results.length;i++){ if(e.results[i].isFinal)final+=e.results[i][0].transcript; else interim+=e.results[i][0].transcript; }
     ciEl.value=final||interim;
     vsTxt.textContent="HEARD: "+(final||interim).toUpperCase();
-    if(final)setTimeout(()=>handleInput(),500);
+    if(final)setTimeout(()=>handleInput(),400);
   };
-  recog.onerror=e=>{vsTxt.textContent="MIC ERROR: "+e.error.toUpperCase();setTimeout(stopMic,1500)};
+  recog.onerror=e=>{ vsTxt.textContent="MIC ERROR: "+e.error.toUpperCase(); setTimeout(stopMic,1500); };
   recog.onend=stopMic;
+
+  // Wake word — always-on background loop
+  function startWakeListener(){
+    if(wakeEnabled)return; wakeEnabled=true;
+    (function loop(){
+      if(!wakeEnabled)return;
+      const wr=new SR(); wr.continuous=false; wr.interimResults=false; wr.lang="en-SG";
+      wr.onresult=e=>{
+        const said=(e.results[e.results.length-1][0].transcript||"").toLowerCase();
+        if(/wake.?up.?harvey|hey.?harvey|ok.?harvey|harvey.?wake/i.test(said)){
+          if(isIdle) wakeFromIdle();
+          else{ const r=rand(H.wakeReply); harveyMsg(r,[{label:"RESALE TRANSACTIONS",val:"search"},{label:"ESTIMATED VALUE",val:"valuation"}]); speak(r); mode="menu"; setTimeout(startMic,1000); }
+          resetIdle();
+        }
+      };
+      wr.onerror=()=>{};
+      wr.onend=()=>{ if(wakeEnabled)setTimeout(loop,600); };
+      try{ wr.start(); }catch(e){ if(wakeEnabled)setTimeout(loop,2000); }
+    })();
+  }
+  startWakeListener();
 }else{
   mbEl.style.display="none";
-  vsSup.textContent="USE CHROME/EDGE FOR VOICE";vsSup.style.color="var(--a)";
+  vsSup.textContent="USE CHROME/EDGE FOR VOICE"; vsSup.style.color="var(--a)";
 }
-function toggleMic(){if(!recog)return;micActive?stopMic():startMic()}
-function startMic(){try{recog.start()}catch(e){}}
-function stopMic(){micActive=false;mbEl.classList.remove("active");vsEl.style.display="none";try{recog.stop()}catch(e){}}
-
-// ── WAKE WORD LISTENER — always-on background listener ──
-let wakeRecog=null;
-let wakeEnabled=false;
-
-function startWakeListener(){
-  if(!SR||wakeEnabled)return;
-  wakeEnabled=true;
-  function listenLoop(){
-    if(!wakeEnabled)return;
-    const wr=new SR();
-    wr.continuous=false;
-    wr.interimResults=false;
-    wr.lang="en-SG";
-    wr.onresult=e=>{
-      const said=(e.results[e.results.length-1][0].transcript||"").toLowerCase().trim();
-      // Wake word detection
-      if(/wake.?up.?harvey|hey.?harvey|harvey.?wake|ok.?harvey/i.test(said)){
-        // Wake from idle if needed
-        if(isIdle)wakeFromIdle();
-        else{
-          // Don't process as a normal query — respond to wake word
-          const reply=rand(H.wakeReply);
-          harveyMsg(reply,[{label:"▶ RESALE TRANSACTIONS",val:"transactions"},{label:"▶ FLAT VALUATION",val:"valuation"}]);
-          speak(reply);
-          mode="menu";
-          // Activate the main mic so user can speak their query
-          setTimeout(()=>startMic(),1200);
-        }
-        resetIdle();
-      }
-    };
-    wr.onerror=()=>{};
-    wr.onend=()=>{
-      // Restart loop after short delay to keep listening
-      if(wakeEnabled)setTimeout(listenLoop,800);
-    };
-    try{wr.start()}catch(e){if(wakeEnabled)setTimeout(listenLoop,2000)}
-  }
-  listenLoop();
-}
+function toggleMic(){ if(!recog)return; micActive?stopMic():startMic(); }
+function startMic(){ try{ recog.start(); }catch(e){} }
+function stopMic(){ micActive=false; mbEl.classList.remove("active"); vsEl.style.display="none"; try{ recog.stop(); }catch(e){} }
 
 // ── BOOT SEQUENCE ──
 window.addEventListener("load",()=>{
-  // Step 1: "All systems online" flash
   setTimeout(()=>{
     document.getElementById("welcome")?.remove();
-    // Boot status message
-    const boot=document.createElement("div");boot.className="msg-ai";
+    const boot=document.createElement("div"); boot.className="msg-ai";
     boot.innerHTML=`<span class="mlbl">// SYSTEM BOOT</span>
       <div class="mbub" style="font-family:var(--mono);font-size:11px;line-height:2.2;color:var(--t2)">
         <span style="color:var(--g)">▸</span> HARVEY ONLINE<br>
         <span style="color:var(--g)">▸</span> DATA.GOV.SG CONNECTED<br>
         <span style="color:var(--g)">▸</span> HDB RESALE DATABASE READY<br>
         <span style="color:var(--g)">▸</span> VOICE ENGINE LOADED<br>
-        <span style="color:var(--c)">▸</span> ALL SYSTEMS ONLINE
+        <span style="color:var(--c)">▸</span> <strong style="color:var(--c)">ALL SYSTEMS ONLINE</strong>
       </div>`;
-    msgsEl.appendChild(boot);bot();
-    speak("Harvey online. All systems operational.");
+    msgsEl.appendChild(boot); bot();
+    speak(rand(H.boot));
   },400);
 
-  // Step 2: Harvey greeting after boot
+  // Greeting + two options — no question, just chips
   setTimeout(()=>{
-    const greeting=rand(H.greet);
-    harveyMsg(greeting,[{label:"▶ RESALE TRANSACTIONS",val:"transactions"},{label:"▶ FLAT VALUATION",val:"valuation"}]);
-    speak(greeting);
-    mode="menu";
-    // Start always-on wake word listener
-    startWakeListener();
-    // Start idle timer
+    harveyMsg("What would you like to do, sir?",[
+      {label:"RESALE TRANSACTIONS",val:"search"},
+      {label:"ESTIMATED VALUE",val:"valuation"}
+    ]);
     resetIdle();
-    // Update hint
-    const vsSup=document.getElementById("vs-sup");
-    if(vsSup&&SR)vsSup.textContent='SAY "WAKE UP HARVEY" OR CLICK 🎤';
-  },2800);
+    mode="menu";
+  },2600);
 });
 </script>
 </body>
