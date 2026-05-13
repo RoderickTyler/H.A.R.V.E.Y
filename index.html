@@ -578,32 +578,30 @@ function computeEstimate(params){
 
 // ── TRANSACTION SEARCH ──
 function searchTransactions(params){
-  const {town,flatType,street,block,storeyRange,maxPrice,minPrice,sort}=params;
-  const cutoff=evCutoff(6); // 6 months first
-  let recs=DB.resale.filter(r=>{
-    if(r.month<cutoff)return false;
-    if(town&&r.town!==town)return false;
-    if(flatType&&r.flat_type!==flatType)return false;
-    if(street&&!r.street_name.toUpperCase().includes(street.toUpperCase()))return false;
-    if(block&&r.block.toUpperCase()!==block.toUpperCase())return false;
-    if(storeyRange&&r.storey_range!==storeyRange)return false;
-    if(maxPrice&&Number(r.resale_price)>maxPrice)return false;
-    if(minPrice&&Number(r.resale_price)<minPrice)return false;
-    return true;
-  });
-  // If less than 5 results in 6 months, try all time
-  if(recs.length<5){
-    recs=DB.resale.filter(r=>{
+  const {town,flatType,flatTypes,street,block,storeyFilter,maxPrice,minPrice,sort,leaseYears}=params;
+  const cutoff=evCutoff(6);
+  // Flat types: support both single flatType and multi flatTypes array
+  const ftSet=flatTypes&&flatTypes.length?new Set(flatTypes):(flatType?new Set([flatType]):null);
+
+  function filter(recs,useCutoff){
+    return recs.filter(r=>{
+      if(useCutoff&&r.month<cutoff)return false;
       if(town&&r.town!==town)return false;
-      if(flatType&&r.flat_type!==flatType)return false;
-      if(street&&!r.street_name.toUpperCase().includes(street.toUpperCase()))return false;
+      if(ftSet&&ftSet.size&&!ftSet.has(r.flat_type))return false;
+      if(street&&!r.street_name.toUpperCase().includes(street.toUpperCase().slice(0,8)))return false;
       if(block&&r.block.toUpperCase()!==block.toUpperCase())return false;
-      if(storeyRange&&r.storey_range!==storeyRange)return false;
+      if(storeyFilter&&storeyFilter.length&&!storeyFilter.includes(r.storey_range))return false;
       if(maxPrice&&Number(r.resale_price)>maxPrice)return false;
       if(minPrice&&Number(r.resale_price)<minPrice)return false;
+      if(leaseYears&&leaseYears.length&&!leaseYears.includes(parseInt(r.lease_commence_date)))return false;
       return true;
     });
   }
+
+  let recs=filter(DB.resale,true);
+  // If less than 5 in 6 months, try full dataset
+  if(recs.length<5)recs=filter(DB.resale,false);
+
   if(sort==='asc')recs.sort((a,b)=>Number(a.resale_price)-Number(b.resale_price));
   else if(sort==='desc')recs.sort((a,b)=>Number(b.resale_price)-Number(a.resale_price));
   else recs.sort((a,b)=>(b.month||'').localeCompare(a.month||''));
@@ -754,6 +752,282 @@ function buildSearchMissingPrompt(ctx){
   return m;
 }
 
+// ── Build resale SEARCH HUD form (mirrors BlockSense Transaction Search tab) ──
+function buildSearchForm(ctx){
+  const fid='sf-'+Date.now();
+  const town=ctx.town||'';
+  const street=ctx.street||'';
+  const block=ctx.block||'';
+  const flatType=ctx.flatType||'';
+
+  const towns=TOWNS;
+  const streets=town?getStreetsForTown(town):(street?[street]:[]);
+  const blocks=getBlocksForStreet(street,town,flatType);
+  const storeyBands=['01 TO 03','04 TO 06','07 TO 09','10 TO 12','13 TO 15','16 TO 18','19 TO 21','22 TO 24','25 TO 27','28 TO 30','31 TO 33','34 TO 36','37 TO 39','40 TO 42','43 TO 45','46 TO 48','49 TO 51'];
+  const flatTypes=['1 ROOM','2 ROOM','3 ROOM','4 ROOM','5 ROOM','EXECUTIVE','MULTI-GENERATION'];
+  const leaseYrs=getLeaseYearsForBlock(block,street,flatType);
+
+  const opt=(val,label,sel)=>`<option value="${val}"${sel?' selected':''}>${label}</option>`;
+
+  // Multi-select helper renders as a scrollable list of checkboxes
+  function multiSelect(id,options,selected=[]){
+    return `<div style="background:var(--t4);border:1px solid var(--b2);max-height:80px;overflow-y:auto;padding:4px 0">
+      ${options.map(o=>`<label style="display:flex;align-items:center;gap:6px;padding:2px 8px;cursor:pointer;font-family:var(--mono);font-size:10px;color:var(--t2)">
+        <input type="checkbox" value="${o}" ${selected.includes(o)?'checked':''} style="accent-color:var(--c)"> ${o}
+      </label>`).join('')}
+    </div>`;
+  }
+
+  const html=`<div class="hud-form" id="${fid}">
+  <div class="hud-row">
+    <span class="hud-label">📍 TOWN</span>
+    <select class="hud-select" id="${fid}-town" onchange="sfCascade('${fid}')">
+      <option value="">— all towns —</option>${towns.map(t=>opt(t,t,t===town)).join('')}
+    </select>
+  </div>
+  <div class="hud-row">
+    <span class="hud-label">🛣️ STREET</span>
+    <select class="hud-select" id="${fid}-street" onchange="sfCascade('${fid}')">
+      <option value="">— all streets —</option>${streets.map(s=>opt(s,s,s===street)).join('')}
+    </select>
+  </div>
+  <div class="hud-row">
+    <span class="hud-label">🔢 BLOCK</span>
+    <select class="hud-select" id="${fid}-block">
+      <option value="">— all blocks —</option>${blocks.map(b=>opt(b,'Blk '+b,b===block)).join('')}
+    </select>
+  </div>
+  <div class="hud-row" style="align-items:flex-start">
+    <span class="hud-label" style="margin-top:4px">🏠 FLAT TYPE</span>
+    <div>${multiSelect(fid+'-ft',flatTypes,flatType?[flatType]:[])}</div>
+  </div>
+  <div class="hud-row" style="align-items:flex-start">
+    <span class="hud-label" style="margin-top:4px">📶 STOREY</span>
+    <div>${multiSelect(fid+'-storey',storeyBands,[])}</div>
+  </div>
+  <div class="hud-row">
+    <span class="hud-label">💰 PRICE MIN</span>
+    <input class="hud-input" type="number" id="${fid}-pmin" placeholder="e.g. 300000" style="width:110px">
+  </div>
+  <div class="hud-row">
+    <span class="hud-label">💰 PRICE MAX</span>
+    <input class="hud-input" type="number" id="${fid}-pmax" placeholder="e.g. 800000" style="width:110px">
+  </div>
+  ${leaseYrs.length?`<div class="hud-row" style="align-items:flex-start">
+    <span class="hud-label" style="margin-top:4px">🗓️ LEASE YEAR</span>
+    <div>${multiSelect(fid+'-ly',leaseYrs.map(String),[])}</div>
+  </div>`:''}
+  <div class="hud-row">
+    <span class="hud-label">🔢 SORT</span>
+    <select class="hud-select" id="${fid}-sort" style="min-width:160px">
+      <option value="">Recent first</option>
+      <option value="asc">Cheapest first</option>
+      <option value="desc">Most expensive first</option>
+    </select>
+  </div>
+  <div class="hud-divider"></div>
+  <div class="hud-row">
+    <button class="hud-submit" onclick="sfSubmit('${fid}')">⬡ SEARCH TRANSACTIONS</button>
+    <button class="hud-submit" style="background:var(--t3);color:var(--t2)" onclick="sfCopy('${fid}')">📋 COPY AS TEXT</button>
+  </div>
+</div>`;
+  return html;
+}
+
+function sfCascade(fid){
+  const town=document.getElementById(fid+'-town')?.value||'';
+  const street=document.getElementById(fid+'-street')?.value||'';
+  if(town){
+    const streets=getStreetsForTown(town);
+    const el=document.getElementById(fid+'-street');
+    if(el){const cur=el.value;el.innerHTML=`<option value="">— all streets —</option>`+streets.map(s=>`<option value="${s}"${s===cur?' selected':''}>${s}</option>`).join('');}
+  }
+  if(town||street){
+    const blocks=getBlocksForStreet(street,town,'');
+    const el=document.getElementById(fid+'-block');
+    if(el){const cur=el.value;el.innerHTML=`<option value="">— all blocks —</option>`+blocks.map(b=>`<option value="${b}"${b===cur?' selected':''}>Blk ${b}</option>`).join('');}
+  }
+}
+
+function sfSubmit(fid){
+  const town=document.getElementById(fid+'-town')?.value||'';
+  const street=document.getElementById(fid+'-street')?.value||'';
+  const block=document.getElementById(fid+'-block')?.value||'';
+  const fts=[...document.querySelectorAll(`#${fid} input[type=checkbox]:checked`)].filter(c=>['1 ROOM','2 ROOM','3 ROOM','4 ROOM','5 ROOM','EXECUTIVE','MULTI-GENERATION'].includes(c.value)).map(c=>c.value);
+  const storeys=[...document.querySelectorAll(`#${fid} input[type=checkbox]:checked`)].filter(c=>c.value.includes('TO')).map(c=>c.value);
+  const pmin=Number(document.getElementById(fid+'-pmin')?.value)||0;
+  const pmax=Number(document.getElementById(fid+'-pmax')?.value)||0;
+  const sort=document.getElementById(fid+'-sort')?.value||'';
+  const lys=[...document.querySelectorAll(`#${fid} input[type=checkbox]:checked`)].filter(c=>/^\d{4}$/.test(c.value)).map(c=>Number(c.value));
+
+  ctx={isEV:false,town,street,block,flatType:fts.length===1?fts[0]:'',flatTypes:fts,storeyFilter:storeys,minPrice:pmin||undefined,maxPrice:pmax||undefined,sort,leaseYears:lys};
+  const summary=[block?'Blk '+block:'',street||town||'',fts.join('/')].filter(Boolean).join(' · ');
+  userMsg('Search: '+summary);
+  mode='srch_waiting';
+  runSearch();
+}
+
+function sfCopy(fid){
+  const town=document.getElementById(fid+'-town')?.value||'';
+  const street=document.getElementById(fid+'-street')?.value||'';
+  const block=document.getElementById(fid+'-block')?.value||'';
+  const fts=[...document.querySelectorAll(`#${fid} input[type=checkbox]:checked`)].filter(c=>['1 ROOM','2 ROOM','3 ROOM','4 ROOM','5 ROOM','EXECUTIVE','MULTI-GENERATION'].includes(c.value)).map(c=>c.value);
+  const txt=[block?'block '+block:'',street||'',fts[0]||'',town||''].filter(Boolean).join(' ');
+  navigator.clipboard?.writeText(txt).catch(()=>{});
+  ciEl.value=txt;ciEl.style.height='auto';ciEl.style.height=Math.min(ciEl.scrollHeight,80)+'px';ciEl.focus();
+}
+
+// ── EV Expansion panel — widen search to nearby blocks/streets + more years ──
+function buildEvExpansionPanel(params){
+  const fid='evx-'+Date.now();
+  // Get nearby streets in same town
+  const nearbyStreets=params.town?getStreetsForTown(params.town).filter(s=>s!==params.street).slice(0,12):[];
+
+  const html=`<div class="hud-form" id="${fid}" style="margin-top:8px">
+  <div style="font-family:var(--mono);font-size:9px;color:var(--t2);letter-spacing:1px;margin-bottom:8px">
+    ⬡ EXPAND SEARCH SCOPE — toggle options below to widen the estimate:
+  </div>
+
+  <div style="font-family:var(--mono);font-size:8px;color:var(--t3);letter-spacing:1px;margin-bottom:4px">── NEARBY BLOCKS / STREETS ──</div>
+  <div class="hud-row" style="align-items:center;gap:10px">
+    <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-family:var(--mono);font-size:10px;color:var(--t2)">
+      <input type="checkbox" id="${fid}-samestreet" style="accent-color:var(--c)">
+      <span>ALL BLOCKS IN <strong style="color:var(--c)">${esc(params.street||'SAME STREET')}</strong></span>
+    </label>
+  </div>
+  ${nearbyStreets.length?`<div class="hud-row" style="align-items:flex-start;margin-top:4px">
+    <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-family:var(--mono);font-size:10px;color:var(--t2);flex-shrink:0">
+      <input type="checkbox" id="${fid}-nearbystreet" style="accent-color:var(--c)">
+      <span>NEARBY STREETS IN ${esc(params.town||'')}:</span>
+    </label>
+  </div>
+  <div style="background:var(--t4);border:1px solid var(--b2);max-height:70px;overflow-y:auto;padding:4px 0;margin-top:4px">
+    ${nearbyStreets.map(s=>`<label style="display:flex;align-items:center;gap:6px;padding:2px 8px;cursor:pointer;font-family:var(--mono);font-size:9px;color:var(--t2)">
+      <input type="checkbox" class="${fid}-ns" value="${s}" style="accent-color:var(--c)"> ${s}
+    </label>`).join('')}
+  </div>`:''}
+
+  <div style="font-family:var(--mono);font-size:8px;color:var(--t3);letter-spacing:1px;margin:10px 0 4px">── EXTEND DATE RANGE ── <em style="color:var(--a)">(backdated — use with caution)</em></div>
+  <div style="display:flex;flex-wrap:wrap;gap:6px">
+    <label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-family:var(--mono);font-size:9px;color:var(--t2)">
+      <input type="radio" name="${fid}-yr" value="2" style="accent-color:var(--a)"> <span style="color:var(--a)">2 YRS <em>(backdated)</em></span>
+    </label>
+    <label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-family:var(--mono);font-size:9px;color:var(--t2)">
+      <input type="radio" name="${fid}-yr" value="3" style="accent-color:var(--a)"> <span style="color:var(--a)">3 YRS <em>(backdated)</em></span>
+    </label>
+    <label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-family:var(--mono);font-size:9px;color:var(--t2)">
+      <input type="radio" name="${fid}-yr" value="4" style="accent-color:var(--r)"> <span style="color:var(--r)">4 YRS <em>(backdated)</em></span>
+    </label>
+    <label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-family:var(--mono);font-size:9px;color:var(--t2)">
+      <input type="radio" name="${fid}-yr" value="5" style="accent-color:var(--r)"> <span style="color:var(--r)">5 YRS <em>(backdated)</em></span>
+    </label>
+  </div>
+
+  <div class="hud-divider" style="margin-top:10px"></div>
+  <div class="hud-row">
+    <button class="hud-submit" onclick="evxSubmit('${fid}')">⬡ RUN EXPANDED ESTIMATE</button>
+  </div>
+  <div id="${fid}-badge" style="font-family:var(--mono);font-size:9px;color:var(--t3);margin-top:6px;min-height:12px"></div>
+</div>`;
+  return {html,fid};
+}
+
+function evxSubmit(fid){
+  const sameStreet=document.getElementById(fid+'-samestreet')?.checked;
+  const nearbyChecked=[...document.querySelectorAll(`.${fid}-ns:checked`)].map(c=>c.value);
+  const nearbyStreet=document.getElementById(fid+'-nearbystreet')?.checked;
+  const yrs=Number(document.querySelector(`input[name="${fid}-yr"]:checked`)?.value)||0;
+
+  // Build scope labels for display
+  const labels=[];
+  if(sameStreet)labels.push('BLOCKS IN SAME STREET');
+  if(nearbyStreet&&nearbyChecked.length)labels.push('NEARBY STREETS');
+  if(yrs>=2)labels.push(`${yrs}-YEAR BACKDATED`);
+
+  if(!labels.length){harveyMsg('Please select at least one expansion option, sir.');return;}
+
+  // Show badge
+  const badge=document.getElementById(fid+'-badge');
+  if(badge)badge.textContent='⬡ '+labels.join(' · ');
+
+  // Run expanded computation
+  const expanded={...ctx,_expanded:true,_sameStreet:sameStreet,_nearbyStreets:nearbyChecked,_years:yrs||12};
+  userMsg('Expand: '+labels.join(' + '));
+  runEvExpanded(expanded,labels);
+}
+
+async function runEvExpanded(p,labels){
+  loading=true;sbEl.disabled=true;
+  speak('Running expanded search, sir. Stand by.');
+  thinkingMsg();
+  await new Promise(r=>setTimeout(r,300));
+
+  const months=p._years*12;
+  const cutoff=evCutoff(months);
+  const MIN_COMPS=2;
+
+  // Gather all streets to search
+  const streetsToSearch=new Set();
+  if(p.street)streetsToSearch.add(p.street.toUpperCase());
+  if(p._sameStreet&&p.street)streetsToSearch.add(p.street.toUpperCase());
+  p._nearbyStreets.forEach(s=>streetsToSearch.add(s.toUpperCase()));
+
+  const comps=DB.resale.filter(r=>{
+    const inStreet=streetsToSearch.has(r.street_name.toUpperCase());
+    const typeOk=!p.flatType||r.flat_type===p.flatType;
+    const monthOk=r.month>=cutoff;
+    const sizeOk=!p.size||Math.abs(Number(r.floor_area_sqm)-p.size)<=5;
+    return inStreet&&typeOk&&monthOk&&sizeOk;
+  });
+
+  rmThinking();
+
+  if(!comps||comps.length<MIN_COMPS){
+    harveyMsg(`Still not enough data even with expanded scope, sir. ${comps.length} transaction${comps.length!==1?'s':''} found. This area has very low transaction volume.<br><br><strong style="color:var(--c)">Visit <a href="https://blocksense.estatrix.workers.dev" target="_blank" style="color:var(--c)">BlockSense</a> for the full dataset or <a href="https://wa.me/6597531657" target="_blank" style="color:var(--g)">chat with us on WhatsApp</a>.</strong>`);
+    speak('Still not enough data even with expanded scope, sir.');
+    loading=false;sbEl.disabled=false;mode='menu';return;
+  }
+
+  // Build expanded result card with labels
+  const prices=comps.map(r=>Number(r.resale_price));
+  const sorted=[...prices].sort((a,b)=>a-b);
+  const median=sorted[Math.floor(sorted.length/2)];
+  const low=Math.round(median*0.95/1000)*1000;
+  const high=Math.round(median*1.05/1000)*1000;
+
+  const labelBadges=labels.map(l=>{
+    const isBack=l.includes('BACKDATED');
+    const isStreet=l.includes('STREET');
+    return `<span class="hud-badge" style="background:${isBack?'rgba(255,68,68,0.1)':'rgba(255,170,0,0.1)'};border-color:${isBack?'var(--r)':'var(--a)'};color:${isBack?'var(--r)':'var(--a)'}">${l}</span>`;
+  }).join(' ');
+
+  const shown=comps.slice(0,8);
+  const rows=shown.map(r=>`<tr><td>${esc(r.month)}</td><td>BLK ${esc(r.block)} ${esc(r.street_name)}</td><td>${esc(r.flat_type)}</td><td>${esc(r.storey_range)}</td><td>${esc(r.floor_area_sqm)}m²</td><td class="pc">${fmtP(r.resale_price)}</td></tr>`).join('');
+
+  const d=document.createElement('div');d.className='msg-ai';d.style.maxWidth='100%';
+  d.innerHTML=`<span class="mlbl">// EXPANDED ESTIMATE · ${labels.join(' · ')}</span>
+    <div class="ev-card">
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">${labelBadges}</div>
+      <div style="font-family:var(--mono);font-size:9px;color:var(--t2);letter-spacing:1px;margin-bottom:8px">${esc(p.flatType||'ALL TYPES')} · ${comps.length} COMPS · LAST ${p._years} YR${p._years>1?'S':''}</div>
+      <div class="ev-range">
+        <div><div class="ev-price low">${fmtP(low)}</div><div class="ev-label">LOW EST.</div></div>
+        <div class="ev-arrow">──</div>
+        <div><div class="ev-price hi">${fmtP(high)}</div><div class="ev-label">HIGH EST.</div></div>
+      </div>
+      <div style="text-align:center;margin-bottom:10px"><div class="ev-price mid">${fmtP(median)}</div><div class="ev-label">MEDIAN OF COMPS</div></div>
+      <div class="rcard" style="margin-top:8px">
+        <div class="rh"><span class="rtitle">⬡ COMPARABLE TRANSACTIONS USED</span><span class="rcnt">${comps.length} COMPS · ${shown.length} SHOWN</span></div>
+        <div style="overflow-x:auto"><table><thead><tr><th>MONTH</th><th>BLOCK & STREET</th><th>TYPE</th><th>STOREY</th><th>AREA</th><th>PRICE</th></tr></thead><tbody>${rows}</tbody></table></div>
+      </div>
+      <div class="ev-meta" style="margin-top:8px">⚠ Expanded scope — treat as directional guide only. <a href="https://wa.me/6597531657" target="_blank" style="color:var(--g)">Chat for accurate valuation →</a></div>
+    </div>`;
+  msgsEl.appendChild(d);bot();
+  speak(`Expanded estimate using ${comps.length} transactions. Median ${fmtP(median)}, range ${fmtP(low)} to ${fmtP(high)}, sir.`);
+  setTimeout(()=>harveyMsg('Anything else, sir?',[{label:'ESTIMATE ANOTHER',val:'estimate value'},{label:'SEARCH TRANSACTIONS',val:'search'}]),1400);
+  mode='menu';loading=false;sbEl.disabled=false;
+}
+
+
 // ── RENDER ──
 function harveyMsg(html,chips=[]){
   document.getElementById('welcome')?.remove();
@@ -787,8 +1061,20 @@ function addRecent(text){
 // ── SHOW TRANSACTIONS ──
 function showTransactions(recs,params,is6mo){
   if(!recs||recs.length===0){
-    const msg='No transactions found, sir. Try a different town, street or flat type.';
-    harveyMsg(msg,[{label:'SEARCH AGAIN',val:'search'},{label:'CHECK VALUE',val:'estimate value'}]);speak(msg);mode='menu';return;
+    const d=document.createElement('div');d.className='msg-ai';d.style.maxWidth='100%';
+    d.innerHTML=`<span class="mlbl">// NO TRANSACTIONS FOUND</span><div class="mbub">No transactions found, sir. Let me help you refine the search.</div>`;
+    msgsEl.appendChild(d);bot();
+    speak('No transactions found, sir. Let me show you the search options.');
+    setTimeout(()=>{
+      const formHtml=buildSearchForm(params);
+      harveyMsg(`Refine your search, sir — adjust filters and try again:<br><br>${formHtml}`,[
+        {label:'🔄 START OVER',val:'__restart__'},
+        {label:'📊 ESTIMATE VALUE INSTEAD',val:'estimate value'}
+      ]);
+      speak('Please adjust the filters and search again, sir.');
+      mode='srch_waiting';
+    },800);
+    return;
   }
   const prices=recs.map(r=>Number(r.resale_price));
   const sorted=[...prices].sort((a,b)=>a-b);
@@ -823,16 +1109,21 @@ function showEV(result,params){
     msgsEl.appendChild(d);bot();
     speak(`Not enough data for Block ${result.block}, sir. Let me confirm the details with you.`);
 
-    // ── Confirm prompt — HUD form with DB-driven dropdowns ──
+    // ── Confirm prompt — HUD form with DB-driven dropdowns + expansion panel ──
     setTimeout(()=>{
       const szNote=params.sizeFromDB?'<span class="hud-badge">✓ FROM DB</span>':params.sizeInferred?'<span class="hud-badge">⚠ ESTIMATED</span>':'';
       const intro=`Before retrying, sir — please verify and correct using the dropdowns below. ${szNote}<br><em style="color:var(--a);font-size:10px">⚠ Floor area and lease year significantly improve accuracy — select from the database options found for this block.</em>`;
       const formHtml=buildHudForm(params);
-      harveyMsg(intro+'<br><br>'+formHtml,[
+      const {html:expHtml}=buildEvExpansionPanel(params);
+      harveyMsg(intro+'<br><br>'+formHtml+`
+<div style="margin-top:14px;border-top:1px solid var(--b);padding-top:10px">
+  <div style="font-family:var(--mono);font-size:9px;color:var(--t3);letter-spacing:1px;margin-bottom:6px">── OR WIDEN THE SEARCH SCOPE ──</div>
+  ${expHtml}
+</div>`,[
         {label:'🔄 START OVER',val:'__restart__'},
         {label:'🔍 SEARCH TRANSACTIONS',val:`recent ${params.flatType||''} ${params.street||params.town||''}`}
       ]);
-      speak('Please verify the details using the dropdowns, sir. Floor area and lease year improve accuracy.');
+      speak('Please verify the details using the dropdowns, sir, or expand the search scope below.');
       mode='ev_confirm';
     },1500);
     return;
