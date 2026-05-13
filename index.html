@@ -179,6 +179,19 @@ tr:hover td{background:rgba(0,212,255,.03)}
 .mbtn svg{width:16px;height:16px}
 .ifooter{display:flex;justify-content:space-between;margin-top:6px;padding:0 2px}
 .ihint{font-family:var(--mono);font-size:8px;color:var(--t3);letter-spacing:.8px}
+/* HUD inline form dropdowns */
+.hud-form{display:flex;flex-direction:column;gap:8px;margin-top:10px;max-width:520px}
+.hud-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.hud-label{font-family:var(--mono);font-size:9px;color:var(--t2);letter-spacing:1px;min-width:90px;flex-shrink:0}
+.hud-select{background:var(--t4);border:1px solid var(--b2);color:var(--c);font-family:var(--mono);font-size:11px;padding:5px 10px;cursor:pointer;outline:none;clip-path:polygon(0 0,calc(100% - 6px) 0,100% 6px,100% 100%,0 100%);min-width:140px;max-width:220px}
+.hud-select:focus{border-color:var(--c);box-shadow:0 0 8px rgba(0,212,255,.2)}
+.hud-select option{background:var(--panel);color:var(--t)}
+.hud-input{background:var(--t4);border:1px solid var(--b2);color:var(--c);font-family:var(--mono);font-size:11px;padding:5px 10px;outline:none;width:80px}
+.hud-input:focus{border-color:var(--c)}
+.hud-badge{font-family:var(--mono);font-size:9px;color:var(--g);background:rgba(0,255,136,.08);border:1px solid rgba(0,255,136,.2);padding:2px 7px;white-space:nowrap}
+.hud-submit{font-family:var(--mono);font-size:10px;color:var(--bg);background:var(--c);border:none;padding:8px 18px;cursor:pointer;font-weight:700;letter-spacing:1px;clip-path:polygon(0 0,calc(100% - 8px) 0,100% 8px,100% 100%,0 100%);transition:all .14s;margin-top:4px}
+.hud-submit:hover{background:var(--g);color:var(--bg)}
+.hud-divider{height:1px;background:var(--b);margin:4px 0}
 </style>
 </head>
 <body>
@@ -810,43 +823,16 @@ function showEV(result,params){
     msgsEl.appendChild(d);bot();
     speak(`Not enough data for Block ${result.block}, sir. Let me confirm the details with you.`);
 
-    // ── Confirm prompt — copyable pre-filled text, restart option ──
+    // ── Confirm prompt — HUD form with DB-driven dropdowns ──
     setTimeout(()=>{
-      const szSrc=params.sizeFromDB?`${params.size} sqm`
-        :params.sizeInferred?`${params.size} sqm ⚠`
-        :`${params.size} sqm`;
-      const lyVal=params.leaseYear?`lease ${params.leaseYear}`:`lease XXXX`;
-
-      // Build a copyable summary string the user can edit and paste back
-      const prefilled=`Block ${params.block||'?'} ${params.street||'?'} floor ${params.floor||'?'} ${params.flatType||'?'} ${params.size||'?'} sqm ${lyVal}`.trim();
-
-      const szColour=params.sizeFromDB?'color:var(--g)':params.sizeInferred?'color:var(--a)':'color:var(--t)';
-      const szNote=params.sizeFromDB?` <em style="color:var(--g);font-size:10px">(found from block)</em>`:params.sizeInferred?` <em style="color:var(--a);font-size:10px">(estimated — please check)</em>`:'';
-      const lyColour=params.leaseYear?'color:var(--t)':'color:var(--a)';
-      const lyNote=params.leaseYear?'':`<em style="color:var(--a);font-size:10px"> — strongly recommended for accuracy</em>`;
-
-      const confirmHtml=`Before I retry, sir — please check and correct these details if needed:<br><br>
-<div style="background:var(--t4);border:1px solid var(--b2);padding:10px 12px;font-family:var(--mono);font-size:10px;line-height:2.2">
-📍 Town: <strong style="color:var(--c)">${esc(params.town||'—')}</strong><br>
-🛣️ Street: <strong style="color:var(--c)">${esc(params.street||'—')}</strong><br>
-🔢 Block: <strong style="color:var(--c)">${esc(params.block||'—')}</strong><br>
-🏠 Flat type: <strong style="color:var(--c)">${esc(params.flatType||'—')}</strong><br>
-📶 Floor: <strong style="color:var(--c)">${params.floor||'<span style="color:var(--a)">—</span>'}</strong><br>
-📐 Floor area: <strong style="${szColour}">${szSrc}</strong>${szNote}<br>
-🗓️ Lease year: <strong style="${lyColour}">${params.leaseYear||'not provided'}</strong>${lyNote}
-</div><br>
-<em style="color:var(--t2);font-size:11px">⚠ <strong>Floor area and lease year matter</strong> for accuracy. If wrong, correct them below.<br><br>
-📋 <strong>Copy and edit this, then paste it back:</strong></em><br>
-<div id="copy-prefill" style="background:rgba(0,212,255,0.07);border:1px solid var(--b2);padding:8px 12px;font-family:var(--mono);font-size:11px;color:var(--c);cursor:pointer;margin-top:6px;letter-spacing:0.3px" onclick="copyPrefill('${prefilled.replace(/'/g,"\\'")}')">
-${esc(prefilled)} <span style="color:var(--t3);font-size:9px">· click to copy</span>
-</div>`;
-
-      harveyMsg(confirmHtml,[
-        {label:'✓ CORRECT — RETRY',val:'correct retry'},
+      const szNote=params.sizeFromDB?'<span class="hud-badge">✓ FROM DB</span>':params.sizeInferred?'<span class="hud-badge">⚠ ESTIMATED</span>':'';
+      const intro=`Before retrying, sir — please verify and correct using the dropdowns below. ${szNote}<br><em style="color:var(--a);font-size:10px">⚠ Floor area and lease year significantly improve accuracy — select from the database options found for this block.</em>`;
+      const formHtml=buildHudForm(params);
+      harveyMsg(intro+'<br><br>'+formHtml,[
         {label:'🔄 START OVER',val:'__restart__'},
-        {label:'🔍 SEARCH TRANSACTIONS INSTEAD',val:`recent ${params.flatType||''} ${params.street||params.town||''}`}
+        {label:'🔍 SEARCH TRANSACTIONS',val:`recent ${params.flatType||''} ${params.street||params.town||''}`}
       ]);
-      speak('Please verify the details, sir. Copy and correct if needed, then paste back.');
+      speak('Please verify the details using the dropdowns, sir. Floor area and lease year improve accuracy.');
       mode='ev_confirm';
     },1500);
     return;
@@ -886,22 +872,261 @@ function copyPrefill(text){
 
 function flatTypeChips(){return[{label:'3-ROOM',val:'3-room'},{label:'4-ROOM',val:'4-room'},{label:'5-ROOM',val:'5-room'},{label:'EXECUTIVE',val:'executive'}];}
 
-// ── PROMPT ALL MISSING AT ONCE ──
+// ── DB helpers for dropdown options ──
+function getBlocksForStreet(street,town,flatType){
+  if(!DB.loaded) return [];
+  return [...new Set(DB.resale.filter(r=>
+    (!street||r.street_name.toUpperCase().includes(street.toUpperCase().slice(0,8)))&&
+    (!town||r.town===town)&&
+    (!flatType||r.flat_type===flatType)
+  ).map(r=>r.block))].sort((a,b)=>Number(a)-Number(b)||a.localeCompare(b));
+}
+function getFloorsForBlock(block,street,flatType){
+  if(!DB.loaded||!block) return [];
+  const storeys=[...new Set(DB.resale.filter(r=>
+    r.block===block&&
+    (!street||r.street_name.toUpperCase().includes(street.toUpperCase().slice(0,8)))&&
+    (!flatType||r.flat_type===flatType)
+  ).map(r=>r.storey_range))];
+  // Sort by first number in range
+  return storeys.sort((a,b)=>{const na=parseInt(a)||0,nb=parseInt(b)||0;return na-nb;});
+}
+function getSizesForBlock(block,street,flatType){
+  if(!DB.loaded||!block) return [];
+  return [...new Set(DB.resale.filter(r=>
+    r.block===block&&Number(r.floor_area_sqm)>0&&
+    (!street||r.street_name.toUpperCase().includes(street.toUpperCase().slice(0,8)))&&
+    (!flatType||r.flat_type===flatType)
+  ).map(r=>Number(r.floor_area_sqm)))].sort((a,b)=>a-b);
+}
+function getLeaseYearsForBlock(block,street,flatType){
+  if(!DB.loaded||!block) return [];
+  return [...new Set(DB.resale.filter(r=>
+    r.block===block&&r.lease_commence_date&&parseInt(r.lease_commence_date)>0&&
+    (!street||r.street_name.toUpperCase().includes(street.toUpperCase().slice(0,8)))&&
+    (!flatType||r.flat_type===flatType)
+  ).map(r=>parseInt(r.lease_commence_date)))].sort((a,b)=>a-b);
+}
+function getStreetsForTown(town){
+  if(!DB.loaded||!town) return [];
+  return [...new Set(DB.resale.filter(r=>r.town===town).map(r=>r.street_name))].sort();
+}
+// Convert storey range to individual floor options
+function storeyRangeToFloors(storeys){
+  const floors=new Set();
+  storeys.forEach(s=>{
+    const m=s.match(/(\d+)\s+TO\s+(\d+)/i);
+    if(m){for(let f=parseInt(m[1]);f<=parseInt(m[2]);f++)floors.add(f);}
+    else{const n=parseInt(s);if(!isNaN(n))floors.add(n);}
+  });
+  return [...floors].sort((a,b)=>a-b);
+}
+
+// ── Build the inline HUD form card ──
+function buildHudForm(ctx){
+  const formId='hud-form-'+Date.now();
+  const town    = ctx.town||'';
+  const street  = ctx.street||'';
+  const block   = ctx.block||'';
+  const flatType= ctx.flatType||'';
+
+  // Get options from DB
+  const towns   = TOWNS;
+  const streets = town ? getStreetsForTown(town) : (street?[street]:[]);
+  const blocks  = getBlocksForStreet(street,town,flatType);
+  const storeys = block ? getFloorsForBlock(block,street,flatType) : [];
+  const floors  = storeyRangeToFloors(storeys);
+  const sizes   = getSizesForBlock(block,street,flatType);
+  const leaseYrs= getLeaseYearsForBlock(block,street,flatType);
+
+  const opt=(val,label,sel)=>`<option value="${val}"${sel?` selected`:``}>${label}</option>`;
+  const blankOpt=(label)=>`<option value="">— ${label} —</option>`;
+
+  // Town dropdown
+  const townOpts=blankOpt('select town')+towns.map(t=>opt(t,t,t===town)).join('');
+  // Street dropdown
+  const streetOpts=blankOpt('select street')+(streets.length?streets.map(s=>opt(s,s,s===street)).join(''):`<option value="${street}">${street||'type below'}</option>`);
+  // Block dropdown
+  const blockOpts=blankOpt('select block')+(blocks.length?blocks.map(b=>opt(b,'Blk '+b,b===block)).join(''):`<option value="${block}">${block?'Blk '+block:'type below'}</option>`);
+  // Flat type
+  const ftOpts=blankOpt('flat type')+['1 ROOM','2 ROOM','3 ROOM','4 ROOM','5 ROOM','EXECUTIVE'].map(ft=>opt(ft,ft,ft===flatType)).join('');
+  // Floor
+  const floorOpts=blankOpt('floor')+(floors.length?floors.map(f=>opt(f,'Floor '+f,f===ctx.floor)).join(''):'');
+  // Size
+  const szInferred=ctx.sizeInferred?` <span class="hud-badge">⚠ ESTIMATED</span>`:ctx.sizeFromDB?` <span class="hud-badge">✓ FROM DB</span>`:'';
+  const sizeOpts=blankOpt('floor area')+(sizes.length?sizes.map(s=>opt(s,s+' sqm',s===ctx.size)).join(''):`<option value="${ctx.size||''}">${ctx.size?ctx.size+' sqm (estimated)':'not found'}</option>`);
+  // Lease year
+  const lyOpts=blankOpt('lease year')+(leaseYrs.length?leaseYrs.map(y=>opt(y,y,y===ctx.leaseYear)).join(''):`<option value="">not found in DB</option>`);
+
+  const html=`Please select or correct the details, sir:<br>
+<div class="hud-form" id="${formId}">
+  <div class="hud-row">
+    <span class="hud-label">📍 TOWN</span>
+    <select class="hud-select" id="${formId}-town" onchange="hudCascade('${formId}')">
+      ${townOpts}
+    </select>
+  </div>
+  <div class="hud-row">
+    <span class="hud-label">🛣️ STREET</span>
+    <select class="hud-select" id="${formId}-street" onchange="hudCascade('${formId}')">
+      ${streetOpts}
+    </select>
+  </div>
+  <div class="hud-row">
+    <span class="hud-label">🔢 BLOCK</span>
+    <select class="hud-select" id="${formId}-block" onchange="hudCascade('${formId}')">
+      ${blockOpts}
+    </select>
+  </div>
+  <div class="hud-row">
+    <span class="hud-label">🏠 FLAT TYPE</span>
+    <select class="hud-select" id="${formId}-flattype" onchange="hudCascade('${formId}')">
+      ${ftOpts}
+    </select>
+  </div>
+  <div class="hud-row">
+    <span class="hud-label">📶 FLOOR</span>
+    <select class="hud-select" id="${formId}-floor">
+      ${floorOpts||blankOpt('select block first')}
+    </select>
+  </div>
+  <div class="hud-row">
+    <span class="hud-label">📐 FLOOR AREA${szInferred}</span>
+    <select class="hud-select" id="${formId}-size">
+      ${sizeOpts}
+    </select>
+  </div>
+  <div class="hud-row">
+    <span class="hud-label">🗓️ LEASE YEAR</span>
+    <select class="hud-select" id="${formId}-lease">
+      ${lyOpts}
+    </select>
+  </div>
+  <div class="hud-divider"></div>
+  <div class="hud-row">
+    <button class="hud-submit" onclick="hudSubmit('${formId}')">⬡ ESTIMATE VALUE</button>
+    <button class="hud-submit" style="background:var(--t3);color:var(--t2)" onclick="hudCopy('${formId}')">📋 COPY AS TEXT</button>
+  </div>
+  <div id="${formId}-preview" style="font-family:var(--mono);font-size:9px;color:var(--t2);margin-top:4px;min-height:14px"></div>
+</div>`;
+  return html;
+}
+
+// ── Cascade: when town/street/block changes, reload downstream options ──
+function hudCascade(fid){
+  const town    = document.getElementById(fid+'-town')?.value||'';
+  const street  = document.getElementById(fid+'-street')?.value||'';
+  const block   = document.getElementById(fid+'-block')?.value||'';
+  const flatType= document.getElementById(fid+'-flattype')?.value||'';
+
+  // Re-populate street if town changed
+  if(town){
+    const streets=getStreetsForTown(town);
+    const stSel=document.getElementById(fid+'-street');
+    if(stSel&&streets.length){
+      const cur=stSel.value;
+      stSel.innerHTML=`<option value="">— select street —</option>`+streets.map(s=>`<option value="${s}"${s===cur?' selected':''}>${s}</option>`).join('');
+    }
+  }
+  // Re-populate blocks
+  const blkSel=document.getElementById(fid+'-block');
+  if(blkSel&&(town||street)){
+    const blocks=getBlocksForStreet(street,town,flatType);
+    const cur=blkSel.value;
+    blkSel.innerHTML=`<option value="">— select block —</option>`+(blocks.length?blocks.map(b=>`<option value="${b}"${b===cur?' selected':''}>Blk ${b}</option>`).join(''):'<option value="">no blocks found</option>');
+  }
+  // Re-populate floors, sizes, lease years when block selected
+  if(block){
+    const floorSel=document.getElementById(fid+'-floor');
+    const sizeSel =document.getElementById(fid+'-size');
+    const lySel   =document.getElementById(fid+'-lease');
+    const storeys=getFloorsForBlock(block,street,flatType);
+    const floors =storeyRangeToFloors(storeys);
+    const sizes  =getSizesForBlock(block,street,flatType);
+    const lyrs   =getLeaseYearsForBlock(block,street,flatType);
+    if(floorSel&&floors.length)floorSel.innerHTML=`<option value="">— floor —</option>`+floors.map(f=>`<option value="${f}">Floor ${f}</option>`).join('');
+    if(sizeSel&&sizes.length) sizeSel.innerHTML=`<option value="">— sqm —</option>`+sizes.map(s=>`<option value="${s}">${s} sqm</option>`).join('');
+    if(lySel&&lyrs.length)    lySel.innerHTML=`<option value="">— lease year —</option>`+lyrs.map(y=>`<option value="${y}">${y}</option>`).join('');
+  }
+  // Update preview text
+  hudUpdatePreview(fid);
+}
+
+function hudUpdatePreview(fid){
+  const t=document.getElementById(fid+'-town')?.value||'';
+  const s=document.getElementById(fid+'-street')?.value||'';
+  const b=document.getElementById(fid+'-block')?.value||'';
+  const ft=document.getElementById(fid+'-flattype')?.value||'';
+  const fl=document.getElementById(fid+'-floor')?.value||'';
+  const sz=document.getElementById(fid+'-size')?.value||'';
+  const ly=document.getElementById(fid+'-lease')?.value||'';
+  const prev=document.getElementById(fid+'-preview');
+  if(prev){
+    const parts=[b?'Block '+b:'',s||'',fl?'Floor '+fl:'',ft||'',sz?sz+' sqm':'',ly?'Lease '+ly:''].filter(Boolean);
+    prev.textContent=parts.length?'▸ '+parts.join(' · '):'';
+  }
+}
+
+function hudSubmit(fid){
+  const town  =document.getElementById(fid+'-town')?.value||ctx.town||'';
+  const street=document.getElementById(fid+'-street')?.value||ctx.street||'';
+  const block =document.getElementById(fid+'-block')?.value||ctx.block||'';
+  const ft    =document.getElementById(fid+'-flattype')?.value||ctx.flatType||'';
+  const floor =Number(document.getElementById(fid+'-floor')?.value)||ctx.floor||0;
+  const size  =Number(document.getElementById(fid+'-size')?.value)||0;
+  const lease =Number(document.getElementById(fid+'-lease')?.value)||0;
+  // Apply to ctx
+  if(town)  ctx.town=town;
+  if(street)ctx.street=street;
+  if(block) ctx.block=block;
+  if(ft)    ctx.flatType=ft;
+  if(floor) ctx.floor=floor;
+  if(size)  {ctx.size=size;ctx.sizeInferred=false;ctx.sizeFromDB=false;}
+  if(lease) ctx.leaseYear=lease;
+  enrichCtx(ctx);
+  if(!ctx.size&&ctx.block&&ctx.flatType){
+    const dbSz=lookupSizeFromDB(ctx.block,ctx.street,ctx.flatType);
+    if(dbSz){ctx.size=dbSz;ctx.sizeFromDB=true;}
+  }
+  if(!ctx.size&&ctx.flatType){ctx.size=TYPICAL_SIZE[ctx.flatType]||93;ctx.sizeInferred=true;}
+  // Show what we're running with
+  const summary=[ctx.block?'Blk '+ctx.block:'',ctx.street||'',ctx.flatType||'',ctx.floor?'Floor '+ctx.floor:'',ctx.size?ctx.size+'sqm':'',ctx.leaseYear?'Lease '+ctx.leaseYear:''].filter(Boolean).join(' · ');
+  userMsg('Estimate: '+summary);
+  mode='ev_waiting';
+  runEV();
+}
+
+function hudCopy(fid){
+  const t=document.getElementById(fid+'-town')?.value||'';
+  const s=document.getElementById(fid+'-street')?.value||'';
+  const b=document.getElementById(fid+'-block')?.value||'';
+  const ft=document.getElementById(fid+'-flattype')?.value||'';
+  const fl=document.getElementById(fid+'-floor')?.value||'';
+  const sz=document.getElementById(fid+'-size')?.value||'';
+  const ly=document.getElementById(fid+'-lease')?.value||'';
+  const txt=[b?'Block '+b:'',s||'',fl?'floor '+fl:'',ft||'',sz?sz+' sqm':'',ly?'lease '+ly:''].filter(Boolean).join(' ');
+  navigator.clipboard?.writeText(txt).catch(()=>{});
+  ciEl.value=txt;ciEl.style.height='auto';ciEl.style.height=Math.min(ciEl.scrollHeight,80)+'px';ciEl.focus();
+  const prev=document.getElementById(fid+'-preview');
+  if(prev){prev.textContent='📋 Copied & pasted to input — edit if needed then press ENTER';prev.style.color='var(--g)';}
+}
+
+// ── PROMPT ALL MISSING — show HUD form ──
 function promptMissing(ctx){
   if(ctx.isEV){
     enrichCtx(ctx);
     const missing=buildMissingPrompt(ctx);
     if(missing.length>0){
-      const sizeNote=ctx.flatType&&!ctx.size?`<br><em style="color:var(--t3);font-size:11px">⬡ No sqm given — I will look it up from block records, or use typical ${ctx.flatType} size (${TYPICAL_SIZE[ctx.flatType]} sqm) as fallback</em>`:'';
-      harveyMsg(`I need a few more details, sir — all in <strong>one message</strong>:<br><br>${missing.join('<br>')}${sizeNote}<br><br><em style="color:var(--t2);font-size:11px">e.g. <strong style="color:var(--c)">Block 608 Clementi West Street 1 floor 4 3-room lease 1979</strong></em>`,flatTypeChips());
-      speak('A few more details please, sir. Block, street, floor and flat type in one message.');
+      const formHtml=buildHudForm(ctx);
+      harveyMsg(formHtml);
+      speak('A few more details please, sir. Select from the options or type in the box below.');
       mode='ev_waiting';loading=false;sbEl.disabled=false;return;
     }
     runEV();
   } else {
     enrichCtx(ctx);
     if(!ctx.town&&!ctx.street&&!ctx.block){
-      harveyMsg(`To search, sir:<br><br>${buildSearchMissingPrompt(ctx).join('<br>')}<br><br><em style="color:var(--t2);font-size:11px">e.g. <strong style="color:var(--c)">3-room Clementi</strong> or <strong style="color:var(--c)">Clementi West Street 1</strong></em>`,flatTypeChips());
+      harveyMsg(`To search, sir — which town or street?<br><br>${buildSearchMissingPrompt(ctx).join('<br>')}<br><br><em style="color:var(--t2);font-size:11px">e.g. <strong style="color:var(--c)">3-room Clementi</strong> or <strong style="color:var(--c)">Clementi West Street 1</strong></em>`,flatTypeChips());
       speak('Which town or street, sir?');
       mode='srch_waiting';loading=false;sbEl.disabled=false;return;
     }
