@@ -809,22 +809,44 @@ function showEV(result,params){
     d.innerHTML=`<span class="mlbl">// NO SUFFICIENT DATA</span><div class="ev-none">${esc(noDataMsg)}<br><br><strong style="color:var(--c)">Visit <a href="https://blocksense.estatrix.workers.dev" target="_blank" style="color:var(--c)">BlockSense</a> or <a href="https://wa.me/6597531657" target="_blank" style="color:var(--g)">chat on WhatsApp</a> for a detailed valuation.</strong></div>`;
     msgsEl.appendChild(d);bot();
     speak(`Not enough data for Block ${result.block}, sir. Let me confirm the details with you.`);
-    // ── Confirm all details before retry ──
+
+    // ── Confirm prompt — copyable pre-filled text, restart option ──
     setTimeout(()=>{
-      const szSrc=params.sizeFromDB?`<strong style="color:var(--g)">${params.size} sqm</strong> <em>(found from block records)</em>`:params.sizeInferred?`<strong style="color:var(--a)">${params.size} sqm</strong> <em>(estimated — please verify)</em>`:`<strong>${params.size} sqm</strong>`;
-      const lyNote=params.leaseYear?`<strong>${params.leaseYear}</strong>`:`<em style="color:var(--a)">not provided — strongly recommended</em>`;
-      harveyMsg(`Before retrying, sir — please confirm or correct these details:<br><br>
-📍 <strong>Town:</strong> ${esc(params.town||'—')}<br>
-🛣️ <strong>Street:</strong> ${esc(params.street||'—')}<br>
-🔢 <strong>Block:</strong> ${esc(params.block||'—')}<br>
-🏠 <strong>Flat type:</strong> ${esc(params.flatType||'—')}<br>
-📶 <strong>Floor:</strong> ${params.floor||'<em style="color:var(--a)">—</em>'}<br>
-📐 <strong>Floor area:</strong> ${szSrc}<br>
-🗓️ <strong>Lease start year:</strong> ${lyNote}<br><br>
-<em style="color:var(--t2);font-size:11px">⚠ <strong>Floor area and lease year matter.</strong> If your flat is not the typical size or has an unusual lease year, please specify — e.g. <strong style="color:var(--c)">67 sqm lease 1979</strong><br><br>
-Type <strong style="color:var(--g)">correct</strong> to retry with the same details, or retype corrections in one message.</em>`,
-      [{label:'CORRECT — RETRY',val:'correct retry'},{label:'SEARCH BY STREET INSTEAD',val:`recent ${params.flatType||''} ${params.street||params.town||''}`}]);
-      speak('Please verify or correct the details, sir. Floor area and lease year improve accuracy significantly.');
+      const szSrc=params.sizeFromDB?`${params.size} sqm`
+        :params.sizeInferred?`${params.size} sqm ⚠`
+        :`${params.size} sqm`;
+      const lyVal=params.leaseYear?`lease ${params.leaseYear}`:`lease XXXX`;
+
+      // Build a copyable summary string the user can edit and paste back
+      const prefilled=`Block ${params.block||'?'} ${params.street||'?'} floor ${params.floor||'?'} ${params.flatType||'?'} ${params.size||'?'} sqm ${lyVal}`.trim();
+
+      const szColour=params.sizeFromDB?'color:var(--g)':params.sizeInferred?'color:var(--a)':'color:var(--t)';
+      const szNote=params.sizeFromDB?` <em style="color:var(--g);font-size:10px">(found from block)</em>`:params.sizeInferred?` <em style="color:var(--a);font-size:10px">(estimated — please check)</em>`:'';
+      const lyColour=params.leaseYear?'color:var(--t)':'color:var(--a)';
+      const lyNote=params.leaseYear?'':`<em style="color:var(--a);font-size:10px"> — strongly recommended for accuracy</em>`;
+
+      const confirmHtml=`Before I retry, sir — please check and correct these details if needed:<br><br>
+<div style="background:var(--t4);border:1px solid var(--b2);padding:10px 12px;font-family:var(--mono);font-size:10px;line-height:2.2">
+📍 Town: <strong style="color:var(--c)">${esc(params.town||'—')}</strong><br>
+🛣️ Street: <strong style="color:var(--c)">${esc(params.street||'—')}</strong><br>
+🔢 Block: <strong style="color:var(--c)">${esc(params.block||'—')}</strong><br>
+🏠 Flat type: <strong style="color:var(--c)">${esc(params.flatType||'—')}</strong><br>
+📶 Floor: <strong style="color:var(--c)">${params.floor||'<span style="color:var(--a)">—</span>'}</strong><br>
+📐 Floor area: <strong style="${szColour}">${szSrc}</strong>${szNote}<br>
+🗓️ Lease year: <strong style="${lyColour}">${params.leaseYear||'not provided'}</strong>${lyNote}
+</div><br>
+<em style="color:var(--t2);font-size:11px">⚠ <strong>Floor area and lease year matter</strong> for accuracy. If wrong, correct them below.<br><br>
+📋 <strong>Copy and edit this, then paste it back:</strong></em><br>
+<div id="copy-prefill" style="background:rgba(0,212,255,0.07);border:1px solid var(--b2);padding:8px 12px;font-family:var(--mono);font-size:11px;color:var(--c);cursor:pointer;margin-top:6px;letter-spacing:0.3px" onclick="copyPrefill('${prefilled.replace(/'/g,"\\'")}')">
+${esc(prefilled)} <span style="color:var(--t3);font-size:9px">· click to copy</span>
+</div>`;
+
+      harveyMsg(confirmHtml,[
+        {label:'✓ CORRECT — RETRY',val:'correct retry'},
+        {label:'🔄 START OVER',val:'__restart__'},
+        {label:'🔍 SEARCH TRANSACTIONS INSTEAD',val:`recent ${params.flatType||''} ${params.street||params.town||''}`}
+      ]);
+      speak('Please verify the details, sir. Copy and correct if needed, then paste back.');
       mode='ev_confirm';
     },1500);
     return;
@@ -849,6 +871,17 @@ Type <strong style="color:var(--g)">correct</strong> to retry with the same deta
   speak(`Estimated value for Block ${result.block}, floor ${result.floor}, between ${fmtP(result.priceLow)} and ${fmtP(result.priceHigh)}, sir. Adjusted estimate ${fmtP(result.adjusted)}.`);
   setTimeout(()=>harveyMsg('Anything else, sir?',[{label:'SEE TRANSACTIONS',val:`recent ${result.flatType||''} ${result.block?'block '+result.block:''} ${result.street||result.town||''}`},{label:'ESTIMATE ANOTHER',val:'estimate value'},{label:'DIFFERENT FLOOR',val:`value block ${result.block} ${result.street} floor`}]),1400);
   mode='menu';
+}
+
+// ── Copy prefill to clipboard and into input box ──
+function copyPrefill(text){
+  navigator.clipboard?.writeText(text).catch(()=>{});
+  ciEl.value=text;
+  ciEl.style.height='auto';ciEl.style.height=Math.min(ciEl.scrollHeight,80)+'px';
+  ciEl.focus();
+  vsTxt.textContent='PASTED — edit then press ENTER';
+  vsBar.style.display='flex';
+  setTimeout(()=>{vsBar.style.display='none';},3000);
 }
 
 function flatTypeChips(){return[{label:'3-ROOM',val:'3-room'},{label:'4-ROOM',val:'4-room'},{label:'5-ROOM',val:'5-room'},{label:'EXECUTIVE',val:'executive'}];}
@@ -904,21 +937,50 @@ async function handleInput(){
   if(!raw||loading)return;
   loading=true;sbEl.disabled=true;
   ciEl.value='';ciEl.style.height='auto';
-  resetIdle();userMsg(raw);
+  resetIdle();
+
+  // ── Restart chip ──
+  if(raw==='__restart__'){
+    userMsg('Start over');ctx={};mode='menu';
+    harveyMsg('Of course, sir. Starting fresh — what would you like to do?',[{label:'ESTIMATE VALUE',val:'estimate value'},{label:'SEARCH TRANSACTIONS',val:'search'}]);
+    speak('Starting fresh, sir.');loading=false;sbEl.disabled=false;return;
+  }
+
+  userMsg(raw);
   if(!DB.loaded){harveyMsg('Still loading data, sir. One moment...');loading=false;sbEl.disabled=false;return;}
   const parsed=parseQuery(normalizeSpeech(raw));
 
   // ── Confirmation mode after no-data ──
   if(mode==='ev_confirm'){
-    if(/correct\s*(retry|again)?|yes|same|retry|looks\s*(good|right|ok)/i.test(raw)){mode='ev_waiting';await runEV();return;}
-    if(parsed.town)     ctx.town=parsed.town;
-    if(parsed.flatType) ctx.flatType=parsed.flatType;
-    if(parsed.street)   ctx.street=parsed.street;
-    if(parsed.block)    ctx.block=parsed.block;
-    if(parsed.floor)    ctx.floor=parsed.floor;
-    if(parsed.size){    ctx.size=parsed.size;ctx.sizeInferred=false;ctx.sizeFromDB=false;}
-    if(parsed.leaseYear)ctx.leaseYear=parsed.leaseYear;
-    enrichCtx(ctx);mode='ev_waiting';await runEV();return;
+    // Restart from scratch
+    if(raw==='__restart__'||/start.?over|restart|fresh|new.?query/i.test(raw)){
+      ctx={};mode='menu';
+      harveyMsg('Of course, sir. Starting fresh — what would you like to do?',[{label:'ESTIMATE VALUE',val:'estimate value'},{label:'SEARCH TRANSACTIONS',val:'search'}]);
+      speak('Starting fresh, sir.');loading=false;sbEl.disabled=false;return;
+    }
+    // Retry with same details
+    if(/^correct(\s+retry)?$|^yes$|^same$|^retry$|^looks\s*(good|right|ok)$/i.test(raw.trim())){
+      mode='ev_waiting';await runEV();return;
+    }
+    // Parse corrections — including the prefilled format "Block 608 Clementi West Street 1 floor 4 3-room 67 sqm lease 1979"
+    const norm=normalizeSpeech(raw);
+    const p=parseQuery(norm);
+    // Override ctx fields with whatever was provided
+    if(p.town)     ctx.town=p.town;
+    if(p.flatType) ctx.flatType=p.flatType;
+    if(p.street)   ctx.street=p.street;
+    if(p.block)    ctx.block=p.block;
+    if(p.floor)    ctx.floor=p.floor;
+    if(p.size){    ctx.size=p.size;ctx.sizeInferred=false;ctx.sizeFromDB=false;}
+    if(p.leaseYear)ctx.leaseYear=p.leaseYear;
+    // Re-enrich with updated values
+    enrichCtx(ctx);
+    // Re-lookup size from DB with new block/street
+    if(ctx.block&&ctx.flatType&&!p.size){
+      const dbSz=lookupSizeFromDB(ctx.block,ctx.street,ctx.flatType);
+      if(dbSz){ctx.size=dbSz;ctx.sizeFromDB=true;ctx.sizeInferred=false;}
+    }
+    mode='ev_waiting';await runEV();return;
   }
 
   // ── Waiting modes — absorb all new info ──
