@@ -14,9 +14,7 @@
   --g:#00ff88;--a:#ffaa00;--r:#ff4444;
   --t:#cce8ff;--t2:#5a8aaa;--t3:#1a3a50;--t4:#0a1e2e;
   --b:rgba(0,212,255,0.15);--b2:rgba(0,212,255,0.4);
-  --mono:'Share Tech Mono',monospace;
-  --hud:'Orbitron',monospace;
-  --ui:'Rajdhani',sans-serif;
+  --mono:'Share Tech Mono',monospace;--hud:'Orbitron',monospace;--ui:'Rajdhani',sans-serif;
 }
 html,body{height:100%;background:var(--bg);color:var(--t);font-family:var(--ui);overflow:hidden}
 body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.1) 2px,rgba(0,0,0,0.1) 4px);pointer-events:none;z-index:9999}
@@ -25,7 +23,6 @@ body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradi
 .cg1{top:-120px;left:-120px;width:400px;height:400px;background:radial-gradient(circle,rgba(0,80,180,0.12) 0%,transparent 70%)}
 .cg2{bottom:-120px;right:-120px;width:400px;height:400px;background:radial-gradient(circle,rgba(0,212,255,0.07) 0%,transparent 70%)}
 .cg3{top:50%;left:50%;transform:translate(-50%,-50%);width:700px;height:700px;background:radial-gradient(circle,rgba(0,50,120,0.08) 0%,transparent 65%)}
-
 .shell{position:relative;z-index:1;display:flex;flex-direction:column;height:100vh;overflow:hidden}
 
 /* TOP BAR */
@@ -41,12 +38,14 @@ body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradi
 @keyframes rpulse{0%,100%{opacity:1;box-shadow:0 0 8px var(--c)}50%{opacity:.4;box-shadow:0 0 22px var(--c)}}
 .lname{font-family:var(--hud);font-size:14px;font-weight:700;color:var(--c);letter-spacing:3px;text-shadow:0 0 15px rgba(0,212,255,.5)}
 .lsub{font-family:var(--mono);font-size:8px;color:var(--t2);letter-spacing:2px;display:block;margin-top:1px}
-.tb-right{display:flex;align-items:center;gap:16px}
+.tb-right{display:flex;align-items:center;gap:12px}
 .live-pill{display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:10px;color:var(--g);letter-spacing:1px}
 .ldot{width:6px;height:6px;background:var(--g);border-radius:50%;box-shadow:0 0 8px var(--g);animation:ldot 1.5s infinite}
 @keyframes ldot{0%,100%{opacity:1}50%{opacity:.1}}
 .tb-time{font-family:var(--hud);font-size:14px;color:var(--c);letter-spacing:2px;text-shadow:0 0 10px rgba(0,212,255,.4)}
 .tb-date{font-family:var(--mono);font-size:8px;color:var(--t2);letter-spacing:1px;text-align:right;margin-top:1px}
+.vtog{font-family:var(--mono);font-size:9px;color:var(--c2);background:rgba(0,212,255,.06);border:1px solid rgba(0,212,255,.2);padding:5px 10px;cursor:pointer;letter-spacing:1px;clip-path:polygon(5px 0,100% 0,100% 100%,0 100%,0 5px);transition:all .14s;white-space:nowrap}
+.vtog:hover{background:var(--c3);border-color:var(--b2)}
 
 /* MAIN 3-COLUMN */
 .main{display:grid;grid-template-columns:230px 1fr 230px;flex:1;overflow:hidden}
@@ -85,8 +84,11 @@ body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradi
 .hr1{animation:spin 20s linear infinite}.hr2{animation:spin 12s linear infinite reverse}
 .hr3{animation:spin 7s linear infinite}.hr4{animation:spin 4s linear infinite reverse}
 .hcore{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:2;text-align:center;width:220px;pointer-events:none}
-.hnum{font-family:var(--hud);font-size:22px;font-weight:900;color:var(--c);text-shadow:0 0 28px var(--c);line-height:1}
+.hnum{font-family:var(--hud);font-size:15px;font-weight:900;color:var(--c);text-shadow:0 0 28px var(--c);letter-spacing:4px;white-space:nowrap}
 .hlbl{font-family:var(--mono);font-size:7px;color:var(--t2);letter-spacing:2px;margin-top:4px}
+.hrw.speaking .hr3{animation:spin 1.5s linear infinite!important}
+.hrw.speaking .hr4{animation:spin 0.8s linear infinite!important}
+.hrw.speaking .hnum{color:var(--g)!important;text-shadow:0 0 30px var(--g)!important;transition:all .3s}
 .hstats{display:flex;gap:20px;margin-left:18px}
 .hsi{display:flex;flex-direction:column;align-items:center;gap:3px}
 .hsring{position:relative;width:54px;height:54px;display:flex;align-items:center;justify-content:center}
@@ -105,7 +107,7 @@ body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradi
 .welcome p{font-family:var(--mono);font-size:10px;color:var(--t2);letter-spacing:.5px;line-height:1.9}
 .wchips{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-top:6px}
 .msg-ai{display:flex;flex-direction:column;gap:5px;max-width:94%;align-self:flex-start;animation:min .2s ease}
-.msg-user{align-self:flex-end;max-width:55%;animation:min .2s ease}
+.msg-user{align-self:flex-end;max-width:60%;animation:min .2s ease}
 @keyframes min{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
 .mlbl{font-family:var(--mono);font-size:8px;color:var(--c2);letter-spacing:2px;padding-left:3px}
 .mbub{background:var(--panel2);border:1px solid var(--b);border-left:2px solid var(--c2);padding:9px 13px;font-family:var(--ui);font-size:13px;line-height:1.7;color:var(--t);clip-path:polygon(0 0,calc(100% - 8px) 0,100% 8px,100% 100%,0 100%);position:relative}
@@ -115,6 +117,8 @@ body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradi
 .msg-user .mbub::before{background:linear-gradient(90deg,transparent,var(--c))}
 .chip{font-family:var(--mono);font-size:9px;color:var(--c);background:rgba(0,212,255,.05);border:1px solid rgba(0,212,255,.2);padding:5px 11px;cursor:pointer;clip-path:polygon(6px 0,100% 0,100% 100%,0 100%,0 6px);transition:all .14s;letter-spacing:.5px;white-space:nowrap}
 .chip:hover{background:rgba(0,212,255,.14);border-color:var(--c);box-shadow:0 0 10px rgba(0,212,255,.2)}
+
+/* Result cards */
 .rwrap{display:flex;flex-direction:column;gap:6px;max-width:100%}
 .rcard{background:var(--panel);border:1px solid var(--b2);position:relative;overflow:hidden}
 .rcard::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--c),transparent);pointer-events:none}
@@ -133,6 +137,20 @@ tr:hover td{background:rgba(0,212,255,.03)}
 .sc::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,var(--c2),transparent);pointer-events:none}
 .svv{display:block;font-family:var(--hud);font-size:13px;font-weight:700;color:var(--g);text-shadow:0 0 10px rgba(0,255,136,.3)}
 .sll{display:block;font-family:var(--mono);font-size:8px;color:var(--t3);margin-top:2px;letter-spacing:1px}
+/* EV result card */
+.ev-card{background:var(--panel);border:1px solid rgba(0,212,255,.5);padding:14px 16px;position:relative;margin-top:6px}
+.ev-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--c),transparent);pointer-events:none}
+.ev-range{display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:center;margin:10px 0}
+.ev-price{font-family:var(--hud);font-size:18px;font-weight:700;text-align:center}
+.ev-price.low{color:var(--c)}
+.ev-price.mid{color:var(--g);font-size:22px}
+.ev-price.hi{color:var(--a)}
+.ev-label{font-family:var(--mono);font-size:8px;color:var(--t3);text-align:center;letter-spacing:1px;margin-top:3px}
+.ev-arrow{font-family:var(--mono);font-size:14px;color:var(--t3);text-align:center}
+.ev-meta{font-family:var(--mono);font-size:9px;color:var(--t2);line-height:1.9;margin-top:10px;border-top:1px solid var(--b);padding-top:8px}
+.ev-warn{background:rgba(255,170,0,.08);border:1px solid rgba(255,170,0,.3);padding:8px 12px;font-family:var(--mono);font-size:9px;color:var(--a);margin-top:8px;line-height:1.8}
+.ev-none{background:rgba(0,212,255,.04);border:1px solid var(--b);padding:12px;font-family:var(--mono);font-size:10px;color:var(--t2);line-height:1.9;margin-top:6px}
+/* Typing */
 .typing{display:flex;gap:5px;align-items:center;padding:10px 13px}
 .tdot{width:5px;height:5px;background:var(--c);border-radius:50%;box-shadow:0 0 5px var(--c);animation:tdot 1.4s infinite}
 .tdot:nth-child(2){animation-delay:.2s}.tdot:nth-child(3){animation-delay:.4s}
@@ -142,6 +160,8 @@ tr:hover td{background:rgba(0,212,255,.03)}
 /* INPUT */
 .input-area{padding:10px 16px 14px;border-top:1px solid var(--b);flex-shrink:0;position:relative}
 .input-area::before{content:'';position:absolute;top:-1px;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--c),transparent);pointer-events:none}
+.vs-bar{display:none;align-items:center;gap:8px;padding:4px 2px;font-family:var(--mono);font-size:9px;color:var(--g);letter-spacing:1px;margin-bottom:6px}
+.vs-bar span.dot{width:6px;height:6px;background:var(--g);border-radius:50%;box-shadow:0 0 8px var(--g);animation:ldot .6s infinite;flex-shrink:0;display:inline-block}
 .irow{display:flex;gap:8px;align-items:flex-end;background:var(--panel);border:1px solid var(--b2);padding:7px 7px 7px 14px;clip-path:polygon(0 0,calc(100% - 12px) 0,100% 12px,100% 100%,12px 100%,0 calc(100% - 12px));transition:border-color .2s,box-shadow .2s;position:relative}
 .irow::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,var(--c2),transparent);pointer-events:none}
 .irow:focus-within{border-color:var(--c);box-shadow:0 0 18px rgba(0,212,255,.07)}
@@ -151,19 +171,14 @@ tr:hover td{background:rgba(0,212,255,.03)}
 #ci::placeholder{color:var(--t3)}
 .sbtn{width:38px;height:38px;flex-shrink:0;background:rgba(0,212,255,.08);border:1px solid var(--b2);cursor:pointer;display:flex;align-items:center;justify-content:center;clip-path:polygon(0 0,calc(100% - 7px) 0,100% 7px,100% 100%,0 100%);transition:all .14s;color:var(--c)}
 .sbtn:hover{background:rgba(0,212,255,.18);border-color:var(--c);box-shadow:0 0 14px rgba(0,212,255,.2)}
-.sbtn:active{transform:scale(.92)}
-.sbtn:disabled{opacity:.25;cursor:not-allowed}
-.sbtn svg{width:16px;height:16px}
+.sbtn:active{transform:scale(.92)}.sbtn:disabled{opacity:.25;cursor:not-allowed}.sbtn svg{width:16px;height:16px}
 .mbtn{width:38px;height:38px;flex-shrink:0;background:rgba(0,255,136,.06);border:1px solid rgba(0,255,136,.25);cursor:pointer;display:flex;align-items:center;justify-content:center;clip-path:polygon(0 0,calc(100% - 7px) 0,100% 7px,100% 100%,0 100%);transition:all .14s;color:var(--g)}
 .mbtn:hover{background:rgba(0,255,136,.15);border-color:var(--g);box-shadow:0 0 14px rgba(0,255,136,.2)}
 .mbtn.active{background:rgba(0,255,136,.2);border-color:var(--g);animation:mpulse 1s infinite}
 @keyframes mpulse{0%,100%{box-shadow:0 0 10px rgba(0,255,136,.3)}50%{box-shadow:0 0 28px rgba(0,255,136,.7)}}
 .mbtn svg{width:16px;height:16px}
-.hrw.speaking .hr3{animation:spin 1.5s linear infinite!important}
-.hrw.speaking .hr4{animation:spin 0.8s linear infinite!important}
-.hrw.speaking .hnum{color:var(--g)!important;text-shadow:0 0 30px var(--g)!important;transition:all .3s}
-.vtog{font-family:var(--mono);font-size:9px;color:var(--c2);background:rgba(0,212,255,.06);border:1px solid rgba(0,212,255,.2);padding:5px 10px;cursor:pointer;letter-spacing:1px;clip-path:polygon(5px 0,100% 0,100% 100%,0 100%,0 5px);transition:all .14s;white-space:nowrap}
-.vtog:hover{background:var(--c3);border-color:var(--b2)}
+.ifooter{display:flex;justify-content:space-between;margin-top:6px;padding:0 2px}
+.ihint{font-family:var(--mono);font-size:8px;color:var(--t3);letter-spacing:.8px}
 </style>
 </head>
 <body>
@@ -183,9 +198,9 @@ tr:hover td{background:rgba(0,212,255,.03)}
       </div>
       <div><span class="lname">BLOCKSENSE</span><span class="lsub">HARVEY · HDB ANALYTICS & RESEARCH VALUATION ENGINE FOR YOU</span></div>
     </div>
-    <div class="tb-right">
+    <div class="tb-right" id="tb-right">
       <div><div class="tb-time" id="clk">--:--:--</div><div class="tb-date" id="dt">---</div></div>
-      <div class="live-pill"><div class="ldot"></div>LIVE · FREE · NO LOGIN</div>
+      <div class="live-pill"><div class="ldot"></div>LIVE · FREE</div>
     </div>
   </div>
 
@@ -194,35 +209,31 @@ tr:hover td{background:rgba(0,212,255,.03)}
     <!-- LEFT -->
     <div class="side">
       <div class="pb">
-        <div class="plbl">TOTAL RECORDS</div>
+        <div class="plbl">TRANSACTIONS LOADED</div>
         <div class="pval" id="txcount">--</div>
-        <div class="pval-sub">HDB RESALE TRANSACTIONS</div>
-        <div class="mbar"><div class="mbar-f g" style="width:82%"></div></div>
+        <div class="pval-sub">HDB RESALE RECORDS</div>
+        <div class="mbar"><div class="mbar-f g" id="load-bar" style="width:0%"></div></div>
       </div>
       <div class="pb">
         <div class="plbl">SYSTEM</div>
         <div class="sgrid">
-          <div class="sc2"><span class="sv">FREE</span><span class="sl">COST</span></div>
+          <div class="sc2"><span class="sv" id="db-status">LOADING</span><span class="sl">DATABASE</span></div>
           <div class="sc2"><span class="sv" id="lat">--ms</span><span class="sl">LATENCY</span></div>
-          <div class="sc2"><span class="sv">LIVE</span><span class="sl">DATA</span></div>
+          <div class="sc2"><span class="sv">FREE</span><span class="sl">COST</span></div>
           <div class="sc2"><span class="sv">26</span><span class="sl">TOWNS</span></div>
         </div>
       </div>
       <div class="pb" style="flex:1;overflow:hidden;display:flex;flex-direction:column">
         <div class="plbl">CLICK TO SEARCH</div>
         <div class="tlist">
-          <div class="trow" onclick="sendQuick('4-room flats in Tampines')"><span>TAMPINES</span><div class="tbar"><div class="tbar-f" style="width:90%"></div></div><span class="tp">$530K</span></div>
-          <div class="trow" onclick="sendQuick('flats in Woodlands')"><span>WOODLANDS</span><div class="tbar"><div class="tbar-f" style="width:80%"></div></div><span class="tp">$450K</span></div>
-          <div class="trow" onclick="sendQuick('flats in Yishun')"><span>YISHUN</span><div class="tbar"><div class="tbar-f" style="width:72%"></div></div><span class="tp">$460K</span></div>
-          <div class="trow" onclick="sendQuick('flats in Bedok')"><span>BEDOK</span><div class="tbar"><div class="tbar-f" style="width:68%"></div></div><span class="tp">$520K</span></div>
-          <div class="trow" onclick="sendQuick('flats in Sengkang')"><span>SENGKANG</span><div class="tbar"><div class="tbar-f" style="width:65%"></div></div><span class="tp">$500K</span></div>
-          <div class="trow" onclick="sendQuick('flats in Jurong West')"><span>JURONG WEST</span><div class="tbar"><div class="tbar-f" style="width:60%"></div></div><span class="tp">$470K</span></div>
-          <div class="trow" onclick="sendQuick('flats in Hougang')"><span>HOUGANG</span><div class="tbar"><div class="tbar-f" style="width:55%"></div></div><span class="tp">$490K</span></div>
-          <div class="trow" onclick="sendQuick('flats in Punggol')"><span>PUNGGOL</span><div class="tbar"><div class="tbar-f" style="width:50%"></div></div><span class="tp">$510K</span></div>
-          <div class="trow" onclick="sendQuick('flats in Ang Mo Kio')"><span>ANG MO KIO</span><div class="tbar"><div class="tbar-f" style="width:48%"></div></div><span class="tp">$500K</span></div>
-          <div class="trow" onclick="sendQuick('flats in Bishan')"><span>BISHAN</span><div class="tbar"><div class="tbar-f" style="width:42%"></div></div><span class="tp">$560K</span></div>
-          <div class="trow" onclick="sendQuick('flats in Queenstown')"><span>QUEENSTOWN</span><div class="tbar"><div class="tbar-f" style="width:38%"></div></div><span class="tp">$620K</span></div>
-          <div class="trow" onclick="sendQuick('flats in Bukit Timah')"><span>BUKIT TIMAH</span><div class="tbar"><div class="tbar-f" style="width:28%"></div></div><span class="tp">$720K</span></div>
+          <div class="trow" onclick="chipClick('recent 4-room Tampines')"><span>TAMPINES</span><div class="tbar"><div class="tbar-f" style="width:90%"></div></div><span class="tp">$530K</span></div>
+          <div class="trow" onclick="chipClick('recent flats Woodlands')"><span>WOODLANDS</span><div class="tbar"><div class="tbar-f" style="width:80%"></div></div><span class="tp">$450K</span></div>
+          <div class="trow" onclick="chipClick('recent flats Yishun')"><span>YISHUN</span><div class="tbar"><div class="tbar-f" style="width:72%"></div></div><span class="tp">$460K</span></div>
+          <div class="trow" onclick="chipClick('recent flats Bedok')"><span>BEDOK</span><div class="tbar"><div class="tbar-f" style="width:68%"></div></div><span class="tp">$520K</span></div>
+          <div class="trow" onclick="chipClick('recent flats Sengkang')"><span>SENGKANG</span><div class="tbar"><div class="tbar-f" style="width:65%"></div></div><span class="tp">$500K</span></div>
+          <div class="trow" onclick="chipClick('recent flats Jurong West')"><span>JURONG WEST</span><div class="tbar"><div class="tbar-f" style="width:60%"></div></div><span class="tp">$470K</span></div>
+          <div class="trow" onclick="chipClick('recent flats Queenstown')"><span>QUEENSTOWN</span><div class="tbar"><div class="tbar-f" style="width:52%"></div></div><span class="tp">$620K</span></div>
+          <div class="trow" onclick="chipClick('recent flats Bukit Timah')"><span>BUKIT TIMAH</span><div class="tbar"><div class="tbar-f" style="width:30%"></div></div><span class="tp">$720K</span></div>
         </div>
       </div>
     </div>
@@ -232,34 +243,21 @@ tr:hover td{background:rgba(0,212,255,.03)}
       <div class="hud-area">
         <div class="hrw">
           <svg viewBox="0 0 174 174" fill="none">
-            <!-- Outer decorative rings — boosted opacity & weight -->
             <circle class="hr1" cx="87" cy="87" r="83" stroke="rgba(0,212,255,.25)" stroke-width="1" stroke-dasharray="4 4"/>
             <circle class="hr2" cx="87" cy="87" r="74" stroke="rgba(0,212,255,.35)" stroke-width="1.5" stroke-dasharray="8 3"/>
             <circle class="hr3" cx="87" cy="87" r="64" stroke="rgba(0,212,255,.55)" stroke-width="2" stroke-dasharray="5 4"/>
             <circle class="hr4" cx="87" cy="87" r="52" stroke="rgba(0,212,255,.8)" stroke-width="2.5" stroke-dasharray="3 5"/>
-            <!-- Solid inner rings -->
             <circle cx="87" cy="87" r="40" stroke="rgba(0,212,255,.9)" stroke-width="1.5"/>
-            <circle cx="87" cy="87" r="34" stroke="rgba(0,212,255,.3)" stroke-width=".5" stroke-dasharray="10 4"/>
-            <!-- Glowing solid fill ring -->
             <circle cx="87" cy="87" r="40" stroke="rgba(0,212,255,.15)" stroke-width="18" fill="none"/>
-            <!-- Tick marks -->
             <g stroke="rgba(0,212,255,.7)" stroke-width="1.5">
               <line x1="87" y1="3" x2="87" y2="15"/><line x1="87" y1="159" x2="87" y2="171"/>
               <line x1="3" y1="87" x2="15" y2="87"/><line x1="159" y1="87" x2="171" y2="87"/>
             </g>
-            <g stroke="rgba(0,212,255,.4)" stroke-width="1">
-              <line x1="27" y1="27" x2="33" y2="33"/><line x1="147" y1="27" x2="141" y2="33"/>
-              <line x1="27" y1="147" x2="33" y2="141"/><line x1="147" y1="147" x2="141" y2="141"/>
-            </g>
-            <!-- Corner dots -->
-            <circle cx="87" cy="3" r="3" fill="rgba(0,212,255,.9)"/>
-            <circle cx="87" cy="171" r="3" fill="rgba(0,212,255,.7)"/>
-            <circle cx="3" cy="87" r="3" fill="rgba(0,212,255,.7)"/>
-            <circle cx="171" cy="87" r="3" fill="rgba(0,212,255,.9)"/>
-
+            <circle cx="87" cy="3" r="3" fill="rgba(0,212,255,.9)"/><circle cx="87" cy="171" r="3" fill="rgba(0,212,255,.7)"/>
+            <circle cx="3" cy="87" r="3" fill="rgba(0,212,255,.7)"/><circle cx="171" cy="87" r="3" fill="rgba(0,212,255,.9)"/>
           </svg>
           <div class="hcore">
-            <div class="hnum" id="hnum" style="font-size:15px;letter-spacing:4px;white-space:nowrap">HARVEY</div>
+            <div class="hnum" id="hnum">HARVEY</div>
             <div class="hlbl">BY BLOCKSENSE</div>
           </div>
         </div>
@@ -269,52 +267,46 @@ tr:hover td{background:rgba(0,212,255,.03)}
               <svg viewBox="0 0 54 54"><circle cx="27" cy="27" r="21" stroke="rgba(0,212,255,.12)" stroke-width="4" fill="none"/>
               <circle cx="27" cy="27" r="21" stroke="var(--c)" stroke-width="4" fill="none" stroke-dasharray="132" stroke-dashoffset="33" stroke-linecap="round" transform="rotate(-90 27 27)"/></svg>
               <span class="hsv">4-RM</span>
-            </div>
-            <span class="hsl">MOST SOLD</span>
+            </div><span class="hsl">MOST SOLD</span>
           </div>
           <div class="hsi">
             <div class="hsring">
               <svg viewBox="0 0 54 54"><circle cx="27" cy="27" r="21" stroke="rgba(0,255,136,.1)" stroke-width="4" fill="none"/>
               <circle cx="27" cy="27" r="21" stroke="var(--g)" stroke-width="4" fill="none" stroke-dasharray="132" stroke-dashoffset="53" stroke-linecap="round" transform="rotate(-90 27 27)"/></svg>
-              <span class="hsv" style="color:var(--g)">$520K</span>
-            </div>
-            <span class="hsl">AVG PRICE</span>
+              <span class="hsv" style="color:var(--g)" id="avg-price-stat">--</span>
+            </div><span class="hsl">AVG PRICE</span>
           </div>
           <div class="hsi">
             <div class="hsring">
               <svg viewBox="0 0 54 54"><circle cx="27" cy="27" r="21" stroke="rgba(255,170,0,.1)" stroke-width="4" fill="none"/>
               <circle cx="27" cy="27" r="21" stroke="var(--a)" stroke-width="4" fill="none" stroke-dasharray="132" stroke-dashoffset="80" stroke-linecap="round" transform="rotate(-90 27 27)"/></svg>
               <span class="hsv" style="color:var(--a)">+8%</span>
-            </div>
-            <span class="hsl">YOY</span>
+            </div><span class="hsl">YOY</span>
           </div>
         </div>
       </div>
-
       <div class="hdiv"></div>
-
       <div class="chat-area">
         <div class="messages" id="msgs">
           <div class="welcome" id="welcome">
             <h3>HARVEY READY</h3>
-            <p>HDB ANALYTICS & RESEARCH VALUATION ENGINE FOR YOU<br>FREE · NO API KEY · POWERED BY DATA.GOV.SG</p>
+            <p>HDB ANALYTICS & RESEARCH VALUATION ENGINE<br>FREE · POWERED BY BLOCKSENSE DATA</p>
             <div class="wchips">
-              <span class="chip" onclick="sendQuick('4-room flats in Tampines under 550000')">▶ 4-ROOM TAMPINES &lt;$550K</span>
-              <span class="chip" onclick="sendQuick('cheapest 3-room in Queenstown')">▶ CHEAPEST 3-ROOM QUEENSTOWN</span>
-              <span class="chip" onclick="sendQuick('most expensive in Bukit Timah')">▶ TOP PRICES BUKIT TIMAH</span>
-              <span class="chip" onclick="sendQuick('5-room Bishan')">▶ 5-ROOM BISHAN</span>
+              <span class="chip" onclick="chipClick('4-room Tampines under 550000')">▶ 4-ROOM TAMPINES &lt;$550K</span>
+              <span class="chip" onclick="chipClick('value of block 123 Bishan Street 12 floor 8 4-room 93sqm')">▶ ESTIMATE VALUE</span>
+              <span class="chip" onclick="chipClick('cheapest 3-room Queenstown')">▶ CHEAPEST QUEENSTOWN</span>
+              <span class="chip" onclick="chipClick('recent sales Ang Mo Kio Avenue 3')">▶ BY STREET</span>
             </div>
           </div>
         </div>
-
         <div class="input-area">
-          <div id="vs" style="display:none;align-items:center;gap:8px;padding:4px 2px;font-family:var(--mono);font-size:9px;color:var(--g);letter-spacing:1px">
-            <span style="width:6px;height:6px;background:var(--g);border-radius:50%;box-shadow:0 0 8px var(--g);animation:ldot .6s infinite;flex-shrink:0;display:inline-block"></span>
+          <div class="vs-bar" id="vs-bar">
+            <span class="dot"></span>
             <span id="vs-txt">HARVEY LISTENING…</span>
           </div>
           <div class="irow">
             <span class="ipfx">›_</span>
-            <textarea id="ci" placeholder="Ask HARVEY — e.g. 4-room Tampines under 500k · cheapest 3-room Queenstown" rows="1"></textarea>
+            <textarea id="ci" placeholder="Ask HARVEY — town, street, block, floor, value... or say 'wake up Harvey'" rows="1"></textarea>
             <button class="mbtn" id="mb" onclick="toggleMic()" title="Speak to HARVEY">
               <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
                 <rect x="5" y="1" width="6" height="9" rx="3"/>
@@ -322,15 +314,15 @@ tr:hover td{background:rgba(0,212,255,.03)}
                 <line x1="8" y1="14" x2="8" y2="16"/><line x1="5" y1="16" x2="11" y2="16"/>
               </svg>
             </button>
-            <button class="sbtn" id="sb" onclick="sendMessage()">
+            <button class="sbtn" id="sb" onclick="handleInput()">
               <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
                 <line x1="8" y1="13" x2="8" y2="3"/><polyline points="4 7 8 3 12 7"/>
               </svg>
             </button>
           </div>
           <div class="ifooter">
-            <span class="ihint">ENTER ↵ TYPE · 🎤 SPEAK · 100% FREE</span>
-            <span class="ihint" id="vs-sup"></span>
+            <span class="ihint">ENTER ↵ · 🎤 MIC · SAY "WAKE UP HARVEY"</span>
+            <span class="ihint" id="vs-sup">DATA: GOOGLE SHEETS → BLOCKSENSE</span>
           </div>
         </div>
       </div>
@@ -341,14 +333,14 @@ tr:hover td{background:rgba(0,212,255,.03)}
       <div class="pb">
         <div class="plbl">PRICE RANGE (ALL)</div>
         <div class="sgrid">
-          <div class="sc2"><span class="sv" style="color:var(--g)">$185K</span><span class="sl">LOWEST</span></div>
-          <div class="sc2"><span class="sv" style="color:var(--r)">$1.58M</span><span class="sl">HIGHEST</span></div>
+          <div class="sc2"><span class="sv" style="color:var(--g)" id="price-low">--</span><span class="sl">LOWEST</span></div>
+          <div class="sc2"><span class="sv" style="color:var(--r)" id="price-high">--</span><span class="sl">HIGHEST</span></div>
         </div>
         <div class="mbar" style="margin-top:8px"><div class="mbar-f" style="width:65%"></div></div>
       </div>
       <div class="pb">
         <div class="plbl">FLAT TYPE SHARE</div>
-        <div class="tlist">
+        <div class="tlist" id="flat-breakdown">
           <div class="trow"><span>4 ROOM</span><div class="tbar"><div class="tbar-f" style="width:90%"></div></div><span class="tp">38%</span></div>
           <div class="trow"><span>5 ROOM</span><div class="tbar"><div class="tbar-f" style="width:70%"></div></div><span class="tp">28%</span></div>
           <div class="trow"><span>3 ROOM</span><div class="tbar"><div class="tbar-f" style="width:55%"></div></div><span class="tp">22%</span></div>
@@ -357,17 +349,17 @@ tr:hover td{background:rgba(0,212,255,.03)}
         </div>
       </div>
       <div class="pb" style="flex:1;overflow:hidden;display:flex;flex-direction:column">
-        <div class="plbl">RECENT SEARCHES</div>
+        <div class="plbl">RECENT QUERIES</div>
         <div class="rlist" id="rlist">
-          <div style="font-family:var(--mono);font-size:9px;color:var(--t3);padding:8px;text-align:center">NO SEARCHES YET</div>
+          <div style="font-family:var(--mono);font-size:9px;color:var(--t3);padding:8px;text-align:center">NO QUERIES YET</div>
         </div>
       </div>
       <div class="pb">
-        <div class="plbl">DATA INFO</div>
+        <div class="plbl">DATA SOURCE</div>
         <div style="font-family:var(--mono);font-size:9px;color:var(--t2);line-height:2;letter-spacing:.5px">
-          SOURCE: DATA.GOV.SG<br>
-          AGENCY: HDB SINGAPORE<br>
-          COVERAGE: JAN 2017–NOW<br>
+          SOURCE: BLOCKSENSE DATASET<br>
+          BACKEND: GOOGLE SHEETS<br>
+          LOGIC: BLOCKSENSE EV ENGINE<br>
           COST: FREE · NO LOGIN
         </div>
       </div>
@@ -376,469 +368,592 @@ tr:hover td{background:rgba(0,212,255,.03)}
 </div>
 
 <script>
-// ════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════
 //  HARVEY — HDB Analytics & Research Valuation Engine for You
-//  BlockSense — blocksense.estatrix.workers.dev
-// ════════════════════════════════════════════
+//  Data: BlockSense Google Sheet (same as blocksense.estatrix.workers.dev)
+//  Logic: Mirrors BlockSense Estimated Value algorithm exactly
+// ════════════════════════════════════════════════════════════
 
-const DATASET = "d_8b84c4ee58e3cfc0ece0d773c8ca6abc";
-const API     = "https://data.gov.sg/api/action/datastore_search";
+const GOOGLE_SHEET_ID = '1yIiqAYwkUzDkaoCBIkYdNhIu9fGZltb0UmgP7QRsZOw';
+const SHEET_URLS = {
+  resaletxn: `https://docs.google.com/spreadsheets/d/${GOOGLE_SHEET_ID}/gviz/tq?tqx=out:csv&sheet=resaletxn`,
+  townstreets:`https://docs.google.com/spreadsheets/d/${GOOGLE_SHEET_ID}/gviz/tq?tqx=out:csv&sheet=townstreets`
+};
 
-// ── ElevenLabs via Puter.js — FREE, no API key ──
-// Asher voice ID — swap this once you have it from your ElevenLabs account
-// Current: "nPczCjzI2devNBz1zQrb" = Daniel (British, authoritative, deep)
-// To use Asher: log in to elevenlabs.io → Voice Library → find Asher → copy ID → paste below
-const HARVEY_VOICE_ID = "nPczCjzI2devNBz1zQrb"; // swap to Asher ID when ready
-const HARVEY_SPEED    = 1.5; // 1.5x faster as requested
+// ElevenLabs via Puter.js — swap VOICE_ID to Asher once you have it
+// Current: nPczCjzI2devNBz1zQrb (Daniel — British, deep, authoritative)
+const VOICE_ID   = 'nPczCjzI2devNBz1zQrb';
+const VOICE_SPEED = 1.5;
 
-let loading = false, qn = 0, voiceOn = true;
-let currentAudio = null;
+const DB = { resale:[], townStreets:{}, loaded:false };
+let loading=false, qn=0, voiceOn=true, currentAudio=null;
+let mode='boot', ctx={};
 
-const msgsEl = document.getElementById("msgs");
-const ciEl   = document.getElementById("ci");
-const sbEl   = document.getElementById("sb");
+const msgsEl = document.getElementById('msgs');
+const ciEl   = document.getElementById('ci');
+const sbEl   = document.getElementById('sb');
 
 // ── CLOCK ──
 function tick(){
-  const n = new Date();
-  document.getElementById("clk").textContent = n.toLocaleTimeString("en-SG",{hour12:false});
-  document.getElementById("dt").textContent  = n.toLocaleDateString("en-SG",{weekday:"short",day:"2-digit",month:"short",year:"numeric"}).toUpperCase();
+  const n=new Date();
+  document.getElementById('clk').textContent=n.toLocaleTimeString('en-SG',{hour12:false});
+  document.getElementById('dt').textContent=n.toLocaleDateString('en-SG',{weekday:'short',day:'2-digit',month:'short',year:'numeric'}).toUpperCase();
 }
 tick(); setInterval(tick,1000);
 
-let txc = 189432;
-document.getElementById("txcount").textContent = txc.toLocaleString();
-setInterval(()=>{txc+=Math.floor(Math.random()*2);document.getElementById("txcount").textContent=txc.toLocaleString()},10000);
-
-ciEl.addEventListener("input",()=>{ciEl.style.height="auto";ciEl.style.height=Math.min(ciEl.scrollHeight,80)+"px"});
-ciEl.addEventListener("keydown",e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();handleInput()}});
+ciEl.addEventListener('input',()=>{ciEl.style.height='auto';ciEl.style.height=Math.min(ciEl.scrollHeight,80)+'px'});
+ciEl.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();handleInput()}});
 function bot(){msgsEl.scrollTop=msgsEl.scrollHeight}
-function esc(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;")}
-function rand(arr){return arr[Math.floor(Math.random()*arr.length)]}
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
+function rand(a){return a[Math.floor(Math.random()*a.length)]}
+const fmtP = p=>'$'+Number(p).toLocaleString();
 
-// ── SPEAK via ElevenLabs / Puter.js ──
+// ── SPEAK via Puter.js ElevenLabs ──
 async function speak(txt){
-  if(!voiceOn || !txt) return;
-  const clean = txt.replace(/<[^>]*>/g," ").replace(/\s+/g," ").trim();
+  if(!voiceOn||!txt) return;
+  const clean=txt.replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim();
   if(!clean) return;
-  // Stop any current speech
-  if(currentAudio){ currentAudio.pause(); currentAudio = null; }
-  try {
-    const audio = await puter.ai.txt2speech(clean,{
-      provider: "elevenlabs",
-      voice: HARVEY_VOICE_ID,
-      model: "eleven_flash_v2_5"  // fastest model
-    });
-    // Apply 1.5x speed without pitch change
-    audio.playbackRate = HARVEY_SPEED;
-    audio.preservesPitch = true;
-    currentAudio = audio;
-    document.querySelector(".hrw")?.classList.add("speaking");
-    audio.onended = ()=>{ document.querySelector(".hrw")?.classList.remove("speaking"); currentAudio=null; };
+  if(currentAudio){currentAudio.pause();currentAudio=null;}
+  document.querySelector('.hrw')?.classList.add('speaking');
+  try{
+    const audio=await puter.ai.txt2speech(clean,{provider:'elevenlabs',voice:VOICE_ID,model:'eleven_flash_v2_5'});
+    audio.playbackRate=VOICE_SPEED; audio.preservesPitch=true;
+    currentAudio=audio;
+    audio.onended=()=>{document.querySelector('.hrw')?.classList.remove('speaking');currentAudio=null;};
     audio.play();
-  } catch(e) {
-    // Fallback to browser TTS if puter fails
-    const u = new SpeechSynthesisUtterance(clean);
-    u.rate = HARVEY_SPEED; u.pitch = 0.75; u.volume = 0.9;
-    u.onstart = ()=>document.querySelector(".hrw")?.classList.add("speaking");
-    u.onend   = ()=>document.querySelector(".hrw")?.classList.remove("speaking");
+  }catch(e){
+    // Fallback browser TTS
+    const u=new SpeechSynthesisUtterance(clean);
+    u.rate=VOICE_SPEED;u.pitch=0.75;u.volume=0.9;
+    u.onend=()=>document.querySelector('.hrw')?.classList.remove('speaking');
     window.speechSynthesis.speak(u);
   }
 }
 
 // ── VOICE TOGGLE ──
-const vtb = document.createElement("button");
-vtb.className="vtog"; vtb.textContent="🔊 HARVEY ON";
-vtb.onclick=()=>{
-  voiceOn=!voiceOn;
-  vtb.textContent = voiceOn ? "🔊 HARVEY ON" : "🔇 HARVEY OFF";
-  vtb.style.color  = voiceOn ? "var(--c2)" : "var(--t3)";
-  if(!voiceOn){ if(currentAudio){currentAudio.pause();currentAudio=null;} window.speechSynthesis.cancel(); }
-};
-document.querySelector(".tb-right").prepend(vtb);
+const vtb=document.createElement('button');
+vtb.className='vtog';vtb.textContent='🔊 HARVEY ON';
+vtb.onclick=()=>{voiceOn=!voiceOn;vtb.textContent=voiceOn?'🔊 HARVEY ON':'🔇 HARVEY OFF';vtb.style.color=voiceOn?'var(--c2)':'var(--t3)';if(!voiceOn){if(currentAudio){currentAudio.pause();currentAudio=null;}window.speechSynthesis.cancel();}};
+document.getElementById('tb-right').prepend(vtb);
 
-// ── CONVERSATION STATE ──
-let mode = "boot"; // boot → menu → search_needtown → search_needtype → val_needtown → val_needtype → free
-let ctx  = {};
-
-// ── HARVEY LINES ──
-const H = {
-  boot: [
-    "Good day, sir.",
-    "Welcome back, sir.",
-    "Good to see you, sir."
-  ],
-  menuPrompt: "What would you like to do? Search resale transactions, or check an estimated value?",
-  // Two options presented as chips — no Harvey question voice, just display
-  askTown:     "Which town, sir?",
-  askFlatType: "And the flat type?",
-  askValTown:  "Which town is the flat in, sir?",
-  askValType:  "What flat type, sir?",
-  searching:   ["Stand by, sir.","One moment, sir.","Accessing records, sir."],
-  found:(n,town,type)=>{
-    const t = town ? " in "+town.charAt(0)+town.slice(1).toLowerCase() : "";
-    const f = type ? ", "+type.toLowerCase() : "";
-    return `${n} result${n!==1?"s":""}${f}${t}, sir.`;
-  },
-  valResult:(med,low,high,n)=>
-    `Based on ${n} recent sales, estimated between $${Math.round(low/1000)}K and $${Math.round(high/1000)}K. Median $${Math.round(med/1000)}K, sir.`,
-  none:   "No records found, sir. Try a different town or flat type.",
-  more:   "Anything else, sir?",
-  err:    "Database unavailable, sir. Please check your connection.",
-  wakeReply: ["Yes sir.","At your service, sir.","Go ahead, sir."],
-  idle:   ["Going to standby, sir.","Entering idle mode, sir."],
-  wakeUp: ["Welcome back, sir.","Systems active, sir.","Ready, sir."]
-};
-
-// ── RENDER ──
-function harveyMsg(html, chips=[]){
-  document.getElementById("welcome")?.remove();
-  const d = document.createElement("div"); d.className="msg-ai";
-  let ch = chips.length ? `<div class="chips" style="margin-top:8px">${chips.map(c=>`<span class="chip" onclick="chipClick('${c.val.replace(/'/g,"\\'")}')">▶ ${c.label}</span>`).join("")}</div>` : "";
-  d.innerHTML = `<span class="mlbl">// HARVEY</span><div class="mbub">${html}${ch}</div>`;
-  msgsEl.appendChild(d); bot();
+// ── CSV PARSER (from BlockSense) ──
+function parseCSV(text){
+  const lines=text.trim().split('\n'); if(lines.length<2)return[];
+  const re=/(\"(?:[^\"]|\"\")*\"|[^,]*)/g;
+  const parseRow=line=>{const r=[],re2=/(\"(?:[^\"]|\"\")*\"|[^,]*)/g;let m;while((m=re2.exec(line))!==null){if(m.index===re2.lastIndex)re2.lastIndex++;let v=m[1];if(v.startsWith('"')&&v.endsWith('"'))v=v.slice(1,-1).replace(/""/g,'"');r.push(v);}return r;};
+  const h=parseRow(lines[0]);
+  return lines.slice(1).map(l=>{const v=parseRow(l);return Object.fromEntries(h.map((k,i)=>[k,v[i]||'']));});
 }
 
-function userMsg(text){
-  document.getElementById("welcome")?.remove();
-  const d = document.createElement("div"); d.className="msg-user";
-  d.innerHTML = `<div class="mbub">${esc(text)}</div>`;
-  msgsEl.appendChild(d); bot();
-  addRecent(text);
-  qn++; document.getElementById("hnum").textContent = qn;
-}
-
-function thinkingMsg(){
-  const d=document.createElement("div"); d.className="msg-ai"; d.id="ti";
-  d.innerHTML=`<span class="mlbl">// HARVEY — LIVE DATA</span><div class="mbub"><div class="typing"><div class="tdot"></div><div class="tdot"></div><div class="tdot"></div></div></div>`;
-  msgsEl.appendChild(d); bot();
-}
-function rmThinking(){ document.getElementById("ti")?.remove() }
-
-function addRecent(text){
-  const empty = document.getElementById("rlist").querySelector("div[style]");
-  if(empty) empty.remove();
-  const d = document.createElement("div"); d.className="ritem";
-  d.innerHTML = `${esc(text.length>26?text.slice(0,26)+"…":text)}<span class="rp">▶</span><span class="rt">${new Date().toLocaleTimeString("en-SG",{hour12:false})}</span>`;
-  d.onclick = ()=>chipClick(text);
-  document.getElementById("rlist").insertBefore(d, document.getElementById("rlist").firstChild);
-  if(document.getElementById("rlist").children.length > 8) document.getElementById("rlist").lastChild.remove();
-}
-
-function showResultsTable(records, params){
-  if(!records||records.length===0){
-    harveyMsg(H.none); speak(H.none);
-    setTimeout(()=>harveyMsg(H.more,[{label:"SEARCH AGAIN",val:"search"},{label:"CHECK VALUE",val:"valuation"}]),900);
-    mode="menu"; return;
+// ── LOAD DATA ──
+async function loadData(){
+  const t0=Date.now();
+  try{
+    harveyMsg('Loading BlockSense data...');
+    const r1=await fetch(SHEET_URLS.resaletxn); if(!r1.ok)throw new Error('Sheet error');
+    DB.resale=parseCSV(await r1.text());
+    const r2=await fetch(SHEET_URLS.townstreets); if(!r2.ok)throw new Error('Streets error');
+    const sd=parseCSV(await r2.text());
+    sd.forEach(row=>{if(row.town&&row.streets)DB.townStreets[row.town]=row.streets.split('|').filter(Boolean).sort();});
+    DB.loaded=true;
+    document.getElementById('lat').textContent=(Date.now()-t0)+'ms';
+    document.getElementById('txcount').textContent=DB.resale.length.toLocaleString();
+    document.getElementById('load-bar').style.width='100%';
+    document.getElementById('db-status').textContent='READY';
+    document.getElementById('db-status').style.color='var(--g)';
+    // Update stats
+    const prices=DB.resale.map(r=>Number(r.resale_price)).filter(p=>p>0);
+    if(prices.length){
+      const avg=prices.reduce((a,b)=>a+b,0)/prices.length;
+      document.getElementById('avg-price-stat').textContent='$'+Math.round(avg/1000)+'K';
+      document.getElementById('price-low').textContent='$'+Math.round(Math.min(...prices)/1000)+'K';
+      document.getElementById('price-high').textContent='$'+Math.round(Math.max(...prices)/1000)+'K';
+    }
+    return true;
+  }catch(e){
+    document.getElementById('db-status').textContent='ERROR'; document.getElementById('db-status').style.color='var(--r)';
+    return false;
   }
-  const prices = records.map(r=>parseInt(r.resale_price));
-  const sorted = [...prices].sort((a,b)=>a-b);
-  const median = sorted[Math.floor(sorted.length/2)];
-  const shown  = records.slice(0,8);
-  const rows   = shown.map(r=>`<tr>
+}
+
+// ── BLOCKSENSE EV HELPERS (exact match) ──
+function parseStoreyMid(s){if(!s)return null;const m=s.match(/(\d+)\s+TO\s+(\d+)/i);if(m)return(parseInt(m[1])+parseInt(m[2]))/2;const n=parseInt(s);return isNaN(n)?null:n;}
+function storeyRangeLow(s){if(!s)return null;const m=s.match(/(\d+)\s+TO\s+(\d+)/i);return m?parseInt(m[1]):parseInt(s)||null;}
+function evCutoff(months){const d=new Date();d.setMonth(d.getMonth()-months);return d.toISOString().slice(0,7);}
+function floorToStorey(f){
+  const bands=[[1,3],[4,6],[7,9],[10,12],[13,15],[16,18],[19,21],[22,24],[25,27],[28,30],[31,33],[34,36],[37,39],[40,42],[43,45],[46,48],[49,51]];
+  const b=bands.find(b=>f>=b[0]&&f<=b[1]);
+  return b?`${String(b[0]).padStart(2,'0')} TO ${String(b[1]).padStart(2,'0')}`:null;
+}
+
+// ── CORE ESTIMATION ENGINE (BlockSense logic) ──
+function computeEstimate(params){
+  // params: { town, flatType, street, block, floor, size, leaseYear? }
+  const {town,flatType,street,block,floor,size,leaseYear}=params;
+  const LEASE_WINDOW=3, MIN_COMPS=2;
+  const mySize=Number(size), myFloor=Number(floor);
+
+  function leaseOk(r){
+    if(!leaseYear)return true;
+    const ly=parseInt(r.lease_commence_date)||0;
+    return ly>=leaseYear-LEASE_WINDOW&&ly<=leaseYear+LEASE_WINDOW;
+  }
+  function queryComps(cutoff,level){
+    if(level==='block') return DB.resale.filter(r=>r.town===town&&r.street_name===street&&r.block===block&&r.flat_type===flatType&&r.month>=cutoff&&Math.abs(Number(r.floor_area_sqm)-mySize)<=3&&leaseOk(r));
+    if(level==='street') return DB.resale.filter(r=>r.town===town&&r.street_name===street&&r.flat_type===flatType&&r.month>=cutoff&&Math.abs(Number(r.floor_area_sqm)-mySize)<=3&&leaseOk(r));
+    return DB.resale.filter(r=>r.town===town&&r.flat_type===flatType&&r.month>=cutoff&&Math.abs(Number(r.floor_area_sqm)-mySize)<=5&&leaseOk(r));
+  }
+
+  let comps=[],lookbackUsed=6,fallbackLevel='block';
+  comps=queryComps(evCutoff(6),'block');
+  if(comps.length>=MIN_COMPS){lookbackUsed=6;fallbackLevel='block';}
+  else{
+    comps=queryComps(evCutoff(12),'block');
+    if(comps.length>=MIN_COMPS){lookbackUsed=12;fallbackLevel='block';}
+    else{
+      const s6=queryComps(evCutoff(6),'street');
+      if(s6.length>=MIN_COMPS){comps=s6;lookbackUsed=6;fallbackLevel='street';}
+      else{
+        const s12=queryComps(evCutoff(12),'street');
+        if(s12.length>=MIN_COMPS){comps=s12;lookbackUsed=12;fallbackLevel='street';}
+        else{
+          const best=Math.max(queryComps(evCutoff(12),'block').length,queryComps(evCutoff(12),'street').length);
+          return{type:'no_data',count:best,town,flatType,street,block,size:mySize,leaseYear};
+        }
+      }
+    }
+  }
+
+  const compsWithFloor=comps.map(r=>({...r,price:Number(r.resale_price),size:Number(r.floor_area_sqm),floorMid:parseStoreyMid(r.storey_range),floorLow:storeyRangeLow(r.storey_range),psf:Number(r.resale_price)/(Number(r.floor_area_sqm)*10.764)})).filter(r=>r.floorMid!==null);
+  if(compsWithFloor.length<2) return{type:'no_floor_data',comps:compsWithFloor.length};
+
+  const n=compsWithFloor.length;
+  const sumX=compsWithFloor.reduce((s,r)=>s+r.floorMid,0);
+  const sumY=compsWithFloor.reduce((s,r)=>s+r.psf,0);
+  const sumXY=compsWithFloor.reduce((s,r)=>s+r.floorMid*r.psf,0);
+  const sumX2=compsWithFloor.reduce((s,r)=>s+r.floorMid*r.floorMid,0);
+  const denom=n*sumX2-sumX*sumX;
+  let floorPrem=0;
+  if(denom!==0){const bPsf=(n*sumXY-sumX*sumY)/denom;floorPrem=bPsf*mySize*10.764;}
+  floorPrem=Math.max(0,Math.min(3000,floorPrem));
+
+  const refComp=compsWithFloor.reduce((best,r)=>Math.abs(r.floorMid-myFloor)<Math.abs(best.floorMid-myFloor)?r:best,compsWithFloor[0]);
+  const refAnchor=refComp.floorLow!==null?refComp.floorLow:refComp.floorMid;
+  const basePrice=refComp.psf*mySize*10.764;
+  const adjustedPrice=basePrice+(myFloor-refAnchor)*floorPrem;
+
+  const lowerComps=compsWithFloor.filter(r=>r.floorMid<=myFloor);
+  let priceLow;
+  if(lowerComps.length>0){const bl=lowerComps.reduce((a,b)=>a.price>b.price?a:b);const la=bl.floorLow!==null?bl.floorLow:bl.floorMid;priceLow=bl.price+Math.max(0,myFloor-la)*floorPrem;}
+  else{const lc=compsWithFloor.reduce((a,b)=>a.floorMid<b.floorMid?a:b);const la=lc.floorLow!==null?lc.floorLow:lc.floorMid;priceLow=lc.price-Math.max(0,la-myFloor)*floorPrem;priceLow=Math.max(priceLow,lc.price*0.85);}
+
+  const high=compsWithFloor.reduce((a,b)=>a.price>b.price?a:b);
+  let priceHigh;
+  if(myFloor>=high.floorMid){priceHigh=Math.max(adjustedPrice,high.price);}
+  else{const ha=high.floorLow!==null?high.floorLow:high.floorMid;priceHigh=high.price-Math.max(0,ha-myFloor)*floorPrem;priceHigh=Math.max(priceHigh,high.price*0.7);}
+
+  priceLow=Math.min(priceLow,priceHigh);
+  priceLow=Math.round(priceLow/1000)*1000;
+  priceHigh=Math.round(priceHigh/1000)*1000;
+  if(priceLow===priceHigh)priceLow=Math.round(priceHigh*0.98/1000)*1000;
+  const adjusted=Math.round(adjustedPrice/1000)*1000;
+  const psfLow=Math.round(priceLow/(mySize*10.764));
+  const psfHigh=Math.round(priceHigh/(mySize*10.764));
+
+  return{type:'ok',priceLow,priceHigh,adjusted,psfLow,psfHigh,floorPrem:Math.round(floorPrem),comps:compsWithFloor.length,lookbackUsed,fallbackLevel,refComp,town,flatType,street,block,floor:myFloor,size:mySize};
+}
+
+// ── TRANSACTION SEARCH ──
+function searchTransactions(params){
+  const {town,flatType,street,block,storeyRange,maxPrice,minPrice,sort}=params;
+  const cutoff=evCutoff(6); // 6 months first
+  let recs=DB.resale.filter(r=>{
+    if(r.month<cutoff)return false;
+    if(town&&r.town!==town)return false;
+    if(flatType&&r.flat_type!==flatType)return false;
+    if(street&&!r.street_name.toUpperCase().includes(street.toUpperCase()))return false;
+    if(block&&r.block.toUpperCase()!==block.toUpperCase())return false;
+    if(storeyRange&&r.storey_range!==storeyRange)return false;
+    if(maxPrice&&Number(r.resale_price)>maxPrice)return false;
+    if(minPrice&&Number(r.resale_price)<minPrice)return false;
+    return true;
+  });
+  // If less than 5 results in 6 months, try all time
+  if(recs.length<5){
+    recs=DB.resale.filter(r=>{
+      if(town&&r.town!==town)return false;
+      if(flatType&&r.flat_type!==flatType)return false;
+      if(street&&!r.street_name.toUpperCase().includes(street.toUpperCase()))return false;
+      if(block&&r.block.toUpperCase()!==block.toUpperCase())return false;
+      if(storeyRange&&r.storey_range!==storeyRange)return false;
+      if(maxPrice&&Number(r.resale_price)>maxPrice)return false;
+      if(minPrice&&Number(r.resale_price)<minPrice)return false;
+      return true;
+    });
+  }
+  if(sort==='asc')recs.sort((a,b)=>Number(a.resale_price)-Number(b.resale_price));
+  else if(sort==='desc')recs.sort((a,b)=>Number(b.resale_price)-Number(a.resale_price));
+  else recs.sort((a,b)=>(b.month||'').localeCompare(a.month||''));
+  return recs;
+}
+
+// ── QUERY PARSER ──
+const TOWNS=['ANG MO KIO','BEDOK','BISHAN','BUKIT BATOK','BUKIT MERAH','BUKIT PANJANG','BUKIT TIMAH','CENTRAL AREA','CHOA CHU KANG','CLEMENTI','GEYLANG','HOUGANG','JURONG EAST','JURONG WEST','KALLANG/WHAMPOA','MARINE PARADE','PASIR RIS','PUNGGOL','QUEENSTOWN','SEMBAWANG','SENGKANG','SERANGOON','TAMPINES','TOA PAYOH','WOODLANDS','YISHUN'];
+const FLAT_MAP={'1-ROOM':'1 ROOM','2-ROOM':'2 ROOM','3-ROOM':'3 ROOM','4-ROOM':'4 ROOM','5-ROOM':'5 ROOM','1RM':'1 ROOM','2RM':'2 ROOM','3RM':'3 ROOM','4RM':'4 ROOM','5RM':'5 ROOM','EXEC':'EXECUTIVE','EXECUTIVE':'EXECUTIVE','1 ROOM':'1 ROOM','2 ROOM':'2 ROOM','3 ROOM':'3 ROOM','4 ROOM':'4 ROOM','5 ROOM':'5 ROOM'};
+
+function parseQuery(raw){
+  const q=raw.toUpperCase(); const res={};
+  for(const t of TOWNS){if(q.includes(t)){res.town=t;break}}
+  for(const[a,v]of Object.entries(FLAT_MAP)){if(q.includes(a)){res.flatType=v;break}}
+  // Block number
+  const blk=q.match(/\bBLK\s*(\d+[A-Z]?)\b|\bBLOCK\s*(\d+[A-Z]?)\b/);
+  if(blk)res.block=blk[1]||blk[2];
+  // Floor
+  const fl=raw.match(/floor\s*(\d+)|level\s*(\d+)|(\d+)(st|nd|rd|th)\s*floor|storey\s*(\d+)/i);
+  if(fl)res.floor=Number(fl[1]||fl[2]||fl[3]||fl[5]);
+  // Size
+  const sz=raw.match(/(\d+)\s*(?:sqm|sq\.?m|m2|square)/i);
+  if(sz)res.size=Number(sz[1]);
+  // Street — extract "AVE X", "ST X", "DRIVE", "ROAD", "CRESCENT" etc
+  const stMatch=q.match(/([A-Z\s]+(?:AVENUE|AVE|STREET|ST|DRIVE|DR|ROAD|RD|CRESCENT|CRES|WALK|LINK|LANE|LN|CLOSE|VIEW|RISE|WAY|HEIGHTS|HTS|GROVE|CIRCLE|PLACE|TERRACE)\s*\d*)/);
+  if(stMatch&&stMatch[1].trim().length>3)res.street=stMatch[1].trim();
+  // Price
+  const u=raw.match(/(?:under|below|less|max|<)\s*\$?([\d,]+)k?/i);
+  if(u){let v=parseInt(u[1].replace(/,/g,''));if(/k/i.test(u[0])||v<10000)v*=1000;res.maxPrice=v;}
+  const o=raw.match(/(?:above|over|more|min|>)\s*\$?([\d,]+)k?/i);
+  if(o){let v=parseInt(o[1].replace(/,/g,''));if(/k/i.test(o[0])||v<10000)v*=1000;res.minPrice=v;}
+  if(/cheap|lowest|affordable/i.test(raw))res.sort='asc';
+  if(/expensive|highest|top price/i.test(raw))res.sort='desc';
+  // Intent
+  res.isEV  =/valuat|estimate|worth|value|how much|price of|check value/i.test(raw);
+  res.isSrch=!res.isEV;
+  return res;
+}
+
+// ── RENDER HELPERS ──
+function harveyMsg(html,chips=[]){
+  document.getElementById('welcome')?.remove();
+  const d=document.createElement('div');d.className='msg-ai';
+  let ch=chips.length?`<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">${chips.map(c=>`<span class="chip" onclick="chipClick('${c.val.replace(/'/g,"\\'")}')">▶ ${c.label}</span>`).join('')}</div>`:'';
+  d.innerHTML=`<span class="mlbl">// HARVEY</span><div class="mbub">${html}${ch}</div>`;
+  msgsEl.appendChild(d);bot();
+}
+function userMsg(text){
+  document.getElementById('welcome')?.remove();
+  const d=document.createElement('div');d.className='msg-user';
+  d.innerHTML=`<div class="mbub">${esc(text)}</div>`;
+  msgsEl.appendChild(d);bot();
+  addRecent(text);qn++;document.getElementById('hnum').textContent=qn;
+}
+function thinkingMsg(){
+  const d=document.createElement('div');d.className='msg-ai';d.id='ti';
+  d.innerHTML=`<span class="mlbl">// HARVEY — SEARCHING</span><div class="mbub"><div class="typing"><div class="tdot"></div><div class="tdot"></div><div class="tdot"></div></div></div>`;
+  msgsEl.appendChild(d);bot();
+}
+function rmThinking(){document.getElementById('ti')?.remove()}
+function addRecent(text){
+  const empty=document.getElementById('rlist').querySelector('div[style]');if(empty)empty.remove();
+  const d=document.createElement('div');d.className='ritem';
+  d.innerHTML=`${esc(text.length>26?text.slice(0,26)+'…':text)}<span class="rp">▶</span><span class="rt">${new Date().toLocaleTimeString('en-SG',{hour12:false})}</span>`;
+  d.onclick=()=>chipClick(text);
+  document.getElementById('rlist').insertBefore(d,document.getElementById('rlist').firstChild);
+  if(document.getElementById('rlist').children.length>8)document.getElementById('rlist').lastChild.remove();
+}
+
+// ── SHOW RESULTS ──
+function showTransactions(recs,params,is6mo){
+  if(!recs||recs.length===0){
+    const msg='No transactions found, sir. Try a different town, street or flat type.';
+    harveyMsg(msg,[{label:'SEARCH AGAIN',val:'search'},{label:'CHECK VALUE',val:'estimate value'}]);
+    speak(msg);mode='menu';return;
+  }
+  const prices=recs.map(r=>Number(r.resale_price));
+  const sorted=[...prices].sort((a,b)=>a-b);
+  const median=sorted[Math.floor(sorted.length/2)];
+  const shown=recs.slice(0,10);
+  const timeNote=is6mo?'last 6 months':'full dataset';
+  const rows=shown.map(r=>`<tr>
+    <td>${esc(r.month)}</td>
     <td>BLK ${esc(r.block)} ${esc(r.street_name)}</td>
     <td>${esc(r.flat_type)}</td>
     <td>${esc(r.storey_range)}</td>
     <td>${esc(r.floor_area_sqm)}m²</td>
-    <td class="pc">$${parseInt(r.resale_price).toLocaleString()}</td>
-  </tr>`).join("");
-  const msg = H.found(records.length, params.town, params.flat_type);
-  const d = document.createElement("div"); d.className="msg-ai"; d.style.maxWidth="100%";
+    <td class="pc">${fmtP(r.resale_price)}</td>
+  </tr>`).join('');
+  const d=document.createElement('div');d.className='msg-ai';d.style.maxWidth='100%';
   d.innerHTML=`
-    <span class="mlbl">// ${records.length} RECORD${records.length!==1?"S":""}</span>
-    <div class="mbub">${msg}</div>
+    <span class="mlbl">// ${recs.length} TRANSACTION${recs.length!==1?'S':''} · ${timeNote.toUpperCase()}</span>
+    <div class="mbub">${recs.length} result${recs.length!==1?'s':''} — showing ${shown.length}${params.block?' for Blk '+params.block:''}${params.street?' on '+params.street:''}${params.town?' in '+params.town.charAt(0)+params.town.slice(1).toLowerCase():''}${params.flatType?' · '+params.flatType.toLowerCase():''}</div>
     <div class="rwrap">
       <div class="rcard">
         <div class="rh">
-          <span class="rtitle">⬡ ${esc((params.town||"ALL")+" · "+(params.flat_type||"ALL TYPES"))}</span>
-          <span class="rcnt">${records.length} RECORDS · ${shown.length} SHOWN</span>
+          <span class="rtitle">⬡ ${esc([(params.block?'BLK '+params.block:''),(params.street||''),(params.town||''),(params.flatType||'')].filter(Boolean).join(' · ').toUpperCase())}</span>
+          <span class="rcnt">${recs.length} RECORDS · ${timeNote.toUpperCase()}</span>
         </div>
         <div style="overflow-x:auto"><table>
-          <thead><tr><th>BLOCK &amp; STREET</th><th>TYPE</th><th>STOREY</th><th>AREA</th><th>PRICE</th></tr></thead>
+          <thead><tr><th>MONTH</th><th>BLOCK & STREET</th><th>TYPE</th><th>STOREY</th><th>AREA</th><th>PRICE</th></tr></thead>
           <tbody>${rows}</tbody>
         </table></div>
       </div>
       <div class="srow">
-        <div class="sc"><span class="svv">$${Math.round(median/1000)}K</span><span class="sll">MEDIAN</span></div>
-        <div class="sc"><span class="svv">$${Math.round(Math.min(...prices)/1000)}K</span><span class="sll">LOWEST</span></div>
-        <div class="sc"><span class="svv">$${Math.round(Math.max(...prices)/1000)}K</span><span class="sll">HIGHEST</span></div>
+        <div class="sc"><span class="svv">${fmtP(median)}</span><span class="sll">MEDIAN</span></div>
+        <div class="sc"><span class="svv">${fmtP(Math.min(...prices))}</span><span class="sll">LOWEST</span></div>
+        <div class="sc"><span class="svv">${fmtP(Math.max(...prices))}</span><span class="sll">HIGHEST</span></div>
       </div>
     </div>`;
-  msgsEl.appendChild(d); bot();
+  msgsEl.appendChild(d);bot();
+  const msg=`${recs.length} transaction${recs.length!==1?'s':''} found, sir. Median price ${fmtP(median)}.`;
   speak(msg);
-  setTimeout(()=>harveyMsg(H.more,[{label:"SEARCH AGAIN",val:"search"},{label:"CHECK VALUE",val:"valuation"},{label:"DIFFERENT TOWN",val:"different town"}]),1200);
-  mode="menu";
+  setTimeout(()=>harveyMsg('Anything else, sir?',[{label:'ESTIMATE VALUE',val:'estimate value'},{label:'SEARCH AGAIN',val:'search'},{label:'DIFFERENT TOWN',val:'different town'}]),1200);
+  mode='menu';
 }
 
-function showValuation(records, params){
-  if(!records||records.length===0){ harveyMsg(H.none); speak(H.none); mode="menu"; return; }
-  const prices = records.map(r=>parseInt(r.resale_price));
-  const sorted = [...prices].sort((a,b)=>a-b);
-  const median = sorted[Math.floor(sorted.length/2)];
-  const low    = Math.round(median*0.95/1000)*1000;
-  const high   = Math.round(median*1.05/1000)*1000;
-  const town   = params.town ? params.town.charAt(0)+params.town.slice(1).toLowerCase() : "";
-  const type   = params.flat_type ? params.flat_type.toLowerCase() : "";
-  const d = document.createElement("div"); d.className="msg-ai"; d.style.maxWidth="100%";
+function showEV(result,params){
+  if(result.type==='no_data'){
+    const noDataMsg=`I searched Block ${result.block} ${result.street} and the surrounding street for ${result.flatType} units around ${result.size} sqm in the last 12 months. ${result.count>0?`I found ${result.count} transaction${result.count>1?'s':''} but not enough for a reliable estimate.`:'No matching transactions were found.'} This area may have low transaction volume. Try the Transaction Search or visit BlockSense for more options.`;
+    const d=document.createElement('div');d.className='msg-ai';d.style.maxWidth='100%';
+    d.innerHTML=`<span class="mlbl">// NO SUFFICIENT DATA</span><div class="ev-none">${esc(noDataMsg)}<br><br><strong style="color:var(--c)">For more details, visit <a href="https://blocksense.estatrix.workers.dev" target="_blank" style="color:var(--c)">BlockSense</a> or chat with us on <a href="https://wa.me/6597531657" target="_blank" style="color:var(--g)">WhatsApp</a>.</strong></div>`;
+    msgsEl.appendChild(d);bot();
+    speak(`Not enough recent transactions found for Block ${result.block}, sir. You can visit BlockSense or chat with us for a more detailed assessment.`);
+    setTimeout(()=>harveyMsg('Would you like to try a broader search, sir?',[{label:'SEARCH BY STREET',val:`recent ${result.flatType||''} ${result.street||result.town||''}`},{label:'SEARCH BY TOWN',val:`recent ${result.flatType||''} ${result.town||''}`}]),1200);
+    mode='menu';return;
+  }
+  if(result.type==='no_floor_data'){
+    harveyMsg('Floor level data could not be read from available transactions, sir. Try the Transaction Search for this area.');
+    speak('Floor level data unavailable, sir.');mode='menu';return;
+  }
+  const warn12=result.lookbackUsed===12?`<div class="ev-warn">⚠ Based on last 12 months — not enough data in the last 6 months. Prices may have shifted. Treat as a directional guide only.<br><a href="https://wa.me/6597531657" target="_blank" style="color:var(--g);text-decoration:none">Chat with us for a more accurate valuation →</a></div>`:'';
+  const fallNote=result.fallbackLevel==='street'?`<br>⬡ Expanded to street level — not enough block-specific data`:'';
+  const d=document.createElement('div');d.className='msg-ai';d.style.maxWidth='100%';
   d.innerHTML=`
-    <span class="mlbl">// ESTIMATED VALUE</span>
-    <div class="mbub">Based on <strong>${records.length}</strong> recent transactions${town?" in <strong>"+town+"</strong>":""}${type?" · <strong>"+type+"</strong>":""}:</div>
-    <div class="srow" style="max-width:500px">
-      <div class="sc"><span class="svv" style="color:var(--c)">$${Math.round(low/1000)}K</span><span class="sll">LOW EST.</span></div>
-      <div class="sc"><span class="svv">$${Math.round(median/1000)}K</span><span class="sll">MEDIAN</span></div>
-      <div class="sc"><span class="svv" style="color:var(--a)">$${Math.round(high/1000)}K</span><span class="sll">HIGH EST.</span></div>
+    <span class="mlbl">// ESTIMATED VALUE · BLK ${esc(result.block)} ${esc(result.street)}</span>
+    <div class="ev-card">
+      ${warn12}
+      <div style="font-family:var(--mono);font-size:9px;color:var(--t2);letter-spacing:1px;margin-bottom:8px">
+        ${esc(result.flatType)} · FLOOR ${result.floor} · ${result.size}SQM · ${esc(result.town)}${fallNote}
+      </div>
+      <div class="ev-range">
+        <div><div class="ev-price low">${fmtP(result.priceLow)}</div><div class="ev-label">LOW EST.</div></div>
+        <div class="ev-arrow">──</div>
+        <div><div class="ev-price hi">${fmtP(result.priceHigh)}</div><div class="ev-label">HIGH EST.</div></div>
+      </div>
+      <div style="text-align:center;margin-bottom:8px">
+        <div class="ev-price mid">${fmtP(result.adjusted)}</div>
+        <div class="ev-label">ADJUSTED ESTIMATE</div>
+      </div>
+      <div class="ev-meta">
+        PSF RANGE: $${result.psfLow} – $${result.psfHigh} per sqft<br>
+        FLOOR PREMIUM: ~${fmtP(result.floorPrem)} per floor<br>
+        BASED ON: ${result.comps} comparable transaction${result.comps!==1?'s':''} (${result.fallbackLevel} level, last ${result.lookbackUsed} months)<br>
+        REF COMP: Blk ${esc(result.refComp.block)} ${esc(result.refComp.street_name)} · ${esc(result.refComp.storey_range)} · ${fmtP(result.refComp.resale_price)}
+      </div>
     </div>`;
-  msgsEl.appendChild(d); bot();
-  const msg = H.valResult(median,low,high,records.length);
-  speak(msg);
-  setTimeout(()=>harveyMsg(H.more,[{label:"SEE TRANSACTIONS",val:"show transactions "+(params.town||"")+" "+(params.flat_type||"")},{label:"SEARCH AGAIN",val:"search"},{label:"DIFFERENT FLAT",val:"valuation"}]),1200);
-  mode="menu";
+  msgsEl.appendChild(d);bot();
+  const voiceMsg=`Estimated value for Block ${result.block}, floor ${result.floor}, is between ${fmtP(result.priceLow)} and ${fmtP(result.priceHigh)}, sir. Adjusted estimate is ${fmtP(result.adjusted)}.`;
+  speak(voiceMsg);
+  setTimeout(()=>harveyMsg('Anything else, sir?',[{label:'SEE TRANSACTIONS',val:`recent ${result.flatType||''} ${result.block?'block '+result.block:''} ${result.street||result.town||''}`},{label:'ESTIMATE ANOTHER',val:'estimate value'},{label:'DIFFERENT FLOOR',val:`value block ${result.block} ${result.street} floor`}]),1400);
+  mode='menu';
 }
 
-// ── QUERY PARSER ──
-const TOWNS=["ANG MO KIO","BEDOK","BISHAN","BUKIT BATOK","BUKIT MERAH","BUKIT PANJANG","BUKIT TIMAH","CENTRAL AREA","CHOA CHU KANG","CLEMENTI","GEYLANG","HOUGANG","JURONG EAST","JURONG WEST","KALLANG/WHAMPOA","MARINE PARADE","PASIR RIS","PUNGGOL","QUEENSTOWN","SEMBAWANG","SENGKANG","SERANGOON","TAMPINES","TOA PAYOH","WOODLANDS","YISHUN"];
-const FLAT_ALIASES={"1-ROOM":"1 ROOM","2-ROOM":"2 ROOM","3-ROOM":"3 ROOM","4-ROOM":"4 ROOM","5-ROOM":"5 ROOM","1RM":"1 ROOM","2RM":"2 ROOM","3RM":"3 ROOM","4RM":"4 ROOM","5RM":"5 ROOM","EXEC":"EXECUTIVE","1 ROOM":"1 ROOM","2 ROOM":"2 ROOM","3 ROOM":"3 ROOM","4 ROOM":"4 ROOM","5 ROOM":"5 ROOM","EXECUTIVE":"EXECUTIVE"};
-
-function extractTown(q){ for(const t of TOWNS){if(q.includes(t))return t} return null }
-function extractFlat(q){ for(const[a,v]of Object.entries(FLAT_ALIASES)){if(q.includes(a))return v} return null }
-function extractPrices(raw){
-  const res={};
-  const u=raw.match(/(?:under|below|less|max|<)\s*\$?([\d,]+)k?/i);
-  if(u){let v=parseInt(u[1].replace(/,/g,""));if(/k/i.test(u[0])||v<10000)v*=1000;res.max_price=v}
-  const o=raw.match(/(?:above|over|more|min|>)\s*\$?([\d,]+)k?/i);
-  if(o){let v=parseInt(o[1].replace(/,/g,""));if(/k/i.test(o[0])||v<10000)v*=1000;res.min_price=v}
-  if(/cheap|lowest|affordable/i.test(raw))res.sort="asc";
-  if(/expensive|highest|top price/i.test(raw))res.sort="desc";
-  return res;
+// ── MISSING INFO PROMPTS (mirrors BlockSense EV page) ──
+function promptMissing(ctx){
+  if(ctx.isEV){
+    if(!ctx.town){harveyMsg('Which town is the flat in, sir?');speak('Which town, sir?');mode='ev_needtown';return;}
+    if(!ctx.flatType){harveyMsg('What flat type, sir?',flatTypeChips());speak('What flat type, sir?');mode='ev_needtype';return;}
+    if(!ctx.street){harveyMsg('Which street, sir? For example, Tampines Street 21 or Bishan Street 12.');speak('Which street, sir?');mode='ev_needstreet';return;}
+    if(!ctx.block){harveyMsg('What is the block number, sir?');speak('Block number, sir?');mode='ev_needblock';return;}
+    if(!ctx.floor){harveyMsg('Which floor level, sir?');speak('Which floor, sir?');mode='ev_needfloor';return;}
+    if(!ctx.size){harveyMsg('What is the floor area in square metres, sir? For example, 93 sqm.');speak('Floor area in square metres, sir?');mode='ev_needsize';return;}
+    runEV();
+  } else {
+    if(!ctx.town&&!ctx.street&&!ctx.block){harveyMsg('Which town or street are you searching, sir?');speak('Which town, sir?');mode='srch_needtown';return;}
+    runSearch();
+  }
 }
 
-// ── DATA FETCH ──
-async function fetchHDB(params){
-  const filters={};
-  if(params.town) filters.town=params.town;
-  if(params.flat_type) filters.flat_type=params.flat_type;
-  if(params.block) filters.block=params.block;
-  let url=`${API}?resource_id=${DATASET}&limit=200`;
-  if(Object.keys(filters).length) url+=`&filters=${encodeURIComponent(JSON.stringify(filters))}`;
-  const t0=Date.now();
-  const r=await fetch(url);
-  document.getElementById("lat").textContent=(Date.now()-t0)+"ms";
-  const data=await r.json();
-  let recs=data?.result?.records||[];
-  if(params.max_price)recs=recs.filter(r=>parseInt(r.resale_price)<=params.max_price);
-  if(params.min_price)recs=recs.filter(r=>parseInt(r.resale_price)>=params.min_price);
-  if(params.sort==="asc")recs.sort((a,b)=>parseInt(a.resale_price)-parseInt(b.resale_price));
-  else if(params.sort==="desc")recs.sort((a,b)=>parseInt(b.resale_price)-parseInt(a.resale_price));
-  else recs.sort((a,b)=>(b.month||"").localeCompare(a.month||""));
-  return recs;
+function flatTypeChips(){return[{label:'3-ROOM',val:'3-room'},{label:'4-ROOM',val:'4-room'},{label:'5-ROOM',val:'5-room'},{label:'EXECUTIVE',val:'executive'}];}
+
+async function runEV(){
+  loading=true;sbEl.disabled=true;
+  speak(rand(['Stand by, sir.','Computing estimate, sir.','Accessing records, sir.']));
+  thinkingMsg();
+  await new Promise(r=>setTimeout(r,300));
+  const result=computeEstimate(ctx);
+  rmThinking();
+  showEV(result,ctx);
+  loading=false;sbEl.disabled=false;
 }
 
-async function doSearch(){ speak(rand(H.searching)); thinkingMsg(); try{ const r=await fetchHDB(ctx); rmThinking(); showResultsTable(r,ctx); }catch(e){ rmThinking(); harveyMsg(H.err); speak(H.err); } loading=false; sbEl.disabled=false; }
-async function doVal()   { speak(rand(H.searching)); thinkingMsg(); try{ const r=await fetchHDB(ctx); rmThinking(); showValuation(r,ctx);  }catch(e){ rmThinking(); harveyMsg(H.err); speak(H.err); } loading=false; sbEl.disabled=false; }
+async function runSearch(){
+  loading=true;sbEl.disabled=true;
+  speak(rand(['Stand by, sir.','Searching records, sir.','One moment, sir.']));
+  thinkingMsg();
+  await new Promise(r=>setTimeout(r,200));
+  const recs=searchTransactions(ctx);
+  const cutoff=evCutoff(6);
+  const is6mo=recs.length>0&&recs.some(r=>r.month>=cutoff);
+  rmThinking();
+  showTransactions(recs,ctx,is6mo);
+  loading=false;sbEl.disabled=false;
+}
 
 // ── MAIN INPUT HANDLER ──
 async function handleInput(){
-  const raw = ciEl.value.trim();
-  if(!raw||loading) return;
-  loading=true; sbEl.disabled=true;
-  ciEl.value=""; ciEl.style.height="auto";
+  const raw=ciEl.value.trim();
+  if(!raw||loading)return;
+  loading=true;sbEl.disabled=true;
+  ciEl.value='';ciEl.style.height='auto';
   resetIdle();
   userMsg(raw);
-  const q = raw.toUpperCase();
-  const town  = extractTown(q);
-  const flat  = extractFlat(q);
-  const prices= extractPrices(raw);
-  const isVal = /valuat|estimate|worth|value|price of|how much|check value|estimated/i.test(raw);
-  const isSrc = /transact|recent|sale|sold|search|show|find|list|cheap|expens|record|resale/i.test(raw);
+  const q=raw.toUpperCase();
 
-  if(mode==="search_needtown"||mode==="search_needtype"){
-    if(town) ctx.town=town;
-    if(flat) ctx.flat_type=flat;
-    Object.assign(ctx,prices);
-    if(ctx.town&&ctx.flat_type){ await doSearch(); }
-    else if(ctx.town){ harveyMsg(H.askFlatType,[{label:"3-ROOM",val:"3-room"},{label:"4-ROOM",val:"4-room"},{label:"5-ROOM",val:"5-room"},{label:"EXECUTIVE",val:"executive"},{label:"ANY TYPE",val:"any"}]); speak(H.askFlatType); mode="search_needtype"; loading=false; sbEl.disabled=false; }
-    else{ harveyMsg(H.askTown); speak(H.askTown); mode="search_needtown"; loading=false; sbEl.disabled=false; }
-    return;
-  }
-  if(mode==="val_needtown"||mode==="val_needtype"){
-    if(town) ctx.town=town;
-    if(flat) ctx.flat_type=flat;
-    if(ctx.town&&ctx.flat_type){ await doVal(); }
-    else if(ctx.town){ harveyMsg(H.askValType,[{label:"3-ROOM",val:"3-room"},{label:"4-ROOM",val:"4-room"},{label:"5-ROOM",val:"5-room"},{label:"EXECUTIVE",val:"executive"}]); speak(H.askValType); mode="val_needtype"; loading=false; sbEl.disabled=false; }
-    else{ harveyMsg(H.askValTown); speak(H.askValTown); mode="val_needtown"; loading=false; sbEl.disabled=false; }
-    return;
+  if(!DB.loaded){harveyMsg('Still loading data, sir. One moment...');loading=false;sbEl.disabled=false;return;}
+
+  // ── Fill ctx from current input based on mode ──
+  const parsed=parseQuery(raw);
+
+  // Mode-specific handlers
+  if(mode==='ev_needtown'){if(parsed.town)ctx.town=parsed.town;else{harveyMsg('Town not recognised, sir. Please try again — e.g. Tampines, Bishan, Queenstown.');loading=false;sbEl.disabled=false;return;}}
+  else if(mode==='ev_needtype'){if(parsed.flatType)ctx.flatType=parsed.flatType;else{harveyMsg('Please specify flat type, sir.',flatTypeChips());loading=false;sbEl.disabled=false;return;}}
+  else if(mode==='ev_needstreet'){ctx.street=q.replace(/^(STREET|ST|ON|AT|IN)\s*/,'').trim()||raw.toUpperCase();}
+  else if(mode==='ev_needblock'){const b=q.match(/(\d+[A-Z]?)/);if(b)ctx.block=b[1];else{harveyMsg('Block number not found, sir. Please enter just the block number.');loading=false;sbEl.disabled=false;return;}}
+  else if(mode==='ev_needfloor'){const f=q.match(/(\d+)/);if(f)ctx.floor=Number(f[1]);else{harveyMsg('Floor number not found, sir. Please enter a number e.g. 8.');loading=false;sbEl.disabled=false;return;}}
+  else if(mode==='ev_needsize'){const s=q.match(/(\d+)/);if(s)ctx.size=Number(s[1]);else{harveyMsg('Please enter floor area in sqm, sir. e.g. 93');loading=false;sbEl.disabled=false;return;}}
+  else if(mode==='srch_needtown'){if(parsed.town)ctx.town=parsed.town;if(parsed.street)ctx.street=parsed.street;if(parsed.block)ctx.block=parsed.block;}
+  else {
+    // Free mode — parse full query
+    ctx={...parsed};
   }
 
-  // Free-flow: detect intent from natural language
-  if(isVal){
-    ctx={...prices}; if(town)ctx.town=town; if(flat)ctx.flat_type=flat;
-    if(ctx.town&&ctx.flat_type){ await doVal(); }
-    else if(ctx.town){ harveyMsg(H.askValType,[{label:"3-ROOM",val:"3-room"},{label:"4-ROOM",val:"4-room"},{label:"5-ROOM",val:"5-room"},{label:"EXECUTIVE",val:"executive"}]); speak(H.askValType); mode="val_needtype"; loading=false; sbEl.disabled=false; }
-    else{ harveyMsg(H.askValTown); speak(H.askValTown); mode="val_needtown"; loading=false; sbEl.disabled=false; }
-    return;
+  // Now route
+  if(mode.startsWith('ev_')||ctx.isEV){
+    ctx.isEV=true;
+    mode=mode.startsWith('ev_')?mode:'ev';
+    promptMissing(ctx);
+  } else if(/^(hi|hello|hey|good|morning|afternoon|evening)/i.test(raw)){
+    harveyMsg('Good day, sir. What would you like to know?',[{label:'RESALE TRANSACTIONS',val:'search'},{label:'ESTIMATE VALUE',val:'estimate value'}]);
+    speak('Good day, sir. What would you like to know?');mode='menu';loading=false;sbEl.disabled=false;
+  } else if(/transact|search|recent|sales?|sold/i.test(raw)||ctx.town||ctx.street||ctx.block){
+    ctx.isEV=false;mode='srch';
+    promptMissing(ctx);
+  } else {
+    harveyMsg('How can I help, sir?',[{label:'RESALE TRANSACTIONS',val:'search'},{label:'ESTIMATE VALUE',val:'estimate value'}]);
+    speak('How can I help, sir?');mode='menu';loading=false;sbEl.disabled=false;
   }
-  if(isSrc||town||flat){
-    ctx={...prices}; if(town)ctx.town=town; if(flat)ctx.flat_type=flat;
-    if(ctx.town&&ctx.flat_type){ await doSearch(); }
-    else if(ctx.town){ harveyMsg(H.askFlatType,[{label:"3-ROOM",val:"3-room"},{label:"4-ROOM",val:"4-room"},{label:"5-ROOM",val:"5-room"},{label:"EXECUTIVE",val:"executive"},{label:"ANY TYPE",val:"any"}]); speak(H.askFlatType); mode="search_needtype"; loading=false; sbEl.disabled=false; }
-    else{ harveyMsg(H.askTown); speak(H.askTown); mode="search_needtown"; loading=false; sbEl.disabled=false; }
-    return;
-  }
-  // Greetings → show two options as chips, Harvey says minimal
-  if(/^(hi|hello|hey|morning|afternoon|evening|yo|sup|good)/i.test(raw)){
-    harveyMsg(H.menuPrompt,[{label:"RESALE TRANSACTIONS",val:"search"},{label:"ESTIMATED VALUE",val:"valuation"}]);
-    speak(H.menuPrompt); mode="menu"; loading=false; sbEl.disabled=false; return;
-  }
-  if(/search|transactions?/i.test(raw)){
-    ctx={}; harveyMsg(H.askTown); speak(H.askTown); mode="search_needtown"; loading=false; sbEl.disabled=false; return;
-  }
-  if(/valuat|value|estimate|check/i.test(raw)){
-    ctx={}; harveyMsg(H.askValTown); speak(H.askValTown); mode="val_needtown"; loading=false; sbEl.disabled=false; return;
-  }
-  if(/any|skip/i.test(raw)&&(mode==="search_needtype"||mode==="val_needtype")){
-    if(mode==="search_needtype") await doSearch();
-    else await doVal();
-    return;
-  }
-  // Total fallback — prompt with two options
-  harveyMsg("How can I help, sir?",[{label:"RESALE TRANSACTIONS",val:"search"},{label:"ESTIMATED VALUE",val:"valuation"}]);
-  speak("How can I help, sir?"); mode="menu"; loading=false; sbEl.disabled=false;
+
+  if(!mode.match(/need/))loading=false,sbEl.disabled=false;
+  if(mode.match(/need/))loading=false,sbEl.disabled=false;
 }
 
-function chipClick(val){ ciEl.value=val; handleInput(); }
-function sendQuick(t){ ciEl.value=t; handleInput(); }
-function sendMessage(){ handleInput(); }
+function chipClick(val){ciEl.value=val;handleInput();}
+function sendMessage(){handleInput();}
 
 // ── IDLE TIMER ──
-const IDLE_MS = 10*60*1000;
-let idleTimer=null, isIdle=false;
-
-function resetIdle(){
-  if(isIdle) wakeFromIdle();
-  isIdle=false; clearTimeout(idleTimer);
-  idleTimer=setTimeout(goIdle,IDLE_MS);
-}
+const IDLE_MS=10*60*1000;let idleTimer=null,isIdle=false;
+function resetIdle(){if(isIdle)wakeFromIdle();isIdle=false;clearTimeout(idleTimer);idleTimer=setTimeout(goIdle,IDLE_MS);}
 function goIdle(){
-  if(isIdle)return; isIdle=true;
-  if(currentAudio){currentAudio.pause();currentAudio=null;}
-  window.speechSynthesis.cancel();
-  const d=document.createElement("div"); d.id="idle-overlay";
-  d.style.cssText="position:fixed;inset:0;background:rgba(3,8,15,0.93);z-index:8888;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;cursor:pointer";
-  d.innerHTML=`
-    <div style="position:relative;width:160px;height:160px;display:flex;align-items:center;justify-content:center">
-      <svg style="position:absolute;inset:0;width:100%;height:100%" viewBox="0 0 160 160" fill="none">
-        <circle cx="80" cy="80" r="72" stroke="rgba(0,212,255,0.12)" stroke-width="1" stroke-dasharray="4 4" style="animation:spin 20s linear infinite"/>
-        <circle cx="80" cy="80" r="60" stroke="rgba(0,212,255,0.2)" stroke-width="1.5" stroke-dasharray="8 3" style="animation:spin 12s linear infinite reverse"/>
-        <circle cx="80" cy="80" r="48" stroke="rgba(0,212,255,0.35)" stroke-width="2" style="animation:spin 7s linear infinite"/>
-        <circle cx="80" cy="80" r="36" stroke="rgba(0,212,255,0.55)" stroke-width="2.5" stroke-dasharray="3 5" style="animation:spin 4s linear infinite reverse"/>
-        <circle cx="80" cy="80" r="24" stroke="rgba(0,212,255,0.7)" stroke-width="1.5"/>
-        <circle cx="80" cy="80" r="24" stroke="rgba(0,212,255,0.07)" stroke-width="16" fill="none"/>
-        <g stroke="rgba(0,212,255,0.5)" stroke-width="1.5"><line x1="80" y1="4" x2="80" y2="14"/><line x1="80" y1="146" x2="80" y2="156"/><line x1="4" y1="80" x2="14" y2="80"/><line x1="146" y1="80" x2="156" y2="80"/></g>
-        <circle cx="80" cy="4" r="3" fill="rgba(0,212,255,0.8)"/><circle cx="80" cy="156" r="3" fill="rgba(0,212,255,0.6)"/>
-        <circle cx="4" cy="80" r="3" fill="rgba(0,212,255,0.6)"/><circle cx="156" cy="80" r="3" fill="rgba(0,212,255,0.8)"/>
-      </svg>
-      <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center">
-        <div style="font-family:'Orbitron',monospace;font-size:13px;font-weight:700;color:rgba(0,212,255,0.35);letter-spacing:4px">HARVEY</div>
-        <div style="font-family:'Share Tech Mono',monospace;font-size:8px;color:rgba(0,212,255,0.2);letter-spacing:2px;margin-top:4px">STANDBY</div>
-      </div>
-    </div>
-    <div style="font-family:'Share Tech Mono',monospace;font-size:11px;color:rgba(0,212,255,0.3);letter-spacing:2px;animation:idlepulse 3s ease-in-out infinite">SYSTEM IDLE</div>
-    <div style="font-family:'Share Tech Mono',monospace;font-size:9px;color:rgba(0,212,255,0.18);letter-spacing:1px">CLICK ANYWHERE · SAY "WAKE UP HARVEY"</div>
-    <style>@keyframes idlepulse{0%,100%{opacity:.25}50%{opacity:.7}}</style>`;
-  d.onclick=wakeFromIdle;
-  document.body.appendChild(d);
-  setTimeout(()=>speak(rand(H.idle)),300);
+  if(isIdle)return;isIdle=true;
+  if(currentAudio){currentAudio.pause();currentAudio=null;}window.speechSynthesis.cancel();
+  const d=document.createElement('div');d.id='idle-overlay';
+  d.style.cssText='position:fixed;inset:0;background:rgba(3,8,15,0.93);z-index:8888;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;cursor:pointer';
+  d.innerHTML=`<div style="position:relative;width:160px;height:160px;display:flex;align-items:center;justify-content:center">
+    <svg style="position:absolute;inset:0;width:100%;height:100%" viewBox="0 0 160 160" fill="none">
+      <circle cx="80" cy="80" r="72" stroke="rgba(0,212,255,0.12)" stroke-width="1" stroke-dasharray="4 4" style="animation:spin 20s linear infinite"/>
+      <circle cx="80" cy="80" r="60" stroke="rgba(0,212,255,0.2)" stroke-width="1.5" stroke-dasharray="8 3" style="animation:spin 12s linear infinite reverse"/>
+      <circle cx="80" cy="80" r="48" stroke="rgba(0,212,255,0.35)" stroke-width="2" style="animation:spin 7s linear infinite"/>
+      <circle cx="80" cy="80" r="36" stroke="rgba(0,212,255,0.55)" stroke-width="2.5" stroke-dasharray="3 5" style="animation:spin 4s linear infinite reverse"/>
+      <circle cx="80" cy="80" r="24" stroke="rgba(0,212,255,0.7)" stroke-width="1.5"/>
+    </svg>
+    <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center">
+      <div style="font-family:'Orbitron',monospace;font-size:13px;font-weight:700;color:rgba(0,212,255,0.35);letter-spacing:4px">HARVEY</div>
+      <div style="font-family:'Share Tech Mono',monospace;font-size:8px;color:rgba(0,212,255,0.2);letter-spacing:2px;margin-top:4px">STANDBY</div>
+    </div></div>
+  <div style="font-family:'Share Tech Mono',monospace;font-size:11px;color:rgba(0,212,255,0.3);letter-spacing:2px;animation:idlepulse 3s ease-in-out infinite">SYSTEM IDLE</div>
+  <div style="font-family:'Share Tech Mono',monospace;font-size:9px;color:rgba(0,212,255,0.18);letter-spacing:1px">CLICK ANYWHERE · SAY "WAKE UP HARVEY"</div>
+  <style>@keyframes idlepulse{0%,100%{opacity:.25}50%{opacity:.7}}</style>`;
+  d.onclick=wakeFromIdle;document.body.appendChild(d);
+  setTimeout(()=>speak(rand(['Going to standby, sir.','Entering idle mode, sir.'])),300);
 }
 function wakeFromIdle(){
-  if(!isIdle)return; isIdle=false;
-  document.getElementById("idle-overlay")?.remove();
-  resetIdle();
-  const msg=rand(H.wakeUp);
-  harveyMsg(msg,[{label:"RESALE TRANSACTIONS",val:"search"},{label:"ESTIMATED VALUE",val:"valuation"}]);
-  speak(msg); mode="menu";
+  if(!isIdle)return;isIdle=false;document.getElementById('idle-overlay')?.remove();resetIdle();
+  const msg=rand(['Welcome back, sir.','Systems active, sir.','Ready, sir.']);
+  harveyMsg(msg,[{label:'RESALE TRANSACTIONS',val:'search'},{label:'ESTIMATE VALUE',val:'estimate value'}]);
+  speak(msg);mode='menu';
 }
-document.addEventListener("mousemove",resetIdle,{passive:true});
-document.addEventListener("keydown",resetIdle,{passive:true});
-document.addEventListener("click",resetIdle,{passive:true});
-document.addEventListener("touchstart",resetIdle,{passive:true});
+document.addEventListener('mousemove',resetIdle,{passive:true});
+document.addEventListener('keydown',resetIdle,{passive:true});
+document.addEventListener('click',resetIdle,{passive:true});
+document.addEventListener('touchstart',resetIdle,{passive:true});
 
-// ── WAKE WORD LISTENER ──
-const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-const mbEl  = document.getElementById("mb");
-const vsEl  = document.getElementById("vs");
-const vsTxt = document.getElementById("vs-txt");
-const vsSup = document.getElementById("vs-sup");
-let micActive=false, recog=null, wakeEnabled=false;
+// ── SINGLE MIC STATE MACHINE ──
+const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+const mbEl=document.getElementById('mb');
+const vsBar=document.getElementById('vs-bar');
+const vsTxt=document.getElementById('vs-txt');
+const vsSup=document.getElementById('vs-sup');
+let micState='off',recog=null,recogBusy=false;
+
+function buildRecog(){
+  if(!SR)return null;
+  const r=new SR();r.continuous=false;r.interimResults=true;r.lang='en-SG';
+  r.onstart=()=>{recogBusy=true;if(micState==='query'){mbEl.classList.add('active');vsBar.style.display='flex';vsTxt.textContent='HARVEY LISTENING…';}};
+  r.onresult=e=>{
+    let interim='',final='';
+    for(let i=e.resultIndex;i<e.results.length;i++){if(e.results[i].isFinal)final+=e.results[i][0].transcript;else interim+=e.results[i][0].transcript;}
+    const heard=(final||interim).trim();
+    if(micState==='wake'){
+      if(/wake.?up.?harvey|hey.?harvey|ok.?harvey/i.test(heard)){
+        if(isIdle){wakeFromIdle();}
+        else{const rep=rand(['Yes sir.','At your service, sir.','Go ahead, sir.']);harveyMsg(rep,[{label:'RESALE TRANSACTIONS',val:'search'},{label:'ESTIMATE VALUE',val:'estimate value'}]);speak(rep);mode='menu';setTimeout(()=>{micState='query';safeStart();},1200);}
+        resetIdle();
+      }
+    } else if(micState==='query'){
+      if(interim){vsTxt.textContent='HEARD: '+interim.toUpperCase();ciEl.value=interim;}
+      if(final){ciEl.value=final;vsTxt.textContent='HEARD: '+final.toUpperCase();setTimeout(()=>handleInput(),350);}
+    }
+  };
+  r.onerror=e=>{recogBusy=false;if(e.error==='not-allowed'||e.error==='service-not-allowed'){vsSup.textContent='MIC BLOCKED — allow in browser';vsSup.style.color='var(--r)';micState='off';return;}if(micState!=='off')setTimeout(()=>safeStart(),1200);};
+  r.onend=()=>{recogBusy=false;mbEl.classList.remove('active');vsBar.style.display='none';if(micState==='wake'){setTimeout(()=>safeStart(),300);}else if(micState==='query'){micState='wake';setTimeout(()=>safeStart(),600);}};
+  return r;
+}
+function safeStart(){if(recogBusy||micState==='off'||!SR)return;recog=buildRecog();try{recog.start();}catch(e){setTimeout(()=>safeStart(),1500);}}
+function toggleMic(){if(!SR){alert('Use Chrome or Edge for voice');return;}if(micState==='query'){micState='wake';try{recog?.abort();}catch(e){}}else{micState='query';try{recog?.abort();}catch(e){}setTimeout(()=>safeStart(),200);}}
 
 if(SR){
-  vsSup.textContent='SAY "WAKE UP HARVEY" OR CLICK 🎤'; vsSup.style.color="var(--g)";
+  vsSup.textContent='SAY "WAKE UP HARVEY" OR CLICK 🎤';vsSup.style.color='var(--g)';
+  micState='wake';setTimeout(()=>safeStart(),3000);
+}else{mbEl.style.display='none';vsSup.textContent='USE CHROME/EDGE FOR VOICE';vsSup.style.color='var(--a)';}
 
-  // Main mic
-  recog=new SR(); recog.continuous=false; recog.interimResults=true; recog.lang="en-SG";
-  recog.onstart=()=>{ micActive=true; mbEl.classList.add("active"); vsEl.style.display="flex"; vsTxt.textContent="HARVEY LISTENING…"; speak("Listening."); };
-  recog.onresult=e=>{
-    let interim="",final="";
-    for(let i=e.resultIndex;i<e.results.length;i++){ if(e.results[i].isFinal)final+=e.results[i][0].transcript; else interim+=e.results[i][0].transcript; }
-    ciEl.value=final||interim;
-    vsTxt.textContent="HEARD: "+(final||interim).toUpperCase();
-    if(final)setTimeout(()=>handleInput(),400);
-  };
-  recog.onerror=e=>{ vsTxt.textContent="MIC ERROR: "+e.error.toUpperCase(); setTimeout(stopMic,1500); };
-  recog.onend=stopMic;
-
-  // Wake word — always-on background loop
-  function startWakeListener(){
-    if(wakeEnabled)return; wakeEnabled=true;
-    (function loop(){
-      if(!wakeEnabled)return;
-      const wr=new SR(); wr.continuous=false; wr.interimResults=false; wr.lang="en-SG";
-      wr.onresult=e=>{
-        const said=(e.results[e.results.length-1][0].transcript||"").toLowerCase();
-        if(/wake.?up.?harvey|hey.?harvey|ok.?harvey|harvey.?wake/i.test(said)){
-          if(isIdle) wakeFromIdle();
-          else{ const r=rand(H.wakeReply); harveyMsg(r,[{label:"RESALE TRANSACTIONS",val:"search"},{label:"ESTIMATED VALUE",val:"valuation"}]); speak(r); mode="menu"; setTimeout(startMic,1000); }
-          resetIdle();
-        }
-      };
-      wr.onerror=()=>{};
-      wr.onend=()=>{ if(wakeEnabled)setTimeout(loop,600); };
-      try{ wr.start(); }catch(e){ if(wakeEnabled)setTimeout(loop,2000); }
-    })();
-  }
-  startWakeListener();
-}else{
-  mbEl.style.display="none";
-  vsSup.textContent="USE CHROME/EDGE FOR VOICE"; vsSup.style.color="var(--a)";
-}
-function toggleMic(){ if(!recog)return; micActive?stopMic():startMic(); }
-function startMic(){ try{ recog.start(); }catch(e){} }
-function stopMic(){ micActive=false; mbEl.classList.remove("active"); vsEl.style.display="none"; try{ recog.stop(); }catch(e){} }
-
-// ── BOOT SEQUENCE ──
-window.addEventListener("load",()=>{
+// ── BOOT ──
+window.addEventListener('load',async()=>{
   setTimeout(()=>{
-    document.getElementById("welcome")?.remove();
-    const boot=document.createElement("div"); boot.className="msg-ai";
+    document.getElementById('welcome')?.remove();
+    const boot=document.createElement('div');boot.className='msg-ai';
     boot.innerHTML=`<span class="mlbl">// SYSTEM BOOT</span>
       <div class="mbub" style="font-family:var(--mono);font-size:11px;line-height:2.2;color:var(--t2)">
         <span style="color:var(--g)">▸</span> HARVEY ONLINE<br>
-        <span style="color:var(--g)">▸</span> DATA.GOV.SG CONNECTED<br>
-        <span style="color:var(--g)">▸</span> HDB RESALE DATABASE READY<br>
+        <span style="color:var(--g)">▸</span> BLOCKSENSE DATABASE CONNECTING<br>
+        <span style="color:var(--g)">▸</span> HDB RESALE ENGINE READY<br>
         <span style="color:var(--g)">▸</span> VOICE ENGINE LOADED<br>
         <span style="color:var(--c)">▸</span> <strong style="color:var(--c)">ALL SYSTEMS ONLINE</strong>
       </div>`;
-    msgsEl.appendChild(boot); bot();
-    speak(rand(H.boot));
+    msgsEl.appendChild(boot);bot();
+    speak(rand(['Good day, sir.','Welcome back, sir.','Harvey online, sir.']));
   },400);
 
-  // Greeting + two options — no question, just chips
+  // Load data in background
+  const ok=await loadData();
+
   setTimeout(()=>{
-    harveyMsg("What would you like to do, sir?",[
-      {label:"RESALE TRANSACTIONS",val:"search"},
-      {label:"ESTIMATED VALUE",val:"valuation"}
-    ]);
-    resetIdle();
-    mode="menu";
+    if(ok){
+      harveyMsg(`What would you like to do, sir? I have <strong>${DB.resale.length.toLocaleString()}</strong> HDB resale transactions ready.`,[
+        {label:'RESALE TRANSACTIONS',val:'search'},
+        {label:'ESTIMATE VALUE',val:'estimate value'}
+      ]);
+    } else {
+      harveyMsg('Data connection failed, sir. Please refresh the page.',[]);
+    }
+    resetIdle();mode='menu';
   },2600);
 });
 </script>
