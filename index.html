@@ -383,7 +383,7 @@ const SHEET_URLS = {
 // ElevenLabs via Puter.js — swap VOICE_ID to Asher once you have it
 // Current: nPczCjzI2devNBz1zQrb (Daniel — British, deep, authoritative)
 const VOICE_ID   = 'nPczCjzI2devNBz1zQrb';
-const VOICE_SPEED = 1.5;
+const VOICE_SPEED = 1.275; // 1.5 × 0.85 as requested
 
 const DB = { resale:[], townStreets:{}, loaded:false };
 let loading=false, qn=0, voiceOn=true, currentAudio=null;
@@ -600,46 +600,94 @@ function searchTransactions(params){
 // ── QUERY PARSER ──
 const TOWNS=['ANG MO KIO','BEDOK','BISHAN','BUKIT BATOK','BUKIT MERAH','BUKIT PANJANG','BUKIT TIMAH','CENTRAL AREA','CHOA CHU KANG','CLEMENTI','GEYLANG','HOUGANG','JURONG EAST','JURONG WEST','KALLANG/WHAMPOA','MARINE PARADE','PASIR RIS','PUNGGOL','QUEENSTOWN','SEMBAWANG','SENGKANG','SERANGOON','TAMPINES','TOA PAYOH','WOODLANDS','YISHUN'];
 const FLAT_MAP={'1-ROOM':'1 ROOM','2-ROOM':'2 ROOM','3-ROOM':'3 ROOM','4-ROOM':'4 ROOM','5-ROOM':'5 ROOM','1RM':'1 ROOM','2RM':'2 ROOM','3RM':'3 ROOM','4RM':'4 ROOM','5RM':'5 ROOM','EXEC':'EXECUTIVE','EXECUTIVE':'EXECUTIVE','1 ROOM':'1 ROOM','2 ROOM':'2 ROOM','3 ROOM':'3 ROOM','4 ROOM':'4 ROOM','5 ROOM':'5 ROOM'};
-
-// Typical floor area by flat type (median from BlockSense data)
 const TYPICAL_SIZE={'1 ROOM':33,'2 ROOM':45,'3 ROOM':68,'4 ROOM':93,'5 ROOM':113,'EXECUTIVE':144,'MULTI-GENERATION':155};
 
-// Reverse lookup: street → town + blocks from loaded DB
+// ── Singlish / phonetic fuzzy town matching ──
+const TOWN_ALIASES={
+  'CLEMENTI':['CLEMENTE','CLEMENTY','CLEMENT','CLEMEN','KLIMENTI'],
+  'ANG MO KIO':['ANG MO KEO','ANGMOKIO','AMK','ANG MO KION'],
+  'TOA PAYOH':['TOA PAYO','TOAPAYOH','TOA PAY OH'],
+  'KALLANG/WHAMPOA':['KALLANG','WHAMPOA','KALLANG WHAMPOA'],
+  'CHOA CHU KANG':['CHOA CHU KENG','CCK','CHUA CHU KANG'],
+  'BUKIT TIMAH':['BUKIT TIMA','BUKIT TEMAH','BUKIT TIMAH'],
+  'BUKIT BATOK':['BUKIT BATOH'],
+  'QUEENSTOWN':['QUEENS TOWN'],
+  'PASIR RIS':['PASIR RISE'],
+  'JURONG EAST':['JURONG EST'],
+  'CENTRAL AREA':['CENTRAL AREA','CITY HALL','TANJONG PAGAR'],
+  'BUKIT MERAH':['BUKIT MERA','BUKIT MEREH'],
+};
+
+function fuzzyMatchTown(q){
+  const uq=q.toUpperCase();
+  for(const t of TOWNS){if(uq.includes(t))return t;}
+  for(const[town,aliases]of Object.entries(TOWN_ALIASES)){if(aliases.some(a=>uq.includes(a)))return town;}
+  // Partial word match — at least 5 chars
+  for(const t of TOWNS){const words=t.split(' ');if(words.some(w=>w.length>=5&&uq.includes(w)))return t;}
+  return null;
+}
+
+// ── DB size lookup — most common sqm for block+flatType from full 5yr dataset ──
+function lookupSizeFromDB(block,street,flatType){
+  if(!DB.loaded||!block||!flatType)return null;
+  const s=street?street.toUpperCase():'';
+  const matches=DB.resale.filter(r=>{
+    return r.block===block&&r.flat_type===flatType&&Number(r.floor_area_sqm)>0&&
+      (!s||r.street_name.toUpperCase().includes(s.slice(0,8)));
+  });
+  if(!matches.length)return null;
+  const freq={};
+  matches.forEach(r=>{const v=Number(r.floor_area_sqm);freq[v]=(freq[v]||0)+1;});
+  return Number(Object.entries(freq).sort((a,b)=>b[1]-a[1])[0][0]);
+}
+
+// ── Reverse street → canonical DB town + street + blocks ──
 function reverseStreet(streetRaw){
   if(!DB.loaded||!streetRaw)return null;
   const s=streetRaw.toUpperCase().trim();
-  const matches=DB.resale.filter(r=>r.street_name&&r.street_name.toUpperCase().includes(s));
+  // Exact first
+  let matches=DB.resale.filter(r=>r.street_name&&r.street_name.toUpperCase()===s);
+  // Partial — strip noise words, match core
+  if(!matches.length){
+    const core=s.replace(/\b(BLK|BLOCK|STREET|ROAD|AVENUE|DRIVE|CRESCENT|CLOSE|WALK|LINK|LANE|WAY|PLACE|RISE|VIEW|HEIGHTS|GROVE|CIRCLE|TERRACE|NORTH|SOUTH|EAST|WEST|ST|RD|AVE|DR|CRES|LN|HTS)\b/g,'').replace(/\s+/g,' ').trim();
+    if(core.length>=3)matches=DB.resale.filter(r=>r.street_name&&r.street_name.toUpperCase().includes(core.slice(0,7)));
+  }
   if(!matches.length)return null;
-  const town=matches[0].town;
-  const street=matches[0].street_name;
-  const blocks=[...new Set(matches.map(r=>r.block))].sort();
-  return{town,street,blocks};
+  return{town:matches[0].town,street:matches[0].street_name,blocks:[...new Set(matches.map(r=>r.block))].sort()};
 }
 
-// Reverse lookup: block + street fragment → town
+// ── Block+street → canonical town ──
 function reverseTown(block,streetRaw){
   if(!DB.loaded)return null;
-  const s=streetRaw?streetRaw.toUpperCase().trim():'';
-  const match=DB.resale.find(r=>{
-    const blockOk=!block||r.block===block;
-    const streetOk=!s||r.street_name.toUpperCase().includes(s);
-    return blockOk&&streetOk;
-  });
+  const core=(streetRaw||'').toUpperCase().replace(/\b(STREET|ROAD|AVENUE|DRIVE|CRESCENT|CLOSE|WALK|LINK|LANE|WAY|ST|RD|AVE|DR|CRES|LN)\b/g,'').replace(/\s+/g,' ').trim();
+  const match=DB.resale.find(r=>(!block||r.block===block)&&(!core||r.street_name.toUpperCase().includes(core.slice(0,6))));
   return match?{town:match.town,street:match.street_name}:null;
 }
 
 function parseQuery(raw){
   const q=raw.toUpperCase();const res={};
-  for(const t of TOWNS){if(q.includes(t)){res.town=t;break}}
+  const town=fuzzyMatchTown(q);if(town)res.town=town;
   for(const[a,v]of Object.entries(FLAT_MAP)){if(q.includes(a)){res.flatType=v;break}}
-  const blk=q.match(/\bBLK\s*(\d+[A-Z]?)\b|\bBLOCK\s*(\d+[A-Z]?)\b/);
+  // Block — explicit BLK/BLOCK prefix only
+  const blk=q.match(/\bBLK\s*(\d+[A-Z]?)\b|\bBLOCK\s*#?\s*(\d+[A-Z]?)\b/);
   if(blk)res.block=(blk[1]||blk[2]).trim();
-  const fl=raw.match(/floor\s*(\d+)|level\s*(\d+)|(\d+)(st|nd|rd|th)\s*(?:floor|storey|level|flr)|(?:floor|level|storey)\s*#?\s*(\d+)/i);
-  if(fl)res.floor=Number(fl[1]||fl[2]||fl[3]||fl[5]);
-  const sz=raw.match(/(\d+)\s*(?:sqm|sq\.?m|m2|square\s*met)/i);
+  // Floor — MUST have floor/level/storey keyword
+  const fl=raw.match(/(?:floor|level|storey|flr|lvl)\s*#?\s*(\d+)|(\d+)\s*(?:st|nd|rd|th)\s*(?:floor|storey|level|flr)/i);
+  if(fl)res.floor=Number(fl[1]||fl[2]);
+  // Size — explicit sqm keyword
+  const sz=raw.match(/(\d+)\s*(?:sqm|sq\.?m\b|m2|square\s*m)/i);
   if(sz)res.size=Number(sz[1]);
-  const stMatch=q.match(/\b([A-Z][A-Z\s]*(?:AVENUE|AVE|STREET|ST|DRIVE|DR|ROAD|RD|CRESCENT|CRES|WALK|LINK|LANE|LN|CLOSE|VIEW|RISE|WAY|HEIGHTS|HTS|GROVE|CIRCLE|PLACE|TERRACE|CENTRAL|CTRL|NORTH|SOUTH|EAST|WEST)\s*\d*[A-Z]?)\b/);
-  if(stMatch&&stMatch[1].trim().length>4)res.street=stMatch[1].trim();
+  // Lease year
+  const ly=raw.match(/(?:built|lease|commenced?|lease\s*start|year\s*built)\s*(?:year\s*)?(\d{4})|(\d{4})\s*(?:built|lease|commenced?)/i);
+  if(ly)res.leaseYear=Number(ly[1]||ly[2]);
+  // Street — must have street-type suffix, strip town/block from match
+  const stMatch=q.match(/\b([A-Z][A-Z0-9\s]*(?:AVENUE|AVE|STREET|DRIVE|ROAD|CRESCENT|CRES|WALK|LINK|LANE|CLOSE|VIEW|RISE|WAY|HEIGHTS|GROVE|CIRCLE|PLACE|TERRACE)\s*\d*[A-Z]?)\b/);
+  if(stMatch){
+    let candidate=stMatch[1].trim();
+    candidate=TOWNS.reduce((s,t)=>s.replace(new RegExp('\\b'+t+'\\b','g'),''),candidate).replace(/\b(BLK|BLOCK)\s*\d+[A-Z]?\b/g,'').replace(/\s+/g,' ').trim();
+    if(candidate.length>3&&!TOWNS.includes(candidate))res.street=candidate;
+  }
+  // Price
   const u=raw.match(/(?:under|below|less|max|<)\s*\$?([\d,]+)k?/i);
   if(u){let v=parseInt(u[1].replace(/,/g,''));if(/k/i.test(u[0])||v<10000)v*=1000;res.maxPrice=v;}
   const o=raw.match(/(?:above|over|more|min|>)\s*\$?([\d,]+)k?/i);
@@ -650,44 +698,54 @@ function parseQuery(raw){
   return res;
 }
 
-// Auto-enrich ctx using reverse lookups + size inference
+// ── Enrich ctx: reverse lookups + DB size from actual block records ──
 function enrichCtx(ctx){
+  // Street → town + canonical name
   if(ctx.street&&!ctx.town){
-    const found=reverseStreet(ctx.street);
-    if(found){ctx.town=found.town;ctx.street=found.street;if(!ctx.block&&found.blocks.length===1)ctx.block=found.blocks[0];}
+    const f=reverseStreet(ctx.street);
+    if(f){ctx.town=f.town;ctx.street=f.street;if(!ctx.block&&f.blocks.length===1)ctx.block=f.blocks[0];}
   }
+  // Block+street → town
   if((ctx.block||ctx.street)&&!ctx.town){
-    const found=reverseTown(ctx.block,ctx.street);
-    if(found){ctx.town=found.town;if(!ctx.street)ctx.street=found.street;}
+    const f=reverseTown(ctx.block,ctx.street);
+    if(f){ctx.town=f.town;if(!ctx.street)ctx.street=f.street;}
   }
-  if(ctx.flatType&&!ctx.size){ctx.size=TYPICAL_SIZE[ctx.flatType]||93;ctx.sizeInferred=true;}
+  // Town+block → canonical street
+  if(ctx.block&&ctx.town&&!ctx.street){
+    const m=DB.resale.find(r=>r.block===ctx.block&&r.town===ctx.town);
+    if(m)ctx.street=m.street_name;
+  }
+  // Size: 1) user specified 2) DB block lookup 3) typical fallback
+  if(!ctx.size&&ctx.block&&ctx.flatType){
+    const dbSz=lookupSizeFromDB(ctx.block,ctx.street,ctx.flatType);
+    if(dbSz){ctx.size=dbSz;ctx.sizeFromDB=true;}
+  }
+  if(!ctx.size&&ctx.flatType){ctx.size=TYPICAL_SIZE[ctx.flatType]||93;ctx.sizeInferred=true;}
   return ctx;
 }
 
-// Build batch missing prompt for EV — all fields at once
 function buildMissingPrompt(ctx){
-  const missing=[];
-  if(!ctx.town)    missing.push('📍 <strong>Town</strong> — e.g. Tampines, Bishan, Queenstown <em>(I can look this up from your street)</em>');
-  if(!ctx.flatType)missing.push('🏠 <strong>Flat type</strong> — 3-room, 4-room, 5-room or Executive');
-  if(!ctx.street)  missing.push('🛣️ <strong>Street name</strong> — e.g. Tampines Street 44');
-  if(!ctx.block)   missing.push('🔢 <strong>Block number</strong> — e.g. 472');
-  if(!ctx.floor)   missing.push('📶 <strong>Floor level</strong> — e.g. 8');
-  if(!ctx.size&&!ctx.flatType) missing.push('📐 <strong>Floor area in sqm</strong> — e.g. 93 <em>(skip if flat type given — I will infer)</em>');
-  return missing;
+  const m=[];
+  if(!ctx.town)    m.push('📍 <strong>Town</strong> — e.g. Clementi, Tampines <em>(I can find from street)</em>');
+  if(!ctx.flatType)m.push('🏠 <strong>Flat type</strong> — 3-room, 4-room, 5-room or Executive');
+  if(!ctx.street)  m.push('🛣️ <strong>Street name</strong> — e.g. Clementi West Street 1');
+  if(!ctx.block)   m.push('🔢 <strong>Block number</strong> — e.g. Blk 608');
+  if(!ctx.floor)   m.push('📶 <strong>Floor level</strong> — e.g. floor 4');
+  if(!ctx.size&&!ctx.flatType)m.push('📐 <strong>Floor area sqm</strong> — e.g. 67 sqm <em>(optional if flat type given)</em>');
+  return m;
 }
-
 function buildSearchMissingPrompt(ctx){
-  const missing=[];
-  if(!ctx.town&&!ctx.street&&!ctx.block) missing.push('📍 <strong>Town or street</strong> — e.g. Tampines, or Tampines Street 44');
-  if(!ctx.flatType) missing.push('🏠 <strong>Flat type</strong> — e.g. 4-room <em>(optional)</em>');
-  return missing;
+  const m=[];
+  if(!ctx.town&&!ctx.street&&!ctx.block)m.push('📍 <strong>Town or street</strong> — e.g. Clementi, or Clementi West Street 1');
+  if(!ctx.flatType)m.push('🏠 <strong>Flat type</strong> — e.g. 3-room <em>(optional)</em>');
+  return m;
 }
 
-// ── RENDER HELPERS ──
+// ── RENDER ──
 function harveyMsg(html,chips=[]){
   document.getElementById('welcome')?.remove();
   const d=document.createElement('div');d.className='msg-ai';
-  let ch=chips.length?`<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">${chips.map(c=>`<span class="chip" onclick="chipClick('${c.val.replace(/'/g,"\\'")}')">▶ ${c.label}</span>`).join('')}</div>`:'';
+  const ch=chips.length?`<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">${chips.map(c=>`<span class="chip" onclick="chipClick('${c.val.replace(/'/g,"\\'")}')">▶ ${c.label}</span>`).join('')}</div>`:'';
   d.innerHTML=`<span class="mlbl">// HARVEY</span><div class="mbub">${html}${ch}</div>`;
   msgsEl.appendChild(d);bot();
 }
@@ -713,7 +771,7 @@ function addRecent(text){
   if(document.getElementById('rlist').children.length>8)document.getElementById('rlist').lastChild.remove();
 }
 
-// ── SHOW RESULTS ──
+// ── SHOW TRANSACTIONS ──
 function showTransactions(recs,params,is6mo){
   if(!recs||recs.length===0){
     const msg='No transactions found, sir. Try a different town, street or flat type.';
@@ -743,20 +801,38 @@ function showTransactions(recs,params,is6mo){
   mode='menu';
 }
 
+// ── SHOW EV ──
 function showEV(result,params){
   if(result.type==='no_data'){
-    const noDataMsg=`I searched Block ${result.block} ${result.street} and the surrounding street for ${result.flatType} units around ${result.size} sqm in the last 12 months. ${result.count>0?`Found ${result.count} transaction${result.count>1?'s':''} but not enough for a reliable estimate.`:'No matching transactions found.'} This area may have low transaction volume.`;
+    const noDataMsg=`I searched Block ${result.block} ${result.street} for ${result.flatType} units around ${result.size} sqm in the last 12 months. ${result.count>0?`Found ${result.count} transaction${result.count>1?'s':''} but not enough for a reliable estimate.`:'No matching transactions found.'} This area may have low transaction volume.`;
     const d=document.createElement('div');d.className='msg-ai';d.style.maxWidth='100%';
-    d.innerHTML=`<span class="mlbl">// NO SUFFICIENT DATA</span><div class="ev-none">${esc(noDataMsg)}<br><br><strong style="color:var(--c)">Visit <a href="https://blocksense.estatrix.workers.dev" target="_blank" style="color:var(--c)">BlockSense</a> to explore, or <a href="https://wa.me/6597531657" target="_blank" style="color:var(--g)">chat on WhatsApp</a> for a detailed valuation.</strong></div>`;
+    d.innerHTML=`<span class="mlbl">// NO SUFFICIENT DATA</span><div class="ev-none">${esc(noDataMsg)}<br><br><strong style="color:var(--c)">Visit <a href="https://blocksense.estatrix.workers.dev" target="_blank" style="color:var(--c)">BlockSense</a> or <a href="https://wa.me/6597531657" target="_blank" style="color:var(--g)">chat on WhatsApp</a> for a detailed valuation.</strong></div>`;
     msgsEl.appendChild(d);bot();
-    speak(`Not enough recent transactions for Block ${result.block}, sir. I recommend visiting BlockSense or chatting with us for a more detailed assessment.`);
-    setTimeout(()=>harveyMsg('Try a broader search, sir?',[{label:'SEARCH BY STREET',val:`recent ${result.flatType||''} ${result.street||result.town||''}`},{label:'SEARCH BY TOWN',val:`recent ${result.flatType||''} ${result.town||''}`}]),1200);
-    mode='menu';return;
+    speak(`Not enough data for Block ${result.block}, sir. Let me confirm the details with you.`);
+    // ── Confirm all details before retry ──
+    setTimeout(()=>{
+      const szSrc=params.sizeFromDB?`<strong style="color:var(--g)">${params.size} sqm</strong> <em>(found from block records)</em>`:params.sizeInferred?`<strong style="color:var(--a)">${params.size} sqm</strong> <em>(estimated — please verify)</em>`:`<strong>${params.size} sqm</strong>`;
+      const lyNote=params.leaseYear?`<strong>${params.leaseYear}</strong>`:`<em style="color:var(--a)">not provided — strongly recommended</em>`;
+      harveyMsg(`Before retrying, sir — please confirm or correct these details:<br><br>
+📍 <strong>Town:</strong> ${esc(params.town||'—')}<br>
+🛣️ <strong>Street:</strong> ${esc(params.street||'—')}<br>
+🔢 <strong>Block:</strong> ${esc(params.block||'—')}<br>
+🏠 <strong>Flat type:</strong> ${esc(params.flatType||'—')}<br>
+📶 <strong>Floor:</strong> ${params.floor||'<em style="color:var(--a)">—</em>'}<br>
+📐 <strong>Floor area:</strong> ${szSrc}<br>
+🗓️ <strong>Lease start year:</strong> ${lyNote}<br><br>
+<em style="color:var(--t2);font-size:11px">⚠ <strong>Floor area and lease year matter.</strong> If your flat is not the typical size or has an unusual lease year, please specify — e.g. <strong style="color:var(--c)">67 sqm lease 1979</strong><br><br>
+Type <strong style="color:var(--g)">correct</strong> to retry with the same details, or retype corrections in one message.</em>`,
+      [{label:'CORRECT — RETRY',val:'correct retry'},{label:'SEARCH BY STREET INSTEAD',val:`recent ${params.flatType||''} ${params.street||params.town||''}`}]);
+      speak('Please verify or correct the details, sir. Floor area and lease year improve accuracy significantly.');
+      mode='ev_confirm';
+    },1500);
+    return;
   }
-  if(result.type==='no_floor_data'){harveyMsg('Floor level data unavailable, sir. Try Transaction Search for this area.');speak('Floor data unavailable, sir.');mode='menu';return;}
-  const warn12=result.lookbackUsed===12?`<div class="ev-warn">⚠ Based on last 12 months — not enough 6-month data. Treat as directional guide only.<br><a href="https://wa.me/6597531657" target="_blank" style="color:var(--g)">Chat with us for a more accurate valuation →</a></div>`:'';
+  if(result.type==='no_floor_data'){harveyMsg('Floor level data unavailable for these comps, sir. Try Transaction Search for this area.');speak('Floor data unavailable, sir.');mode='menu';return;}
+  const warn12=result.lookbackUsed===12?`<div class="ev-warn">⚠ Based on last 12 months — not enough 6-month data. Treat as directional guide only.<br><a href="https://wa.me/6597531657" target="_blank" style="color:var(--g)">Chat for a more accurate valuation →</a></div>`:'';
   const fallNote=result.fallbackLevel==='street'?`<br>⬡ Street-level comps used — limited block data`:'';
-  const sizeNote=params.sizeInferred?` <em style="color:var(--t3)">(typical ${params.flatType} size)</em>`:'';
+  const sizeNote=params.sizeFromDB?` <em style="color:var(--g)">(from block records)</em>`:params.sizeInferred?` <em style="color:var(--a)">(estimated — verify if incorrect)</em>`:'';
   const d=document.createElement('div');d.className='msg-ai';d.style.maxWidth='100%';
   d.innerHTML=`<span class="mlbl">// ESTIMATED VALUE · BLK ${esc(result.block)} ${esc(result.street)}</span>
     <div class="ev-card">${warn12}
@@ -777,23 +853,23 @@ function showEV(result,params){
 
 function flatTypeChips(){return[{label:'3-ROOM',val:'3-room'},{label:'4-ROOM',val:'4-room'},{label:'5-ROOM',val:'5-room'},{label:'EXECUTIVE',val:'executive'}];}
 
-// ── PROMPT MISSING — all at once ──
+// ── PROMPT ALL MISSING AT ONCE ──
 function promptMissing(ctx){
   if(ctx.isEV){
     enrichCtx(ctx);
     const missing=buildMissingPrompt(ctx);
     if(missing.length>0){
-      const sizeNote=ctx.flatType&&!ctx.size?`<br><em style="color:var(--t3);font-size:11px">⬡ Floor area not needed — I will use typical ${ctx.flatType} size (${TYPICAL_SIZE[ctx.flatType]} sqm)</em>`:'';
-      harveyMsg(`I need a few more details, sir. Please provide all of the following in <strong>one message</strong>:<br><br>${missing.join('<br>')}${sizeNote}<br><br><em style="color:var(--t2);font-size:11px">e.g. <strong style="color:var(--c)">Block 472 Tampines Street 44 floor 8 4-room</strong></em>`,flatTypeChips());
-      speak('A few more details please, sir. Provide block, street, floor and flat type in one message.');
+      const sizeNote=ctx.flatType&&!ctx.size?`<br><em style="color:var(--t3);font-size:11px">⬡ No sqm given — I will look it up from block records, or use typical ${ctx.flatType} size (${TYPICAL_SIZE[ctx.flatType]} sqm) as fallback</em>`:'';
+      harveyMsg(`I need a few more details, sir — all in <strong>one message</strong>:<br><br>${missing.join('<br>')}${sizeNote}<br><br><em style="color:var(--t2);font-size:11px">e.g. <strong style="color:var(--c)">Block 608 Clementi West Street 1 floor 4 3-room lease 1979</strong></em>`,flatTypeChips());
+      speak('A few more details please, sir. Block, street, floor and flat type in one message.');
       mode='ev_waiting';loading=false;sbEl.disabled=false;return;
     }
     runEV();
   } else {
     enrichCtx(ctx);
     if(!ctx.town&&!ctx.street&&!ctx.block){
-      harveyMsg(`To search transactions, sir — please provide:<br><br>${buildSearchMissingPrompt(ctx).join('<br>')}<br><br><em style="color:var(--t2);font-size:11px">e.g. <strong style="color:var(--c)">4-room Tampines</strong> or <strong style="color:var(--c)">Tampines Street 44</strong></em>`,flatTypeChips());
-      speak('Which town or street are you searching, sir?');
+      harveyMsg(`To search, sir:<br><br>${buildSearchMissingPrompt(ctx).join('<br>')}<br><br><em style="color:var(--t2);font-size:11px">e.g. <strong style="color:var(--c)">3-room Clementi</strong> or <strong style="color:var(--c)">Clementi West Street 1</strong></em>`,flatTypeChips());
+      speak('Which town or street, sir?');
       mode='srch_waiting';loading=false;sbEl.disabled=false;return;
     }
     runSearch();
@@ -803,6 +879,7 @@ function promptMissing(ctx){
 async function runEV(){
   loading=true;sbEl.disabled=true;
   enrichCtx(ctx);
+  if(!ctx.size&&ctx.block&&ctx.flatType){const dbSz=lookupSizeFromDB(ctx.block,ctx.street,ctx.flatType);if(dbSz){ctx.size=dbSz;ctx.sizeFromDB=true;}}
   if(!ctx.size&&ctx.flatType){ctx.size=TYPICAL_SIZE[ctx.flatType]||93;ctx.sizeInferred=true;}
   speak(rand(['Stand by, sir.','Computing estimate, sir.','Accessing records, sir.']));
   thinkingMsg();await new Promise(r=>setTimeout(r,300));
@@ -828,33 +905,40 @@ async function handleInput(){
   loading=true;sbEl.disabled=true;
   ciEl.value='';ciEl.style.height='auto';
   resetIdle();userMsg(raw);
-
   if(!DB.loaded){harveyMsg('Still loading data, sir. One moment...');loading=false;sbEl.disabled=false;return;}
+  const parsed=parseQuery(normalizeSpeech(raw));
 
-  const parsed=parseQuery(raw);
+  // ── Confirmation mode after no-data ──
+  if(mode==='ev_confirm'){
+    if(/correct\s*(retry|again)?|yes|same|retry|looks\s*(good|right|ok)/i.test(raw)){mode='ev_waiting';await runEV();return;}
+    if(parsed.town)     ctx.town=parsed.town;
+    if(parsed.flatType) ctx.flatType=parsed.flatType;
+    if(parsed.street)   ctx.street=parsed.street;
+    if(parsed.block)    ctx.block=parsed.block;
+    if(parsed.floor)    ctx.floor=parsed.floor;
+    if(parsed.size){    ctx.size=parsed.size;ctx.sizeInferred=false;ctx.sizeFromDB=false;}
+    if(parsed.leaseYear)ctx.leaseYear=parsed.leaseYear;
+    enrichCtx(ctx);mode='ev_waiting';await runEV();return;
+  }
 
-  // ── Waiting modes: absorb all new info at once ──
+  // ── Waiting modes — absorb all new info ──
   if(mode==='ev_waiting'||mode==='srch_waiting'){
-    if(parsed.town)    ctx.town=parsed.town;
-    if(parsed.flatType)ctx.flatType=parsed.flatType;
-    if(parsed.street)  ctx.street=parsed.street;
-    if(parsed.block)   ctx.block=parsed.block;
-    if(parsed.floor)   ctx.floor=parsed.floor;
-    if(parsed.size)    ctx.size=parsed.size;
-    if(parsed.maxPrice)ctx.maxPrice=parsed.maxPrice;
-    if(parsed.minPrice)ctx.minPrice=parsed.minPrice;
+    if(parsed.town)     ctx.town=parsed.town;
+    if(parsed.flatType) ctx.flatType=parsed.flatType;
+    if(parsed.street)   ctx.street=parsed.street;
+    if(parsed.block)    ctx.block=parsed.block;
+    if(parsed.floor)    ctx.floor=parsed.floor;
+    if(parsed.size){    ctx.size=parsed.size;ctx.sizeInferred=false;ctx.sizeFromDB=false;}
+    if(parsed.leaseYear)ctx.leaseYear=parsed.leaseYear;
+    if(parsed.maxPrice) ctx.maxPrice=parsed.maxPrice;
+    if(parsed.minPrice) ctx.minPrice=parsed.minPrice;
     enrichCtx(ctx);
-    if(ctx.flatType&&!ctx.size){ctx.size=TYPICAL_SIZE[ctx.flatType]||93;ctx.sizeInferred=true;}
+    if(ctx.flatType&&!ctx.size){const dbSz=lookupSizeFromDB(ctx.block,ctx.street,ctx.flatType);if(dbSz){ctx.size=dbSz;ctx.sizeFromDB=true;}else{ctx.size=TYPICAL_SIZE[ctx.flatType]||93;ctx.sizeInferred=true;}}
     if(mode==='ev_waiting'){
-      const still=buildMissingPrompt(ctx).filter(s=>!s.includes('skip')&&!s.includes('optional')&&!s.includes('infer'));
-      if(still.length>0){
-        harveyMsg(`Still need a couple more, sir:<br><br>${still.join('<br>')}`);
-        speak('Still a couple more details needed, sir.');loading=false;sbEl.disabled=false;return;
-      }
+      const still=buildMissingPrompt(ctx).filter(s=>!s.includes('optional')&&!s.includes('I can find'));
+      if(still.length>0){harveyMsg(`Still need a couple more, sir:<br><br>${still.join('<br>')}`);speak('Still a couple more details, sir.');loading=false;sbEl.disabled=false;return;}
       await runEV();
-    } else {
-      await runSearch();
-    }
+    }else{await runSearch();}
     return;
   }
 
@@ -868,22 +952,22 @@ async function handleInput(){
   if(ctx.isEV||/valuat|estimate|worth|value|how much|price of|check value/i.test(raw)){
     ctx.isEV=true;
     if(!ctx.town&&!ctx.street&&!ctx.block&&!ctx.flatType&&!ctx.floor){
-      // Full upfront guide
-      harveyMsg(`Of course, sir. To estimate the value of your flat, please provide all of the following in <strong>one message</strong>:<br><br>
-📍 <strong>Town</strong> — e.g. Tampines <em>(or I can look it up from your street)</em><br>
+      harveyMsg(`Of course, sir. Please provide all of the following in <strong>one message</strong>:<br><br>
+📍 <strong>Town</strong> — e.g. Clementi <em>(I can find from street)</em><br>
 🏠 <strong>Flat type</strong> — 3-room, 4-room, 5-room or Executive<br>
-🛣️ <strong>Street name</strong> — e.g. Tampines Street 44<br>
-🔢 <strong>Block number</strong> — e.g. 472<br>
-📶 <strong>Floor level</strong> — e.g. 8<br>
-📐 <strong>Floor area in sqm</strong> — e.g. 93 <em>(optional — I will infer from flat type)</em><br><br>
-<em style="color:var(--t2);font-size:11px">e.g. <strong style="color:var(--c)">Block 472 Tampines Street 44 floor 8 4-room</strong></em>`,flatTypeChips());
-      speak('Of course, sir. Please provide the block, street, floor and flat type in one message.');
+🛣️ <strong>Street name</strong> — e.g. Clementi West Street 1<br>
+🔢 <strong>Block number</strong> — e.g. Blk 608<br>
+📶 <strong>Floor level</strong> — e.g. floor 4<br>
+📐 <strong>Floor area sqm</strong> — e.g. 67 sqm <em>(optional — I will look up from block records)</em><br>
+🗓️ <strong>Lease start year</strong> — e.g. lease 1979 <em>(optional but improves accuracy)</em><br><br>
+<em style="color:var(--t2);font-size:11px">e.g. <strong style="color:var(--c)">Block 608 Clementi West Street 1 floor 4 3-room lease 1979</strong></em>`,flatTypeChips());
+      speak('Of course, sir. Block, street, floor and flat type please, in one message.');
       mode='ev_waiting';loading=false;sbEl.disabled=false;return;
     }
     mode='ev_waiting';promptMissing(ctx);
-  } else if(ctx.town||ctx.street||ctx.block||/transact|search|recent|sales?|sold|show|find/i.test(raw)){
+  }else if(ctx.town||ctx.street||ctx.block||/transact|search|recent|sales?|sold|show|find/i.test(raw)){
     ctx.isEV=false;mode='srch_waiting';promptMissing(ctx);
-  } else {
+  }else{
     harveyMsg('How can I help, sir?',[{label:'RESALE TRANSACTIONS',val:'search'},{label:'ESTIMATE VALUE',val:'estimate value'}]);
     speak('How can I help, sir?');mode='menu';loading=false;sbEl.disabled=false;
   }
@@ -937,32 +1021,148 @@ const vsBar=document.getElementById('vs-bar');
 const vsTxt=document.getElementById('vs-txt');
 const vsSup=document.getElementById('vs-sup');
 let micState='off',recog=null,recogBusy=false;
+let speechTimer=null; // delay before processing — don't interrupt user
+
+// ── Singlish / speech normalizer — fix common mispronunciations before parsing ──
+function normalizeSpeech(txt){
+  let s=txt.trim();
+  // Flat type phonetic fixes — "tree room" / "free room" / "tri room" → "3 room" etc
+  s=s.replace(/\b(tree|three|tri|thri|free|3)\s*(room|rum|roo|ruum)\b/gi,'3 room');
+  s=s.replace(/\b(four|for|4)\s*(room|rum|roo|ruum)\b/gi,'4 room');
+  s=s.replace(/\b(five|fife|5)\s*(room|rum|roo|ruum)\b/gi,'5 room');
+  s=s.replace(/\b(two|tu|too|2)\s*(room|rum|roo|ruum)\b/gi,'2 room');
+  s=s.replace(/\b(one|wan|wun|1)\s*(room|rum|roo|ruum)\b/gi,'1 room');
+  s=s.replace(/\bexecu?tive?\b/gi,'executive');
+  // Town phonetic fixes
+  s=s.replace(/\bcleme[nt]+[eiy]?\b/gi,'clementi');
+  s=s.replace(/\bkalla?ng?\b/gi,'kallang');
+  s=s.replace(/\byish?oon?\b/gi,'yishun');
+  s=s.replace(/\btampine?s?\b/gi,'tampines');
+  s=s.replace(/\bwood\s*land?s?\b/gi,'woodlands');
+  s=s.replace(/\bbedok?\b/gi,'bedok');
+  s=s.replace(/\bbishan?\b/gi,'bishan');
+  s=s.replace(/\bpungg?ol?\b/gi,'punggol');
+  s=s.replace(/\bsengkang?\b/gi,'sengkang');
+  s=s.replace(/\bhougang?\b/gi,'hougang');
+  s=s.replace(/\bqueens?town?\b/gi,'queenstown');
+  s=s.replace(/\bjurong?\b/gi,'jurong');
+  s=s.replace(/\bserangoon?\b/gi,'serangoon');
+  // Number words for floor/block
+  s=s.replace(/\bfloor\s+(one|wan|first)\b/gi,'floor 1');
+  s=s.replace(/\bfloor\s+(two|too|tu|second)\b/gi,'floor 2');
+  s=s.replace(/\bfloor\s+(three|tree|free|third)\b/gi,'floor 3');
+  s=s.replace(/\bfloor\s+(four|for|fourth)\b/gi,'floor 4');
+  s=s.replace(/\bfloor\s+(five|fife|fifth)\b/gi,'floor 5');
+  s=s.replace(/\bfloor\s+(six|sixth)\b/gi,'floor 6');
+  s=s.replace(/\bfloor\s+(seven|seventh)\b/gi,'floor 7');
+  s=s.replace(/\bfloor\s+(eight|ate|eighth)\b/gi,'floor 8');
+  s=s.replace(/\bfloor\s+(nine|ninth)\b/gi,'floor 9');
+  s=s.replace(/\bfloor\s+(ten|tenth)\b/gi,'floor 10');
+  // Street type aliases
+  s=s.replace(/\bstreet\b/gi,'street');
+  s=s.replace(/\bave\b/gi,'avenue');
+  s=s.replace(/\bblk\b/gi,'block');
+  return s;
+}
 
 function buildRecog(){
   if(!SR)return null;
-  const r=new SR();r.continuous=false;r.interimResults=true;r.lang='en-SG';
-  r.onstart=()=>{recogBusy=true;if(micState==='query'){mbEl.classList.add('active');vsBar.style.display='flex';vsTxt.textContent='HARVEY LISTENING…';}};
+  const r=new SR();
+  r.continuous=false;
+  r.interimResults=true;
+  r.lang='en-SG';
+  r.onstart=()=>{
+    recogBusy=true;
+    if(micState==='query'){
+      mbEl.classList.add('active');
+      vsBar.style.display='flex';
+      vsTxt.textContent='HARVEY LISTENING…';
+    }
+  };
   r.onresult=e=>{
     let interim='',final='';
-    for(let i=e.resultIndex;i<e.results.length;i++){if(e.results[i].isFinal)final+=e.results[i][0].transcript;else interim+=e.results[i][0].transcript;}
+    for(let i=e.resultIndex;i<e.results.length;i++){
+      if(e.results[i].isFinal)final+=e.results[i][0].transcript;
+      else interim+=e.results[i][0].transcript;
+    }
     const heard=(final||interim).trim();
+
     if(micState==='wake'){
       if(/wake.?up.?harvey|hey.?harvey|ok.?harvey/i.test(heard)){
         if(isIdle){wakeFromIdle();}
-        else{const rep=rand(['Yes sir.','At your service, sir.','Go ahead, sir.']);harveyMsg(rep,[{label:'RESALE TRANSACTIONS',val:'search'},{label:'ESTIMATE VALUE',val:'estimate value'}]);speak(rep);mode='menu';setTimeout(()=>{micState='query';safeStart();},1200);}
+        else{
+          const rep=rand(['Yes sir.','At your service, sir.','Go ahead, sir.']);
+          harveyMsg(rep,[{label:'RESALE TRANSACTIONS',val:'search'},{label:'ESTIMATE VALUE',val:'estimate value'}]);
+          speak(rep);mode='menu';
+          setTimeout(()=>{micState='query';safeStart();},1200);
+        }
         resetIdle();
       }
     } else if(micState==='query'){
-      if(interim){vsTxt.textContent='HEARD: '+interim.toUpperCase();ciEl.value=interim;}
-      if(final){ciEl.value=final;vsTxt.textContent='HEARD: '+final.toUpperCase();setTimeout(()=>handleInput(),350);}
+      // Show interim in real time so user sees Harvey is hearing them
+      if(interim){
+        vsTxt.textContent='HEARING: '+interim.toUpperCase();
+        ciEl.value=interim;
+        // Reset the silence timer — user is still speaking
+        clearTimeout(speechTimer);
+        speechTimer=setTimeout(()=>{
+          // 4 seconds of silence after last interim = user finished speaking
+          if(ciEl.value.trim()){
+            const normalised=normalizeSpeech(ciEl.value);
+            ciEl.value=normalised;
+            handleInput();
+          }
+        },4000);
+      }
+      if(final){
+        // Final result — wait 1.5s more before processing (give user time to continue if needed)
+        clearTimeout(speechTimer);
+        const normalised=normalizeSpeech(final);
+        ciEl.value=normalised;
+        vsTxt.textContent='HEARD: '+normalised.toUpperCase();
+        speechTimer=setTimeout(()=>handleInput(),1500);
+      }
     }
   };
-  r.onerror=e=>{recogBusy=false;if(e.error==='not-allowed'||e.error==='service-not-allowed'){vsSup.textContent='MIC BLOCKED — allow in browser';vsSup.style.color='var(--r)';micState='off';return;}if(micState!=='off')setTimeout(()=>safeStart(),1200);};
-  r.onend=()=>{recogBusy=false;mbEl.classList.remove('active');vsBar.style.display='none';if(micState==='wake'){setTimeout(()=>safeStart(),300);}else if(micState==='query'){micState='wake';setTimeout(()=>safeStart(),600);}};
+  r.onerror=e=>{
+    recogBusy=false;clearTimeout(speechTimer);
+    if(e.error==='not-allowed'||e.error==='service-not-allowed'){
+      vsSup.textContent='MIC BLOCKED — allow in browser';vsSup.style.color='var(--r)';micState='off';return;
+    }
+    if(micState!=='off')setTimeout(()=>safeStart(),1200);
+  };
+  r.onend=()=>{
+    recogBusy=false;mbEl.classList.remove('active');vsBar.style.display='none';
+    // Don't immediately restart if speech timer is pending (user may still be pausing mid-sentence)
+    if(micState==='wake'){setTimeout(()=>safeStart(),300);}
+    else if(micState==='query'){
+      // Wait for speech timer to fire before dropping back to wake
+      setTimeout(()=>{
+        if(!speechTimer){micState='wake';safeStart();}
+        else{
+          // Timer still running — stay in query mode, let timer handle it
+          const orig=speechTimer;
+          speechTimer=setTimeout(()=>{
+            if(ciEl.value.trim())handleInput();
+            micState='wake';setTimeout(()=>safeStart(),600);
+          },1500);
+        }
+      },200);
+    }
+  };
   return r;
 }
 function safeStart(){if(recogBusy||micState==='off'||!SR)return;recog=buildRecog();try{recog.start();}catch(e){setTimeout(()=>safeStart(),1500);}}
-function toggleMic(){if(!SR){alert('Use Chrome or Edge for voice');return;}if(micState==='query'){micState='wake';try{recog?.abort();}catch(e){}}else{micState='query';try{recog?.abort();}catch(e){}setTimeout(()=>safeStart(),200);}}
+function toggleMic(){
+  if(!SR){alert('Use Chrome or Edge for voice');return;}
+  if(micState==='query'){
+    clearTimeout(speechTimer);speechTimer=null;
+    micState='wake';try{recog?.abort();}catch(e){}
+  }else{
+    micState='query';try{recog?.abort();}catch(e){}
+    setTimeout(()=>safeStart(),200);
+  }
+}
 
 if(SR){
   vsSup.textContent='SAY "WAKE UP HARVEY" OR CLICK 🎤';vsSup.style.color='var(--g)';
