@@ -653,19 +653,98 @@ function lookupSizeFromDB(block,street,flatType){
 }
 
 // ── Reverse street → canonical DB town + street + blocks ──
+// Supports: full name, abbreviated (ST/DR/CL/AVE/RD/CRES), partial, slight misspelling
 function reverseStreet(streetRaw){
   if(!DB.loaded||!streetRaw)return null;
-  const s=streetRaw.toUpperCase().trim();
-  // Exact first
+
+  // First expand abbreviations so "CLEMENTI WEST ST 1" becomes "CLEMENTI WEST STREET 1"
+  let s=streetRaw.toUpperCase().trim()
+    .replace(/\bST\b(?=\s*\d|\s+[A-Z])/g,'STREET')
+    .replace(/\bAVE\b/g,'AVENUE')
+    .replace(/\bDR\b/g,'DRIVE')
+    .replace(/\bRD\b/g,'ROAD')
+    .replace(/\bCL\b/g,'CLOSE')
+    .replace(/\bCRES\b/g,'CRESCENT')
+    .replace(/\bLN\b/g,'LANE')
+    .replace(/\bHTS\b/g,'HEIGHTS')
+    .replace(/\bLOR\b/g,'LORONG')
+    .replace(/\bJLN\b/g,'JALAN')
+    .replace(/\bUPP\b/g,'UPPER')
+    .replace(/\bBT\b/g,'BUKIT')
+    .replace(/\bBLK\s*\d+[A-Z]?\s*/g,'')  // strip block number if leaked in
+    .replace(/\s+/g,' ').trim();
+
+  // Strategy 1: exact match
   let matches=DB.resale.filter(r=>r.street_name&&r.street_name.toUpperCase()===s);
-  // Partial — strip noise words, match core
-  if(!matches.length){
-    const core=s.replace(/\b(BLK|BLOCK|STREET|ROAD|AVENUE|DRIVE|CRESCENT|CLOSE|WALK|LINK|LANE|WAY|PLACE|RISE|VIEW|HEIGHTS|GROVE|CIRCLE|TERRACE|NORTH|SOUTH|EAST|WEST|ST|RD|AVE|DR|CRES|LN|HTS)\b/g,'').replace(/\s+/g,' ').trim();
-    if(core.length>=3)matches=DB.resale.filter(r=>r.street_name&&r.street_name.toUpperCase().includes(core.slice(0,7)));
+  if(matches.length) return _srResult(matches);
+
+  // Strategy 2: DB streets that contain the full expanded string
+  matches=DB.resale.filter(r=>r.street_name&&r.street_name.toUpperCase()===s);
+  if(matches.length) return _srResult(matches);
+
+  // Strategy 3: extract the "meaningful core" — strip street-type words and numbers,
+  // then find DB streets that contain those core words
+  const typeWords=/\b(STREET|ROAD|AVENUE|DRIVE|CRESCENT|CLOSE|WALK|LINK|LANE|WAY|PLACE|RISE|VIEW|HEIGHTS|GROVE|CIRCLE|TERRACE|NORTH|SOUTH|EAST|WEST|CENTRAL|UPPER|LOWER|NEW|OLD)\b/g;
+  const core=s.replace(typeWords,'').replace(/\d+[A-Z]?/g,'').replace(/\s+/g,' ').trim();
+  // Build a set of meaningful words (>=3 chars, not noise)
+  const coreWords=core.split(' ').filter(w=>w.length>=3);
+  if(coreWords.length){
+    // Score each DB street by how many core words it contains
+    const scored=[];
+    const seen=new Set();
+    for(const r of DB.resale){
+      if(!r.street_name||seen.has(r.street_name))continue;
+      seen.add(r.street_name);
+      const upper=r.street_name.toUpperCase();
+      const score=coreWords.filter(w=>upper.includes(w)).length;
+      if(score>0) scored.push({score,street:r.street_name,town:r.town});
+    }
+    scored.sort((a,b)=>b.score-a.score);
+    if(scored.length){
+      const best=scored[0];
+      matches=DB.resale.filter(r=>r.street_name===best.street);
+      if(matches.length) return _srResult(matches);
+    }
   }
-  if(!matches.length)return null;
-  return{town:matches[0].town,street:matches[0].street_name,blocks:[...new Set(matches.map(r=>r.block))].sort()};
+
+  // Strategy 4: fuzzy — each word of input against each DB street name
+  const inputWords=s.split(' ').filter(w=>w.length>=4&&!w.match(/^\d+$/));
+  if(inputWords.length){
+    const scored2=[];const seen2=new Set();
+    for(const r of DB.resale){
+      if(!r.street_name||seen2.has(r.street_name))continue;
+      seen2.add(r.street_name);
+      const upper=r.street_name.toUpperCase();
+      const score=inputWords.filter(w=>upper.includes(w)||_fuzzyWord(upper,w)).length;
+      if(score>0)scored2.push({score,street:r.street_name,town:r.town});
+    }
+    scored2.sort((a,b)=>b.score-a.score);
+    if(scored2.length){
+      matches=DB.resale.filter(r=>r.street_name===scored2[0].street);
+      if(matches.length) return _srResult(matches);
+    }
+  }
+
+  return null;
 }
+
+// Fuzzy word match — handles 1-char typo (e.g. "CLEMETI" vs "CLEMENTI")
+function _fuzzyWord(haystack,needle){
+  if(needle.length<4) return false;
+  // Check if needle is a substring with 1 char difference
+  for(let i=0;i<=haystack.length-needle.length+1;i++){
+    const chunk=haystack.slice(i,i+needle.length);
+    let diff=0;
+    for(let j=0;j<needle.length;j++) if(chunk[j]!==needle[j]) diff++;
+    if(diff<=1) return true;
+  }
+  return false;
+}
+
+function _srResult(matches){
+  return{town:matches[0].town,street:matches[0].street_name,blocks:[...new Set(matches.map(r=>r.block))].sort((a,b)=>Number(a)-Number(b)||a.localeCompare(b))};
+}
+
 
 // ── Block+street → canonical town ──
 function reverseTown(block,streetRaw){
@@ -705,23 +784,29 @@ function parseQuery(raw){
   // Lease year
   const ly=raw.match(/(?:built|lease|commenced?|lease\s*start|year\s*built)\s*(?:year\s*)?(\d{4})|(\d{4})\s*(?:built|lease|commenced?)/i);
   if(ly)res.leaseYear=Number(ly[1]||ly[2]);
-  // Street — match the full street name including any town name embedded in it
-  // e.g. "Clementi West Street 1", "Bishan Street 22", "Ang Mo Kio Ave 3"
-  // Strategy: look for street-type keyword and grab everything before + the number after
-  const stMatch=q.match(/\b([A-Z][A-Z0-9\s]*?(?:AVENUE|AVE|STREET|DRIVE|ROAD|CRESCENT|CRES|WALK|LINK|LANE|CLOSE|VIEW|RISE|WAY|HEIGHTS|GROVE|CIRCLE|PLACE|TERRACE|LORONG|JALAN|CENTRAL|NORTH|SOUTH|EAST|WEST)\s*\d*[A-Z]?)\b/);
+  // Street — strip leading block number first, then match full street name
+  // Handle: "608 Clementi West Street 1" → "Clementi West Street 1"
+  // Also handle abbreviations: ST, DR, CL, AVE, RD, CRES etc
+  const qNoBlock=q.replace(/^\s*(?:BLK|BLOCK)?\s*\d+[A-Z]?\s*/,'').trim();
+  const stMatch=qNoBlock.match(/\b([A-Z][A-Z0-9\s]*?(?:AVENUE|STREET|DRIVE|ROAD|CRESCENT|CLOSE|WALK|LINK|LANE|VIEW|RISE|WAY|HEIGHTS|GROVE|CIRCLE|PLACE|TERRACE|LORONG|JALAN)\s*\d*[A-Z]?)\b/);
   if(stMatch){
-    let candidate=stMatch[1].trim();
-    // Strip standalone BLK/BLOCK + number prefix if it leaked in, but KEEP town names
-    candidate=candidate.replace(/^\s*(?:BLK|BLOCK)\s*\d+[A-Z]?\s*/i,'').trim();
+    let candidate=stMatch[1].trim()
+      .replace(/^\s*(?:BLK|BLOCK)\s*\d+[A-Z]?\s*/i,'')
+      .replace(/\s+/g,' ').trim();
     if(candidate.length>3) res.street=candidate;
   }
-  // If no street found via suffix, try DB reverse match — user may have just typed the street name
-  if(!res.street&&!res.town){
-    // Try matching a substring of the input against known streets in DB
-    if(DB.loaded){
-      const qwords=q.split(/\s+/).filter(w=>w.length>=4);
-      const hit=DB.resale.find(r=>qwords.some(w=>r.street_name.toUpperCase().includes(w)&&!TOWNS.includes(w)));
-      if(hit) res.street=hit.street_name;
+  // Fallback: if no street suffix found, try reverseStreet on the whole input minus block/floor/flattype
+  if(!res.street){
+    // Build a candidate by stripping known non-street tokens
+    let streetCandidate=q
+      .replace(/\b(?:BLK|BLOCK)\s*\d+[A-Z]?\b/g,'')
+      .replace(/\b(?:FLOOR|LEVEL|STOREY|FLR|LVL)\s*\d+\b/g,'')
+      .replace(/\b\d+\s*(?:ROOM|RM|SQM|M2)\b/g,'')
+      .replace(/\b(?:EXECUTIVE|EXEC|ESTIMATE|VALUE|SEARCH|RECENT|FIND|SHOW)\b/g,'')
+      .replace(/\s+/g,' ').trim();
+    if(streetCandidate.length>4&&DB.loaded){
+      const found=reverseStreet(streetCandidate);
+      if(found) res.street=found.street;
     }
   }
   // Price
@@ -1267,13 +1352,17 @@ function showEV(result,params){
   speak(speechLine);
   if(inversionSpoken){setTimeout(()=>speak(inversionSpoken),3500);}
 
-  // Follow-up — professional nudge + option to see all street transactions
+  // Follow-up — professional nudge + two street transaction buttons
   setTimeout(()=>{
-    harveyMsg(`That covers all the transactions I have on record, sir. Should you need a more grounded assessment, you are most welcome to reach out — <a href="https://wa.me/6597531657" target="_blank" style="color:var(--g)">WhatsApp us here</a>.`,[
-      {label:`ALL TRANSACTIONS ON ${result.street.split(' ').slice(0,3).join(' ')}…`,val:`recent all blocks ${result.street}`},
+    const streetShort=result.street.split(' ').slice(0,4).join(' ');
+    const ftLabel=result.flatType?result.flatType.replace(' ROOM',' RM'):'ALL';
+    const chips=[
+      ...(result.flatType?[{label:`${ftLabel} ON ${streetShort}…`,val:`recent flattype ${result.flatType} all blocks ${result.street}`}]:[]),
+      {label:`ALL TYPES ON ${streetShort}…`,val:`recent all blocks ${result.street}`},
       {label:'ESTIMATE ANOTHER',val:'estimate value'},
       {label:'DIFFERENT FLOOR',val:`value block ${result.block} ${result.street} floor`}
-    ]);
+    ];
+    harveyMsg(`That covers all the transactions I have on record, sir. Should you need a more grounded assessment, you are most welcome to reach out — <a href="https://wa.me/6597531657" target="_blank" style="color:var(--g)">WhatsApp us here</a>.`,chips);
     speak(`That covers all the transactions I have, sir. Should you need a more grounded assessment, do WhatsApp us.`);
   },1800);
   mode='menu';
@@ -1752,28 +1841,38 @@ async function handleInput(){
     return;
   }
 
-  // ── Special: "recent all blocks STREET" — ALL transactions on that street, ignore block filter ──
-  if(/^recent all blocks /i.test(raw)){
-    const streetName=raw.replace(/^recent all blocks /i,'').trim();
+  // ── Special: street-specific queries — flat-type filtered or all types ──
+  if(/^recent (flattype .+ all blocks|all blocks) /i.test(raw)){
+    let flatTypeFilter='';
+    let streetName='';
+    const ftMatch=raw.match(/^recent flattype (.+?) all blocks (.+)$/i);
+    const allMatch=raw.match(/^recent all blocks (.+)$/i);
+    if(ftMatch){flatTypeFilter=ftMatch[1].trim().toUpperCase();streetName=ftMatch[2].trim();}
+    else if(allMatch){streetName=allMatch[1].trim();}
+
     const found=reverseStreet(streetName);
     const canonicalStreet=found?found.street:streetName.toUpperCase();
-    // Search ONLY by street — no block filter, no town filter (street is specific enough)
-    const streetRecs=DB.resale.filter(r=>r.street_name===canonicalStreet)
-      .sort((a,b)=>(b.month||'').localeCompare(a.month||''));
+
+    let streetRecs=DB.resale.filter(r=>r.street_name===canonicalStreet);
+    if(flatTypeFilter) streetRecs=streetRecs.filter(r=>r.flat_type===flatTypeFilter);
+    streetRecs=streetRecs.sort((a,b)=>(b.month||'').localeCompare(a.month||''));
+
     document.getElementById('welcome')?.remove();
-    userMsg('All transactions on '+canonicalStreet);
+    const label=flatTypeFilter?`${flatTypeFilter} ON ${canonicalStreet}`:`ALL ON ${canonicalStreet}`;
+    userMsg(flatTypeFilter?`${flatTypeFilter} transactions on ${canonicalStreet}`:`All transactions on ${canonicalStreet}`);
+
     if(!streetRecs.length){
-      harveyMsg(`No transactions found on <strong>${esc(canonicalStreet)}</strong>, sir.`);
+      harveyMsg(`No ${flatTypeFilter||'transactions'} found on <strong>${esc(canonicalStreet)}</strong>, sir.`);
       loading=false;sbEl.disabled=false;return;
     }
     const prices=streetRecs.map(r=>Number(r.resale_price));
     const median=[...prices].sort((a,b)=>a-b)[Math.floor(prices.length/2)];
     const rows=streetRecs.map(r=>`<tr><td>${esc(r.month)}</td><td>BLK ${esc(r.block)} ${esc(r.street_name)}</td><td>${esc(r.flat_type)}</td><td>${esc(r.storey_range)}</td><td>${esc(r.floor_area_sqm)}m²</td><td class="pc">${fmtP(r.resale_price)}</td></tr>`).join('');
     const d=document.createElement('div');d.className='msg-ai';d.style.maxWidth='100%';
-    d.innerHTML=`<span class="mlbl">// ALL ${streetRecs.length} TRANSACTIONS · ${esc(canonicalStreet)}</span>
-      <div class="mbub">All <strong>${streetRecs.length}</strong> transactions on <strong>${esc(canonicalStreet)}</strong>, sir.</div>
+    d.innerHTML=`<span class="mlbl">// ${streetRecs.length} TRANSACTIONS · ${esc(label)}</span>
+      <div class="mbub"><strong>${streetRecs.length}</strong> transaction${streetRecs.length!==1?'s':''} — ${flatTypeFilter?`<strong>${esc(flatTypeFilter)}</strong> on`:'all types on'} <strong>${esc(canonicalStreet)}</strong>, sir.</div>
       <div class="rwrap"><div class="rcard">
-        <div class="rh"><span class="rtitle">⬡ ${esc(canonicalStreet)}</span><span class="rcnt">${streetRecs.length} RECORDS · ALL TIME</span></div>
+        <div class="rh"><span class="rtitle">⬡ ${esc(label)}</span><span class="rcnt">${streetRecs.length} RECORDS · ALL TIME</span></div>
         <div style="overflow-x:auto"><table><thead><tr><th>MONTH</th><th>BLOCK & STREET</th><th>TYPE</th><th>STOREY</th><th>AREA</th><th>PRICE</th></tr></thead><tbody>${rows}</tbody></table></div>
       </div>
       <div class="srow">
@@ -1782,8 +1881,13 @@ async function handleInput(){
         <div class="sc"><span class="svv">${fmtP(Math.max(...prices))}</span><span class="sll">HIGHEST</span></div>
       </div></div>`;
     msgsEl.appendChild(d);bot();
-    speak(`${streetRecs.length} transactions on ${cleanForSpeech(canonicalStreet)}, sir.`);
-    setTimeout(()=>harveyMsg('Anything else, sir?',[{label:'ESTIMATE VALUE',val:'estimate value'},{label:'SEARCH AGAIN',val:'search'}]),1200);
+    speak(`${streetRecs.length} transaction${streetRecs.length!==1?'s':''} on ${cleanForSpeech(canonicalStreet)}${flatTypeFilter?', '+flatTypeFilter.toLowerCase():''}, sir.`);
+    // Show the other button too
+    const streetShort=canonicalStreet.split(' ').slice(0,4).join(' ');
+    setTimeout(()=>harveyMsg('Anything else, sir?',[
+      ...(flatTypeFilter?[{label:`ALL TYPES ON ${streetShort}…`,val:`recent all blocks ${canonicalStreet}`}]:[]),
+      {label:'ESTIMATE VALUE',val:'estimate value'},{label:'SEARCH AGAIN',val:'search'}
+    ]),1200);
     mode='menu';loading=false;sbEl.disabled=false;return;
   }
 
