@@ -1000,6 +1000,19 @@ function enrichCtx(ctx){
     if(dbSz){ctx.size=dbSz;ctx.sizeFromDB=true;}
   }
   if(!ctx.size&&ctx.flatType){ctx.size=TYPICAL_SIZE[ctx.flatType]||93;ctx.sizeInferred=true;}
+  // Lease year: auto-lookup from DB if not provided — use most common lease year for this block+flatType
+  if(!ctx.leaseYear&&ctx.block&&ctx.flatType){
+    const lys=getLeaseYearsForBlock(ctx.block,ctx.street,ctx.flatType);
+    if(lys.length===1){ctx.leaseYear=lys[0];ctx.leaseYearFromDB=true;}
+    else if(lys.length>1){
+      // Pick the most common lease year for this block
+      const freq={};
+      DB.resale.filter(r=>r.block===ctx.block&&r.flat_type===ctx.flatType&&r.lease_commence_date)
+        .forEach(r=>{const y=parseInt(r.lease_commence_date);if(y)freq[y]=(freq[y]||0)+1;});
+      const top=Object.entries(freq).sort((a,b)=>b[1]-a[1])[0];
+      if(top){ctx.leaseYear=Number(top[0]);ctx.leaseYearFromDB=true;ctx.leaseYearMultiple=lys;}
+    }
+  }
   return ctx;
 }
 
@@ -1511,18 +1524,26 @@ function showEV(result,params){
   speak(speechLine);
   if(inversionSpoken){setTimeout(()=>speak(inversionSpoken),3500);}
 
-  // Follow-up — professional nudge + two street transaction buttons
+  // Follow-up — professional nudge + two street transaction buttons + quiet details check
   setTimeout(()=>{
     const streetShort=result.street.split(' ').slice(0,4).join(' ');
     const ftLabel=result.flatType?result.flatType.replace(' ROOM',' RM'):'ALL';
+
+    // Summary of what was used — shown quietly so user can verify
+    const sizeNote=ctx.sizeFromDB?'from block records':ctx.sizeInferred?'estimated':ctx.size+'sqm';
+    const lyNote=ctx.leaseYearFromDB?(ctx.leaseYearMultiple?'auto-selected (multiple found)':'auto-found'):'user provided';
+    const detailsSummary=`<div style="font-family:var(--mono);font-size:9px;color:var(--t3);line-height:2;margin-bottom:8px;border-top:1px solid var(--b);padding-top:8px">
+      DETAILS USED: Blk <strong style="color:var(--t2)">${esc(result.block)}</strong> · ${esc(result.street)} · ${esc(result.flatType)} · Floor <strong style="color:var(--t2)">${result.floor}</strong> · <strong style="color:var(--t2)">${result.size}sqm</strong> <em>(${sizeNote})</em> · Lease <strong style="color:var(--t2)">${ctx.leaseYear||'not set'}</strong> <em>(${lyNote})</em>
+    </div>`;
+
     const chips=[
       ...(result.flatType?[{label:`${ftLabel} ON ${streetShort}…`,val:`recent flattype ${result.flatType} all blocks ${result.street}`}]:[]),
       {label:`ALL TYPES ON ${streetShort}…`,val:`recent all blocks ${result.street}`},
-      {label:'ESTIMATE ANOTHER',val:'estimate value'},
-      {label:'DIFFERENT FLOOR',val:`value block ${result.block} ${result.street} floor`}
+      {label:'⚙ CHANGE DETAILS',val:'__changedetails__'},
+      {label:'ESTIMATE ANOTHER',val:'estimate value'}
     ];
-    harveyMsg(`That covers all the transactions I have on record, sir. Should you need a more grounded assessment, you are most welcome to reach out — <a href="https://wa.me/6597531657" target="_blank" style="color:var(--g)">WhatsApp us here</a>.`,chips);
-    speak(`That covers all the transactions I have, sir. Should you need a more grounded assessment, do WhatsApp us.`);
+    harveyMsg(`That covers everything I have, sir. Should you need a more grounded assessment, do reach out — <a href="https://wa.me/6597531657" target="_blank" style="color:var(--g)">WhatsApp us here</a>.<br><br>${detailsSummary}`,chips);
+    speak(`That covers all the transactions I have, sir. Do WhatsApp us if you need a more grounded assessment.`);
   },1800);
   mode='menu';
 }
@@ -1624,7 +1645,9 @@ function buildHudForm(ctx){
   const szInferred=ctx.sizeInferred?` <span class="hud-badge">⚠ ESTIMATED</span>`:ctx.sizeFromDB?` <span class="hud-badge">✓ FROM DB</span>`:'';
   const sizeOpts=blankOpt('floor area')+(sizes.length?sizes.map(s=>opt(s,s+' sqm',s===ctx.size)).join(''):`<option value="${ctx.size||''}">${ctx.size?ctx.size+' sqm (estimated)':'not found'}</option>`);
   // Lease year
-  const lyOpts=blankOpt('lease year')+(leaseYrs.length?leaseYrs.map(y=>opt(y,y,y===ctx.leaseYear)).join(''):`<option value="">not found in DB</option>`);
+  // Lease year — show all found + mark auto-selected one
+  const lyNote2=ctx.leaseYearMultiple?` <span class="hud-badge" style="color:var(--a)">⚠ MULTIPLE FOUND</span>`:ctx.leaseYearFromDB?` <span class="hud-badge">✓ AUTO</span>`:'';
+  const lyOpts=blankOpt('lease year')+(leaseYrs.length?leaseYrs.map(y=>opt(y,`${y}${ctx.leaseYearMultiple&&y===ctx.leaseYear?' (selected)':''}`,y===ctx.leaseYear)).join(''):`<option value="">not found in DB</option>`);
 
   const html=`Please select or correct the details, sir:<br>
 <div class="hud-form" id="${formId}">
@@ -1665,7 +1688,7 @@ function buildHudForm(ctx){
     </select>
   </div>
   <div class="hud-row">
-    <span class="hud-label">🗓️ LEASE YEAR</span>
+    <span class="hud-label">🗓️ LEASE YEAR${lyNote2}</span>
     <select class="hud-select" id="${formId}-lease">
       ${lyOpts}
     </select>
@@ -2000,7 +2023,16 @@ async function handleInput(){
     return;
   }
 
-  // ── Special: street-specific queries — flat-type filtered or all types ──
+  // ── Change details chip — show dropdown silently, no re-ask ──
+  if(raw==='__changedetails__'){
+    userMsg('Change details');
+    const formHtml=buildHudForm(ctx);
+    harveyMsg(`Of course, sir. Here are the details used — adjust anything and press Estimate Value to re-run:<br><br>${formHtml}`);
+    speak('Here are the details, sir. Adjust and re-run whenever you are ready.');
+    mode='ev_confirm';loading=false;sbEl.disabled=false;return;
+  }
+
+  // ── Special: street-specific queries ──
   if(/^recent (flattype .+ all blocks|all blocks) /i.test(raw)){
     let flatTypeFilter='';
     let streetName='';
