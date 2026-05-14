@@ -573,7 +573,7 @@ function computeEstimate(params){
   const psfLow=Math.round(priceLow/(mySize*10.764));
   const psfHigh=Math.round(priceHigh/(mySize*10.764));
 
-  return{type:'ok',priceLow,priceHigh,adjusted,psfLow,psfHigh,floorPrem:Math.round(floorPrem),comps:compsWithFloor.length,lookbackUsed,fallbackLevel,refComp,town,flatType,street,block,floor:myFloor,size:mySize};
+  return{type:'ok',priceLow,priceHigh,adjusted,psfLow,psfHigh,floorPrem:Math.round(floorPrem),comps:compsWithFloor.length,compsData:compsWithFloor,lookbackUsed,fallbackLevel,refComp,town,flatType,street,block,floor:myFloor,size:mySize};
 }
 
 // ── TRANSACTION SEARCH ──
@@ -1079,7 +1079,7 @@ function showTransactions(recs,params,is6mo){
   const prices=recs.map(r=>Number(r.resale_price));
   const sorted=[...prices].sort((a,b)=>a-b);
   const median=sorted[Math.floor(sorted.length/2)];
-  const shown=recs.slice(0,10);
+  const shown=recs; // show ALL — no limit
   const timeNote=is6mo?'last 6 months':'full dataset';
   const rows=shown.map(r=>`<tr><td>${esc(r.month)}</td><td>BLK ${esc(r.block)} ${esc(r.street_name)}</td><td>${esc(r.flat_type)}</td><td>${esc(r.storey_range)}</td><td>${esc(r.floor_area_sqm)}m²</td><td class="pc">${fmtP(r.resale_price)}</td></tr>`).join('');
   const d=document.createElement('div');d.className='msg-ai';d.style.maxWidth='100%';
@@ -1130,27 +1130,57 @@ function showEV(result,params){
   }
   if(result.type==='no_floor_data'){harveyMsg('Floor level data unavailable for these comps, sir. Try Transaction Search for this area.');speak('Floor data unavailable, sir.');mode='menu';return;}
 
-  // ── Build conversational explanation ──
-  const warn12=result.lookbackUsed===12?true:false;
+  // ── Analyse comps for anomalies ──
+  const compsData=result.compsData||[];
+  const warn12=result.lookbackUsed===12;
   const sizeNote=params.sizeFromDB?` <em style="color:var(--g)">(from block records)</em>`:params.sizeInferred?` <em style="color:var(--a)">(estimated)</em>`:'';
   const fallNote=result.fallbackLevel==='street'?` · street-level comps`:'';
 
-  // Comp price range for the natural language explanation
-  const compPrices=result.refComp?[result.priceLow,result.priceHigh]:[];
-  const rangeText=`${fmtP(result.priceLow)} to ${fmtP(result.priceHigh)}`;
-  const floorNote=result.floorPrem>0?` Your unit is on floor ${result.floor}, and I've applied a floor premium of approximately ${fmtP(result.floorPrem)} per level based on comparable transactions.`:'';
-  const backdateNote=warn12?` Do note this is based on the last 12 months — there wasn't enough data in the past 6 months, so treat this as a directional guide.`:'';
-  const scopeNote=result.fallbackLevel==='street'?` I expanded to street-level comparables as there wasn't enough data at block level specifically.`:'';
+  // Detect floor inversion: any lower-floor comp priced HIGHER than a higher-floor comp
+  let inversionNote='';
+  let inversionSpoken='';
+  if(compsData.length>=2){
+    // Sort by floor ascending
+    const sorted=[...compsData].sort((a,b)=>a.floorMid-b.floorMid);
+    // Find the highest-priced comp and check if it's on a LOWER floor than the lowest-priced comp
+    const highestPriceComp=compsData.reduce((a,b)=>a.price>b.price?a:b);
+    const lowestPriceComp=compsData.reduce((a,b)=>a.price<b.price?a:b);
+    const invertedByPrice=highestPriceComp.floorMid<lowestPriceComp.floorMid;
+    // Also check if any lower-floor is priced higher than a higher-floor in sequence
+    let hasSequentialInversion=false;
+    for(let i=0;i<sorted.length-1;i++){
+      if(sorted[i].price>sorted[i+1].price*1.02){hasSequentialInversion=true;break;}
+    }
+    if(invertedByPrice||hasSequentialInversion){
+      const lf=highestPriceComp;
+      inversionNote=`<div class="ev-warn" style="border-color:rgba(255,170,0,.4);background:rgba(255,170,0,.06);margin-top:8px">
+        ⚠ I notice a lower floor (${esc(lf.storey_range)}) transacted at a higher price of <strong style="color:var(--a)">${fmtP(lf.price)}</strong> — this is unusual and may reflect unit-specific factors such as renovation, facing, or negotiation. The floor premium model may not fully capture this, sir. <a href="https://wa.me/6597531657" target="_blank" style="color:var(--g)">You may want to check in with a professional →</a>
+      </div>`;
+      inversionSpoken=`I also notice something worth flagging, sir — a lower floor transacted at a higher price of ${fmtP(lf.price)}. This is unusual and may reflect unit-specific factors. You may want to check in with a professional agent.`;
+    }
+  }
 
-  // Harvey's conversational lead sentence — varied phrasing
-  const leads=[
-    `Based on my calculations, sir, your unit should sit around <strong style="color:var(--g);font-size:16px">${fmtP(result.adjusted)}</strong>.`,
-    `Your unit's value should be around <strong style="color:var(--g);font-size:16px">${fmtP(result.adjusted)}</strong>, sir, based on what I've found.`,
-    `The numbers point to <strong style="color:var(--g);font-size:16px">${fmtP(result.adjusted)}</strong> for your unit, sir.`
-  ];
-  const lead=rand(leads);
+  // ── Build full comps table — ALL of them, no limit ──
+  const compRows=compsData
+    .sort((a,b)=>(b.month||'').localeCompare(a.month||''))
+    .map(r=>{
+      const isHighFloor=r.floorMid>=result.floor;
+      const isRef=r.block===result.refComp.block&&r.storey_range===result.refComp.storey_range&&r.resale_price==result.refComp.resale_price;
+      return`<tr style="${isRef?'background:rgba(0,212,255,0.06)':''}">
+        <td>${esc(r.month)}</td>
+        <td>BLK ${esc(r.block)} ${esc(r.street_name)}</td>
+        <td>${esc(r.flat_type)}</td>
+        <td>${esc(r.storey_range)}</td>
+        <td>${esc(String(r.floor_area_sqm))}m²</td>
+        <td class="pc">${fmtP(r.price)}</td>
+        <td style="font-family:var(--mono);font-size:10px;color:var(--t3)">$${Math.round(r.psf)}/sqft${isRef?' <span style="color:var(--c)">REF</span>':''}</td>
+      </tr>`;
+    }).join('');
 
-  const explanation=`I see resale transactions on ${esc(result.fallbackLevel==='street'?result.street:result.block+' '+result.street)} ranging from <strong style="color:var(--c)">${fmtP(result.priceLow)}</strong> to <strong style="color:var(--c)">${fmtP(result.priceHigh)}</strong> — ${result.comps} comparable transaction${result.comps!==1?'s':''} over the last <strong>${result.lookbackUsed} months</strong>.${floorNote}${scopeNote}${backdateNote}`;
+  const floorNote2=result.floorPrem>0?` Your unit on floor ${result.floor} has a floor premium of ~${fmtP(result.floorPrem)} per level applied.`:'';
+  const backdateNote=warn12?` This is based on the last 12 months — insufficient data in the past 6 months, so treat as directional.`:'';
+  const scopeNote=result.fallbackLevel==='street'?` I expanded to street-level comparables — limited block-specific data.`:'';
+  const explanation=`I see resale transactions on <strong>${esc(result.fallbackLevel==='street'?result.street:'Blk '+result.block+' '+result.street)}</strong> ranging from <strong style="color:var(--c)">${fmtP(result.priceLow)}</strong> to <strong style="color:var(--c)">${fmtP(result.priceHigh)}</strong> — ${result.comps} comparable transaction${result.comps!==1?'s':''} over the last <strong>${result.lookbackUsed} months</strong>.${floorNote2}${scopeNote}${backdateNote}`;
 
   const d=document.createElement('div');d.className='msg-ai';d.style.maxWidth='100%';
   d.innerHTML=`<span class="mlbl">// ESTIMATED VALUE · BLK ${esc(result.block)} ${esc(result.street)}</span>
@@ -1162,13 +1192,13 @@ function showEV(result,params){
       ${esc(result.flatType)} · FLOOR ${result.floor} · ${result.size}SQM${sizeNote} · ${esc(result.town)}${fallNote}
     </div>
 
-    <!-- Lead with adjusted estimate -->
+    <!-- Lead: adjusted estimate big and centred -->
     <div style="text-align:center;margin-bottom:14px">
       <div style="font-family:var(--mono);font-size:10px;color:var(--t2);letter-spacing:2px;margin-bottom:6px">YOUR UNIT'S ESTIMATED VALUE</div>
       <div class="ev-price mid" style="font-size:32px">${fmtP(result.adjusted)}</div>
     </div>
 
-    <!-- Range below -->
+    <!-- Range -->
     <div class="ev-range" style="margin-bottom:12px">
       <div><div class="ev-price low">${fmtP(result.priceLow)}</div><div class="ev-label">CONSERVATIVE</div></div>
       <div class="ev-arrow">──</div>
@@ -1176,32 +1206,50 @@ function showEV(result,params){
     </div>
 
     <!-- Conversational explanation -->
-    <div style="background:rgba(0,212,255,0.04);border:1px solid var(--b);padding:10px 13px;font-family:var(--ui);font-size:13px;line-height:1.8;color:var(--t2);margin-bottom:10px">
+    <div style="background:rgba(0,212,255,0.04);border:1px solid var(--b);padding:10px 13px;font-family:var(--ui);font-size:13px;line-height:1.8;color:var(--t2);margin-bottom:8px">
       ${explanation}
     </div>
 
-    <!-- Technical details -->
-    <div class="ev-meta">
-      PSF RANGE: $${result.psfLow} – $${result.psfHigh} per sqft ·
+    <!-- Inversion warning if detected -->
+    ${inversionNote}
+
+    <!-- Technical meta -->
+    <div class="ev-meta" style="margin-top:8px">
+      PSF RANGE: $${result.psfLow} – $${result.psfHigh}/sqft ·
       FLOOR PREMIUM: ~${fmtP(result.floorPrem)}/floor ·
       REF COMP: Blk ${esc(result.refComp.block)} ${esc(result.refComp.street_name)} · ${esc(result.refComp.storey_range)} · ${fmtP(result.refComp.resale_price)}
+    </div>
+  </div>
+
+  <!-- ALL comparable transactions used -->
+  <div class="rwrap" style="margin-top:8px">
+    <div class="rcard">
+      <div class="rh">
+        <span class="rtitle">⬡ ALL COMPARABLE TRANSACTIONS USED · ${result.fallbackLevel.toUpperCase()} LEVEL</span>
+        <span class="rcnt">${result.comps} COMP${result.comps!==1?'S':''} · LAST ${result.lookbackUsed} MONTHS</span>
+      </div>
+      <div style="overflow-x:auto"><table>
+        <thead><tr><th>MONTH</th><th>BLOCK & STREET</th><th>TYPE</th><th>STOREY</th><th>AREA</th><th>PRICE</th><th>PSF</th></tr></thead>
+        <tbody>${compRows}</tbody>
+      </table></div>
     </div>
   </div>`;
   msgsEl.appendChild(d);bot();
 
-  // Harvey speaks the lead answer first, naturally
-  const speechLine=`${result.block} ${result.street}, floor ${result.floor}. Sir, I see transactions ranging from ${fmtP(result.priceLow)} to ${fmtP(result.priceHigh)}. Your unit's value should sit around ${fmtP(result.adjusted)} based on my calculation.`;
+  // Harvey speaks naturally
+  const speechLine=`Block ${result.block}, ${result.street}, floor ${result.floor}. Sir, I see transactions ranging from ${fmtP(result.priceLow)} to ${fmtP(result.priceHigh)}. Your unit's value should sit around ${fmtP(result.adjusted)} based on my calculation.`;
   speak(speechLine);
+  if(inversionSpoken){setTimeout(()=>speak(inversionSpoken),3500);}
 
-  // Follow-up offer to show transactions
+  // Follow-up — no "how can I help", just the professional nudge
   setTimeout(()=>{
-    harveyMsg(`If you need the resale transactions that support this, sir, I can bring them up for you.`,[
-      {label:'YES — SHOW ME THE TRANSACTIONS',val:`recent ${result.flatType||''} ${result.block?'block '+result.block:''} ${result.street||result.town||''}`},
+    harveyMsg(`That covers all the transactions I have on record, sir. Should you need a more grounded assessment, you are most welcome to reach out — <a href="https://wa.me/6597531657" target="_blank" style="color:var(--g)">WhatsApp us here</a>.`,[
       {label:'ESTIMATE ANOTHER',val:'estimate value'},
-      {label:'DIFFERENT FLOOR',val:`value block ${result.block} ${result.street} floor`}
+      {label:'DIFFERENT FLOOR',val:`value block ${result.block} ${result.street} floor`},
+      {label:'SEARCH TRANSACTIONS',val:`recent ${result.flatType||''} ${result.block?'block '+result.block:''} ${result.street||result.town||''}`}
     ]);
-    speak('If you need the resale transactions that support this, sir, I can bring them up.');
-  },1600);
+    speak(`That covers all the transactions I have, sir. Should you need a more grounded assessment, do WhatsApp us.`);
+  },1800);
   mode='menu';
 }
 
@@ -1550,11 +1598,10 @@ async function handleStreetOnly(street, ctx){
     mode='srch_waiting';loading=false;sbEl.disabled=false;return;
   }
 
-  // Show partial results
+  // Show partial results — ALL records
   const prices=recs.map(r=>Number(r.resale_price));
   const median=prices.slice().sort((a,b)=>a-b)[Math.floor(prices.length/2)];
-  const shown=recs.slice(0,10);
-  const rows=shown.map(r=>`<tr><td>${esc(r.month)}</td><td>BLK ${esc(r.block)} ${esc(r.street_name)}</td><td>${esc(r.flat_type)}</td><td>${esc(r.storey_range)}</td><td>${esc(r.floor_area_sqm)}m²</td><td class="pc">${fmtP(r.resale_price)}</td></tr>`).join('');
+  const rows=recs.map(r=>`<tr><td>${esc(r.month)}</td><td>BLK ${esc(r.block)} ${esc(r.street_name)}</td><td>${esc(r.flat_type)}</td><td>${esc(r.storey_range)}</td><td>${esc(r.floor_area_sqm)}m²</td><td class="pc">${fmtP(r.resale_price)}</td></tr>`).join('');
 
   const blockBadges=allBlocks.slice(0,12).map(b=>`<span class="chip" style="font-size:9px;padding:3px 8px" onclick="chipClick('estimate value block ${b} ${found.street}')">BLK ${b}</span>`).join(' ');
 
@@ -1647,6 +1694,19 @@ async function handleInput(){
 
   // ── Waiting modes — absorb all new info ──
   if(mode==='ev_waiting'||mode==='srch_waiting'){
+    // Check if user is reacting to a previous result rather than giving new info
+    const isReaction=/low|high|wrong|seems|that's|thats|really|sure|correct|accurate|right|off|expect|thought|reckon|feel|think|why|how|cant|can't|less|more|not right|not correct|disagree/i.test(raw);
+    const hasNewInfo=parsed.town||parsed.flatType||parsed.street||parsed.block||parsed.floor||parsed.size||parsed.leaseYear||parsed.maxPrice||parsed.minPrice;
+    if(isReaction&&!hasNewInfo){
+      const replies=[
+        `I'm afraid the data and numbers present themselves as such, sir. The estimate is based on actual resale transactions — I can only work with what the market has transacted. For a more grounded view, you may want a professional agent for the on-the-ground sensing. <a href="https://wa.me/6597531657" target="_blank" style="color:var(--g)">WhatsApp us here</a>.`,
+        `The numbers are what they are, sir — I'm merely reflecting the recorded transactions. If it feels off, a professional agent would give you a fuller picture. <a href="https://wa.me/6597531657" target="_blank" style="color:var(--g)">Do reach out to us on WhatsApp</a>.`,
+        `I understand, sir — but I'm afraid the data presents itself as such. Market conditions on the ground can differ. Feel free to <a href="https://wa.me/6597531657" target="_blank" style="color:var(--g)">chat with us on WhatsApp</a> for a more personal assessment.`
+      ];
+      harveyMsg(rand(replies),[{label:'SEE THE TRANSACTIONS',val:`recent ${ctx.flatType||''} ${ctx.block?'block '+ctx.block:''} ${ctx.street||ctx.town||''}`},{label:'TRY A DIFFERENT UNIT',val:'estimate value'}]);
+      speak(`I'm afraid the data presents itself as such, sir. You may want a professional agent for on-the-ground sensing. Feel free to WhatsApp us.`);
+      loading=false;sbEl.disabled=false;return;
+    }
     if(parsed.town)     ctx.town=parsed.town;
     if(parsed.flatType) ctx.flatType=parsed.flatType;
     if(parsed.street)   ctx.street=parsed.street;
@@ -1710,6 +1770,20 @@ async function handleInput(){
   }else if(ctx.town||ctx.street||ctx.block||/transact|search|recent|sales?|sold|show|find/i.test(raw)){
     ctx.isEV=false;mode='srch_waiting';promptMissing(ctx);
   }else{
+    // ── Harvey's natural response when user questions/doubts/reacts after a result ──
+    // Detect frustration, doubt or surprise about the result
+    const isReaction=/low|high|wrong|seems|that's|thats|really|sure|correct|accurate|right|off|expect|thought|reckon|feel|think|why|how|cant|can't|less|more|not right|not correct|disagree/i.test(raw);
+    if(isReaction&&(mode==='menu'||mode==='srch_waiting'||mode==='ev_waiting')){
+      const replies=[
+        `I'm afraid the data and numbers present themselves as such, sir. The estimate is based on actual resale transactions recorded in the area — I can only work with what the market has transacted. For a more grounded assessment, you may want a professional real estate agent for the on-the-ground sensing. Feel free to reach out to us directly — <a href="https://wa.me/6597531657" target="_blank" style="color:var(--g)">WhatsApp us here</a>.`,
+        `The numbers are what they are, sir — I'm merely reflecting the recent transactions in the database. If the figure feels off from your expectations, it may be worth engaging a professional agent for an on-the-ground sense check. You're welcome to <a href="https://wa.me/6597531657" target="_blank" style="color:var(--g)">reach out to us on WhatsApp</a> and we'd be happy to assist.`,
+        `I understand, sir — but I'm afraid the data presents itself as such. These figures are derived purely from comparable resale transactions. Market conditions on the ground can differ, and a professional agent would give you a fuller picture. Do feel free to <a href="https://wa.me/6597531657" target="_blank" style="color:var(--g)">chat with us on WhatsApp</a> for a more personal assessment.`
+      ];
+      const reply=rand(replies);
+      harveyMsg(reply,[{label:'SEE THE TRANSACTIONS',val:`recent ${ctx.flatType||''} ${ctx.block?'block '+ctx.block:''} ${ctx.street||ctx.town||''}`},{label:'TRY A DIFFERENT UNIT',val:'estimate value'}]);
+      speak(`I'm afraid the data and numbers present themselves as such, sir. The estimate reflects actual recorded transactions. You may want a professional agent for on-the-ground sensing. Feel free to WhatsApp us.`);
+      loading=false;sbEl.disabled=false;return;
+    }
     harveyMsg('How can I help, sir?',[{label:'RESALE TRANSACTIONS',val:'search'},{label:'ESTIMATE VALUE',val:'estimate value'}]);
     speak('How can I help, sir?');mode='menu';loading=false;sbEl.disabled=false;
   }
