@@ -46,6 +46,16 @@ body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradi
 .tb-date{font-family:var(--mono);font-size:8px;color:var(--t2);letter-spacing:1px;text-align:right;margin-top:1px}
 .vtog{font-family:var(--mono);font-size:9px;color:var(--c2);background:rgba(0,212,255,.06);border:1px solid rgba(0,212,255,.2);padding:5px 10px;cursor:pointer;letter-spacing:1px;clip-path:polygon(5px 0,100% 0,100% 100%,0 100%,0 5px);transition:all .14s;white-space:nowrap}
 .vtog:hover{background:var(--c3);border-color:var(--b2)}
+/* Stop speech button */
+.stop-btn{font-family:var(--mono);font-size:8px;color:var(--r);background:rgba(255,68,68,.06);border:1px solid rgba(255,68,68,.2);padding:3px 8px;cursor:pointer;letter-spacing:1px;transition:all .14s;white-space:nowrap;flex-shrink:0}
+.stop-btn:hover{background:rgba(255,68,68,.15);border-color:var(--r)}
+/* Sortable table headers */
+.sort-th{cursor:pointer;user-select:none;white-space:nowrap}
+.sort-th:hover{color:var(--c) !important}
+.sort-th .sort-arrow{margin-left:4px;opacity:0.4;font-size:8px}
+.sort-th.asc .sort-arrow::after{content:'▲';opacity:1}
+.sort-th.desc .sort-arrow::after{content:'▼';opacity:1}
+.sort-th .sort-arrow::after{content:'⇅'}
 
 /* MAIN 3-COLUMN */
 .main{display:grid;grid-template-columns:230px 1fr 230px;flex:1;overflow:hidden}
@@ -89,6 +99,46 @@ body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradi
 .hrw.speaking .hr3{animation:spin 1.5s linear infinite!important}
 .hrw.speaking .hr4{animation:spin 0.8s linear infinite!important}
 .hrw.speaking .hnum{color:var(--g)!important;text-shadow:0 0 30px var(--g)!important;transition:all .3s}
+/* Jarvis speaking overlay — fullscreen pulse rings behind content */
+#harvey-speaking-fx{
+  position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
+  pointer-events:none;z-index:8000;
+  display:none;align-items:center;justify-content:center;
+  width:100vw;height:100vh;
+}
+#harvey-speaking-fx.active{display:flex;}
+.sfx-ring{
+  position:absolute;border-radius:50%;border:1px solid rgba(0,212,255,0);
+  animation:sfxPulse 2s ease-out infinite;
+}
+.sfx-ring:nth-child(1){width:180px;height:180px;animation-delay:0s}
+.sfx-ring:nth-child(2){width:320px;height:320px;animation-delay:0.4s}
+.sfx-ring:nth-child(3){width:480px;height:480px;animation-delay:0.8s}
+.sfx-ring:nth-child(4){width:650px;height:650px;animation-delay:1.2s}
+.sfx-ring:nth-child(5){width:820px;height:820px;animation-delay:1.6s}
+@keyframes sfxPulse{
+  0%{border-color:rgba(0,212,255,0.6);transform:scale(0.3);opacity:1}
+  100%{border-color:rgba(0,212,255,0);transform:scale(1);opacity:0}
+}
+/* Sound wave bars under HUD ring when speaking */
+.sfx-bars{
+  position:absolute;bottom:-28px;left:50%;transform:translateX(-50%);
+  display:none;gap:3px;align-items:flex-end;height:20px;
+}
+.hrw.speaking .sfx-bars{display:flex;}
+.sfx-bar{
+  width:3px;background:var(--g);border-radius:2px;
+  animation:sfxBar 0.6s ease-in-out infinite alternate;
+  box-shadow:0 0 4px var(--g);
+}
+.sfx-bar:nth-child(1){height:6px;animation-delay:0s}
+.sfx-bar:nth-child(2){height:14px;animation-delay:0.08s}
+.sfx-bar:nth-child(3){height:20px;animation-delay:0.16s}
+.sfx-bar:nth-child(4){height:14px;animation-delay:0.24s}
+.sfx-bar:nth-child(5){height:8px;animation-delay:0.32s}
+.sfx-bar:nth-child(6){height:18px;animation-delay:0.4s}
+.sfx-bar:nth-child(7){height:10px;animation-delay:0.48s}
+@keyframes sfxBar{from{transform:scaleY(0.3);opacity:0.5}to{transform:scaleY(1);opacity:1}}
 .hstats{display:flex;gap:20px;margin-left:18px}
 .hsi{display:flex;flex-direction:column;align-items:center;gap:3px}
 .hsring{position:relative;width:54px;height:54px;display:flex;align-items:center;justify-content:center}
@@ -197,6 +247,11 @@ tr:hover td{background:rgba(0,212,255,.03)}
 <body>
 <div class="grid-bg"></div>
 <div class="cg cg1"></div><div class="cg cg2"></div><div class="cg cg3"></div>
+<!-- Jarvis speaking effect -->
+<div id="harvey-speaking-fx">
+  <div class="sfx-ring"></div><div class="sfx-ring"></div><div class="sfx-ring"></div>
+  <div class="sfx-ring"></div><div class="sfx-ring"></div>
+</div>
 
 <div class="shell">
   <!-- TOP BAR -->
@@ -272,6 +327,11 @@ tr:hover td{background:rgba(0,212,255,.03)}
           <div class="hcore">
             <div class="hnum" id="hnum">HARVEY</div>
             <div class="hlbl">BY BLOCKSENSE</div>
+          </div>
+          <div class="sfx-bars">
+            <div class="sfx-bar"></div><div class="sfx-bar"></div><div class="sfx-bar"></div>
+            <div class="sfx-bar"></div><div class="sfx-bar"></div><div class="sfx-bar"></div>
+            <div class="sfx-bar"></div>
           </div>
         </div>
         <div class="hstats">
@@ -416,7 +476,12 @@ tick(); setInterval(tick,1000);
 
 ciEl.addEventListener('input',()=>{ciEl.style.height='auto';ciEl.style.height=Math.min(ciEl.scrollHeight,80)+'px'});
 ciEl.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();handleInput()}});
-function bot(){msgsEl.scrollTop=msgsEl.scrollHeight}
+function bot(){
+  msgsEl.scrollTop=msgsEl.scrollHeight;
+  // Auto-apply sortable to any new tables just added
+  const tables=msgsEl.querySelectorAll('table:not(.sortable-done)');
+  tables.forEach(t=>{t.classList.add('sortable-done');makeSortable(t);});
+}
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
 function rand(a){return a[Math.floor(Math.random()*a.length)]}
 const fmtP = p=>'$'+Number(p).toLocaleString();
@@ -428,6 +493,7 @@ async function speak(txt){
   if(!clean) return;
   if(currentAudio){currentAudio.pause();currentAudio=null;}
   document.querySelector('.hrw')?.classList.add('speaking');
+  document.getElementById('harvey-speaking-fx')?.classList.add('active');
   try{
     const audio=await puter.ai.txt2speech(clean,{provider:'elevenlabs',voice:VOICE_ID,model:'eleven_flash_v2_5'});
     audio.playbackRate=VOICE_SPEED; audio.preservesPitch=true;
@@ -441,6 +507,44 @@ async function speak(txt){
     u.onend=()=>document.querySelector('.hrw')?.classList.remove('speaking');
     window.speechSynthesis.speak(u);
   }
+}
+
+// ── Stop speech immediately ──
+function stopSpeech(){
+  if(currentAudio){currentAudio.pause();currentAudio.currentTime=0;currentAudio=null;}
+  window.speechSynthesis?.cancel();
+  document.querySelector('.hrw')?.classList.remove('speaking');
+}
+
+// ── Sortable table — call after injecting table HTML ──
+function makeSortable(tableEl){
+  if(!tableEl)return;
+  const ths=[...tableEl.querySelectorAll('thead th')];
+  ths.forEach((th,i)=>{
+    th.classList.add('sort-th');
+    th.innerHTML=th.textContent+`<span class="sort-arrow"></span>`;
+    let dir='none';
+    th.addEventListener('click',()=>{
+      ths.forEach(h=>{h.classList.remove('asc','desc');});
+      dir=dir==='asc'?'desc':'asc';
+      th.classList.add(dir);
+      const tbody=tableEl.querySelector('tbody');
+      if(!tbody)return;
+      const rows=[...tbody.querySelectorAll('tr')];
+      const type=th.dataset.type||'text';
+      rows.sort((a,b)=>{
+        const va=a.cells[i]?.textContent.trim()||'';
+        const vb=b.cells[i]?.textContent.trim()||'';
+        if(type==='number'||type==='price'){
+          return dir==='asc'
+            ?(parseFloat(va.replace(/[^0-9.-]/g,''))||0)-(parseFloat(vb.replace(/[^0-9.-]/g,''))||0)
+            :(parseFloat(vb.replace(/[^0-9.-]/g,''))||0)-(parseFloat(va.replace(/[^0-9.-]/g,''))||0);
+        }
+        return dir==='asc'?va.localeCompare(vb):vb.localeCompare(va);
+      });
+      rows.forEach(r=>tbody.appendChild(r));
+    });
+  });
 }
 
 // ── VOICE TOGGLE ──
@@ -652,98 +756,121 @@ function lookupSizeFromDB(block,street,flatType){
   return Number(Object.entries(freq).sort((a,b)=>b[1]-a[1])[0][0]);
 }
 
-// ── Reverse street → canonical DB town + street + blocks ──
-// Supports: full name, abbreviated (ST/DR/CL/AVE/RD/CRES), partial, slight misspelling
-function reverseStreet(streetRaw){
-  if(!DB.loaded||!streetRaw)return null;
+// ── Street abbreviation handler ──
+// DB stores SHORT form: ST, AVE, DR, RD, CL, CRES, LOR, JLN, BT, UPP etc
+// Users may type EITHER form — we normalise to DB short form before searching
 
-  // First expand abbreviations so "CLEMENTI WEST ST 1" becomes "CLEMENTI WEST STREET 1"
-  let s=streetRaw.toUpperCase().trim()
-    .replace(/\bST\b(?=\s*\d|\s+[A-Z])/g,'STREET')
+// Converts user input (long or short) → DB short form for searching
+function contractStreetAbbr(s){
+  return s
+    .replace(/\bSTREET\b/g,'ST')
+    .replace(/\bAVENUE\b/g,'AVE')
+    .replace(/\bDRIVE\b/g,'DR')
+    .replace(/\bROAD\b/g,'RD')
+    .replace(/\bCLOSE\b/g,'CL')
+    .replace(/\bCRESCENT\b/g,'CRES')
+    .replace(/\bLORONG\b/g,'LOR')
+    .replace(/\bJALAN\b/g,'JLN')
+    .replace(/\bBUKIT\b/g,'BT')
+    .replace(/\bUPPER\b/g,'UPP')
+    .replace(/\bHEIGHTS\b/g,'HTS')
+    .replace(/\bNORTH\b/g,'NTH')
+    .replace(/\bSOUTH\b/g,'STH')
+    .replace(/\bCENTRAL\b/g,'CTRL')
+    .replace(/\bTERRACE\b/g,'TER')
+    .replace(/\bPLACE\b/g,'PL')
+    .replace(/\bGROVE\b/g,'GR')
+    .replace(/\s+/g,' ').trim();
+}
+
+// Converts DB short form → full English for TTS (so Harvey doesn't say "ess tee")
+function expandStreetAbbr(s){
+  return s
+    .replace(/\bST\b/g,'STREET')
     .replace(/\bAVE\b/g,'AVENUE')
     .replace(/\bDR\b/g,'DRIVE')
     .replace(/\bRD\b/g,'ROAD')
     .replace(/\bCL\b/g,'CLOSE')
     .replace(/\bCRES\b/g,'CRESCENT')
-    .replace(/\bLN\b/g,'LANE')
-    .replace(/\bHTS\b/g,'HEIGHTS')
     .replace(/\bLOR\b/g,'LORONG')
     .replace(/\bJLN\b/g,'JALAN')
-    .replace(/\bUPP\b/g,'UPPER')
     .replace(/\bBT\b/g,'BUKIT')
-    .replace(/\bBLK\s*\d+[A-Z]?\s*/g,'')  // strip block number if leaked in
+    .replace(/\bUPP\b/g,'UPPER')
+    .replace(/\bHTS\b/g,'HEIGHTS')
+    .replace(/\bNTH\b/g,'NORTH')
+    .replace(/\bSTH\b/g,'SOUTH')
+    .replace(/\bCTRL\b/g,'CENTRAL')
+    .replace(/\bTER\b/g,'TERRACE')
+    .replace(/\bPL\b/g,'PLACE')
+    .replace(/\bGR\b/g,'GROVE')
     .replace(/\s+/g,' ').trim();
-
-  // Strategy 1: exact match
-  let matches=DB.resale.filter(r=>r.street_name&&r.street_name.toUpperCase()===s);
-  if(matches.length) return _srResult(matches);
-
-  // Strategy 2: DB streets that contain the full expanded string
-  matches=DB.resale.filter(r=>r.street_name&&r.street_name.toUpperCase()===s);
-  if(matches.length) return _srResult(matches);
-
-  // Strategy 3: extract the "meaningful core" — strip street-type words and numbers,
-  // then find DB streets that contain those core words
-  const typeWords=/\b(STREET|ROAD|AVENUE|DRIVE|CRESCENT|CLOSE|WALK|LINK|LANE|WAY|PLACE|RISE|VIEW|HEIGHTS|GROVE|CIRCLE|TERRACE|NORTH|SOUTH|EAST|WEST|CENTRAL|UPPER|LOWER|NEW|OLD)\b/g;
-  const core=s.replace(typeWords,'').replace(/\d+[A-Z]?/g,'').replace(/\s+/g,' ').trim();
-  // Build a set of meaningful words (>=3 chars, not noise)
-  const coreWords=core.split(' ').filter(w=>w.length>=3);
-  if(coreWords.length){
-    // Score each DB street by how many core words it contains
-    const scored=[];
-    const seen=new Set();
-    for(const r of DB.resale){
-      if(!r.street_name||seen.has(r.street_name))continue;
-      seen.add(r.street_name);
-      const upper=r.street_name.toUpperCase();
-      const score=coreWords.filter(w=>upper.includes(w)).length;
-      if(score>0) scored.push({score,street:r.street_name,town:r.town});
-    }
-    scored.sort((a,b)=>b.score-a.score);
-    if(scored.length){
-      const best=scored[0];
-      matches=DB.resale.filter(r=>r.street_name===best.street);
-      if(matches.length) return _srResult(matches);
-    }
-  }
-
-  // Strategy 4: fuzzy — each word of input against each DB street name
-  const inputWords=s.split(' ').filter(w=>w.length>=4&&!w.match(/^\d+$/));
-  if(inputWords.length){
-    const scored2=[];const seen2=new Set();
-    for(const r of DB.resale){
-      if(!r.street_name||seen2.has(r.street_name))continue;
-      seen2.add(r.street_name);
-      const upper=r.street_name.toUpperCase();
-      const score=inputWords.filter(w=>upper.includes(w)||_fuzzyWord(upper,w)).length;
-      if(score>0)scored2.push({score,street:r.street_name,town:r.town});
-    }
-    scored2.sort((a,b)=>b.score-a.score);
-    if(scored2.length){
-      matches=DB.resale.filter(r=>r.street_name===scored2[0].street);
-      if(matches.length) return _srResult(matches);
-    }
-  }
-
-  return null;
 }
 
-// Fuzzy word match — handles 1-char typo (e.g. "CLEMETI" vs "CLEMENTI")
+
+// ── Reverse street → canonical DB town + street + blocks ──
+// Supports: full name, abbreviated (ST/DR/CL/AVE/RD/CRES), partial, slight misspelling
+function reverseStreet(streetRaw){
+  if(!DB.loaded||!streetRaw)return null;
+  // Contract long form → DB short form, strip accidental block numbers
+  let s=contractStreetAbbr(streetRaw.toUpperCase().trim())
+    .replace(/\bBLOCK\s*\d+[A-Z]?\s*/g,'').replace(/\bBLK\s*\d+[A-Z]?\s*/g,'')
+    .replace(/\s+/g,' ').trim();
+
+  // S1: exact match against DB short-form names
+  let m=DB.resale.filter(r=>r.street_name&&r.street_name.toUpperCase()===s);
+  if(m.length)return _srResult(m);
+
+  // S2: also try with original (user may have already used short form)
+  const sOrig=streetRaw.toUpperCase().trim().replace(/\bBLK\s*\d+[A-Z]?\s*/g,'').replace(/\s+/g,' ').trim();
+  if(sOrig!==s){
+    m=DB.resale.filter(r=>r.street_name&&r.street_name.toUpperCase()===sOrig);
+    if(m.length)return _srResult(m);
+  }
+
+  // S3: core-word scoring — strip ALL street-type words (both long and short), score by remaining words
+  const stripTypeRx=/\b(STREET|ST|ROAD|RD|AVENUE|AVE|DRIVE|DR|CRESCENT|CRES|CLOSE|CL|WALK|LINK|LANE|LN|WAY|PLACE|PL|RISE|VIEW|HEIGHTS|HTS|GROVE|GR|CIRCLE|TERRACE|TER|NORTH|NTH|SOUTH|STH|EAST|WEST|CENTRAL|CTRL|UPPER|UPP|LOWER|NEW|OLD|LORONG|LOR|JALAN|JLN|BUKIT|BT)\b/g;
+  const core=s.replace(stripTypeRx,'').replace(/\d+[A-Z]?/g,'').replace(/\s+/g,' ').trim();
+  const coreWords=core.split(' ').filter(w=>w.length>=3);
+  if(coreWords.length){
+    const sc=[];const seen=new Set();
+    for(const r of DB.resale){
+      if(!r.street_name||seen.has(r.street_name))continue;seen.add(r.street_name);
+      const up=r.street_name.toUpperCase();
+      const score=coreWords.filter(w=>up.includes(w)).length;
+      if(score>0)sc.push({score,street:r.street_name});
+    }
+    sc.sort((a,b)=>b.score-a.score);
+    if(sc.length){m=DB.resale.filter(r=>r.street_name===sc[0].street);if(m.length)return _srResult(m);}
+  }
+
+  // S4: fuzzy — 1-char typo tolerance
+  const iw=s.split(' ').filter(w=>w.length>=4&&!/^\d+$/.test(w));
+  if(iw.length){
+    const sc2=[];const seen2=new Set();
+    for(const r of DB.resale){
+      if(!r.street_name||seen2.has(r.street_name))continue;seen2.add(r.street_name);
+      const up=r.street_name.toUpperCase();
+      const score=iw.filter(w=>up.includes(w)||_fuzzyWord(up,w)).length;
+      if(score>0)sc2.push({score,street:r.street_name});
+    }
+    sc2.sort((a,b)=>b.score-a.score);
+    if(sc2.length){m=DB.resale.filter(r=>r.street_name===sc2[0].street);if(m.length)return _srResult(m);}
+  }
+  return null;
+}
 function _fuzzyWord(haystack,needle){
-  if(needle.length<4) return false;
-  // Check if needle is a substring with 1 char difference
+  if(needle.length<4)return false;
   for(let i=0;i<=haystack.length-needle.length+1;i++){
     const chunk=haystack.slice(i,i+needle.length);
-    let diff=0;
-    for(let j=0;j<needle.length;j++) if(chunk[j]!==needle[j]) diff++;
-    if(diff<=1) return true;
+    let diff=0;for(let j=0;j<needle.length;j++)if(chunk[j]!==needle[j])diff++;
+    if(diff<=1)return true;
   }
   return false;
 }
-
 function _srResult(matches){
   return{town:matches[0].town,street:matches[0].street_name,blocks:[...new Set(matches.map(r=>r.block))].sort((a,b)=>Number(a)-Number(b)||a.localeCompare(b))};
 }
+
 
 
 // ── Block+street → canonical town ──
@@ -1144,7 +1271,9 @@ function harveyMsg(html,chips=[]){
   document.getElementById('welcome')?.remove();
   const d=document.createElement('div');d.className='msg-ai';
   const ch=chips.length?`<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">${chips.map(c=>`<span class="chip" onclick="chipClick('${c.val.replace(/'/g,"\\'")}')">▶ ${c.label}</span>`).join('')}</div>`:'';
-  d.innerHTML=`<span class="mlbl">// HARVEY</span><div class="mbub">${html}${ch}</div>`;
+  // Stop speech button — only if voice is on
+  const stopBtn=`<button class="stop-btn" onclick="stopSpeech()" title="Stop Harvey speaking">⏹ STOP</button>`;
+  d.innerHTML=`<span class="mlbl" style="display:flex;align-items:center;gap:8px;justify-content:space-between"><span>// HARVEY</span>${stopBtn}</span><div class="mbub">${html}${ch}</div>`;
   msgsEl.appendChild(d);bot();
 }
 function userMsg(text){
@@ -1998,34 +2127,13 @@ const vsSup=document.getElementById('vs-sup');
 let micState='off',recog=null,recogBusy=false;
 let speechTimer=null; // delay before processing — don't interrupt user
 
-// ── Singlish / speech normalizer + street abbreviation expander ──
+// ── Singlish / speech normalizer ──
 function normalizeSpeech(txt){
   let s=txt.trim();
-
-  // ── Street abbreviation expansion (data.gov.sg short forms → full) ──
-  // Must run BEFORE other replacements so "ST 1" becomes "STREET 1" not garbled
-  s=s.replace(/\bST\b(?=\s*\d|\s+\d)/gi,'STREET'); // ST 1 → STREET 1
-  s=s.replace(/\bST\b(?=\s+[A-Z])/gi,'STREET');     // ST MICHAEL → STREET MICHAEL
-  s=s.replace(/\bAVE\b/gi,'AVENUE');
-  s=s.replace(/\bDR\b/gi,'DRIVE');
-  s=s.replace(/\bRD\b/gi,'ROAD');
-  s=s.replace(/\bCL\b/gi,'CLOSE');
-  s=s.replace(/\bCRES\b/gi,'CRESCENT');
-  s=s.replace(/\bCR\b/gi,'CRESCENT');
-  s=s.replace(/\bTER\b/gi,'TERRACE');
-  s=s.replace(/\bPL\b/gi,'PLACE');
-  s=s.replace(/\bHTS\b/gi,'HEIGHTS');
-  s=s.replace(/\bGR\b/gi,'GROVE');
-  s=s.replace(/\bNTH\b/gi,'NORTH');
-  s=s.replace(/\bSTH\b/gi,'SOUTH');
-  s=s.replace(/\bCTRL\b/gi,'CENTRAL');
-  s=s.replace(/\bCTR\b/gi,'CENTRAL');
-  s=s.replace(/\bBT\b/gi,'BUKIT');
-  s=s.replace(/\bUPP\b/gi,'UPPER');
-  s=s.replace(/\bLOR\b/gi,'LORONG');
-  s=s.replace(/\bJLN\b/gi,'JALAN');
-  s=s.replace(/\bBLK\b/gi,'block');
-  s=s.replace(/\bblk\b/gi,'block');
+  // Contract long-form street words → DB short form (works for both typed and voice)
+  // e.g. user types "Clementi West Street 1" → "Clementi West ST 1" for DB matching
+  s=contractStreetAbbr(s.toUpperCase());
+  // Also handle BLK → keep as-is (DB uses BLK prefix in some places but not street names)
 
   // ── Flat type phonetic fixes ──
   s=s.replace(/\b(tree|three|tri|thri|free|3)\s*(room|rum|roo|ruum)\b/gi,'3 room');
@@ -2068,22 +2176,11 @@ function normalizeSpeech(txt){
   return s;
 }
 
-// ── TTS text cleaner — expand abbreviations so Harvey doesn't say "ess tee" ──
+// ── TTS text cleaner — expand DB short forms so Harvey speaks properly ──
 function cleanForSpeech(txt){
   let s=txt.replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim();
-  // Street type expansions for TTS
-  s=s.replace(/\bST\b/g,'Street');
-  s=s.replace(/\bAVE\b/g,'Avenue');
-  s=s.replace(/\bDR\b/g,'Drive');
-  s=s.replace(/\bRD\b/g,'Road');
-  s=s.replace(/\bCL\b/g,'Close');
-  s=s.replace(/\bCRES\b/g,'Crescent');
+  s=expandStreetAbbr(s); // ST → STREET, AVE → AVENUE etc
   s=s.replace(/\bBLK\b/g,'Block');
-  s=s.replace(/\bblk\b/g,'Block');
-  s=s.replace(/\bLOR\b/g,'Lorong');
-  s=s.replace(/\bJLN\b/g,'Jalan');
-  s=s.replace(/\bUPP\b/g,'Upper');
-  // Price — read as natural number
   s=s.replace(/\$(\d{1,3}(?:,\d{3})*)/g,(m,n)=>n.replace(/,/g,'')+' dollars');
   return s;
 }
