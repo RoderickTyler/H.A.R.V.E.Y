@@ -424,7 +424,7 @@ const fmtP = p=>'$'+Number(p).toLocaleString();
 // ── SPEAK via Puter.js ElevenLabs ──
 async function speak(txt){
   if(!voiceOn||!txt) return;
-  const clean=txt.replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim();
+  const clean=cleanForSpeech(txt);
   if(!clean) return;
   if(currentAudio){currentAudio.pause();currentAudio=null;}
   document.querySelector('.hrw')?.classList.add('speaking');
@@ -679,12 +679,26 @@ function parseQuery(raw){
   const q=raw.toUpperCase();const res={};
   const town=fuzzyMatchTown(q);if(town)res.town=town;
   for(const[a,v]of Object.entries(FLAT_MAP)){if(q.includes(a)){res.flatType=v;break}}
-  // Block — explicit BLK/BLOCK prefix only
+  // Block — explicit BLK/BLOCK prefix, or standalone 3-4 digit number that isn't a price/sqm/year
   const blk=q.match(/\bBLK\s*(\d+[A-Z]?)\b|\bBLOCK\s*#?\s*(\d+[A-Z]?)\b/);
-  if(blk)res.block=(blk[1]||blk[2]).trim();
-  // Floor — MUST have floor/level/storey keyword
+  if(blk) res.block=(blk[1]||blk[2]).trim();
+  // Standalone block number: 3-4 digits at start of input or after space, not preceded by $ or floor/level keywords
+  if(!res.block){
+    const words=q.split(/\s+/);
+    for(const w of words){
+      if(/^\d{3,4}[A-Z]?$/.test(w)){
+        // Not a year (1900-2025), not a size (unlikely to be 3-digit standalone but check context)
+        const n=parseInt(w);
+        if(!(n>=1960&&n<=2025)&&!(n>=50&&n<=200)){res.block=w;break;}
+      }
+    }
+  }
+  // Floor — floor/level/storey/lvl keyword, also "unit's level" (normalised to "floor" already)
   const fl=raw.match(/(?:floor|level|storey|flr|lvl)\s*#?\s*(\d+)|(\d+)\s*(?:st|nd|rd|th)\s*(?:floor|storey|level|flr)/i);
-  if(fl)res.floor=Number(fl[1]||fl[2]);
+  if(fl) res.floor=Number(fl[1]||fl[2]);
+  // If block and floor both resolved to same number, floor wins — clear block
+  if(res.block&&res.floor&&String(res.floor)===String(res.block)&&res.street){res.block='';}
+
   // Size — explicit sqm keyword
   const sz=raw.match(/(\d+)\s*(?:sqm|sq\.?m\b|m2|square\s*m)/i);
   if(sz)res.size=Number(sz[1]);
@@ -1241,12 +1255,12 @@ function showEV(result,params){
   speak(speechLine);
   if(inversionSpoken){setTimeout(()=>speak(inversionSpoken),3500);}
 
-  // Follow-up — no "how can I help", just the professional nudge
+  // Follow-up — professional nudge + option to see all street transactions
   setTimeout(()=>{
     harveyMsg(`That covers all the transactions I have on record, sir. Should you need a more grounded assessment, you are most welcome to reach out — <a href="https://wa.me/6597531657" target="_blank" style="color:var(--g)">WhatsApp us here</a>.`,[
+      {label:`ALL TRANSACTIONS ON ${result.street.split(' ').slice(0,3).join(' ')}…`,val:`recent all blocks ${result.street}`},
       {label:'ESTIMATE ANOTHER',val:'estimate value'},
-      {label:'DIFFERENT FLOOR',val:`value block ${result.block} ${result.street} floor`},
-      {label:'SEARCH TRANSACTIONS',val:`recent ${result.flatType||''} ${result.block?'block '+result.block:''} ${result.street||result.town||''}`}
+      {label:'DIFFERENT FLOOR',val:`value block ${result.block} ${result.street} floor`}
     ]);
     speak(`That covers all the transactions I have, sir. Should you need a more grounded assessment, do WhatsApp us.`);
   },1800);
@@ -1726,6 +1740,16 @@ async function handleInput(){
     return;
   }
 
+  // ── Special: "recent all blocks STREET" — search entire street ──
+  if(/^recent all blocks /i.test(raw)){
+    const streetName=raw.replace(/^recent all blocks /i,'').trim();
+    const found=reverseStreet(streetName)||{street:streetName.toUpperCase(),town:''};
+    ctx={isEV:false,street:found.street,town:found.town};
+    enrichCtx(ctx);
+    userMsg('All transactions on '+found.street);
+    mode='srch_waiting';await runSearch();return;
+  }
+
   // ── Fresh intent ──
   ctx={...parsed};enrichCtx(ctx);
 
@@ -1754,16 +1778,10 @@ async function handleInput(){
   if(ctx.isEV||/valuat|estimate|worth|value|how much|price of|check value/i.test(raw)){
     ctx.isEV=true;
     if(!ctx.town&&!ctx.street&&!ctx.block&&!ctx.flatType&&!ctx.floor){
-      harveyMsg(`Of course, sir. Please provide all of the following in <strong>one message</strong>:<br><br>
-📍 <strong>Town</strong> — e.g. Clementi <em>(I can find from street)</em><br>
-🏠 <strong>Flat type</strong> — 3-room, 4-room, 5-room or Executive<br>
-🛣️ <strong>Street name</strong> — e.g. Clementi West Street 1<br>
-🔢 <strong>Block number</strong> — e.g. Blk 608<br>
-📶 <strong>Floor level</strong> — e.g. floor 4<br>
-📐 <strong>Floor area sqm</strong> — e.g. 67 sqm <em>(optional — I will look up from block records)</em><br>
-🗓️ <strong>Lease start year</strong> — e.g. lease 1979 <em>(optional but improves accuracy)</em><br><br>
-<em style="color:var(--t2);font-size:11px">e.g. <strong style="color:var(--c)">Block 608 Clementi West Street 1 floor 4 3-room lease 1979</strong></em>`,flatTypeChips());
-      speak('Of course, sir. Block, street, floor and flat type please, in one message.');
+      harveyMsg(`Of course, sir. Please go ahead and input your <strong>block number</strong>, <strong>street</strong>, the <strong>unit's level</strong> — that's the floor — and the <strong>flat type</strong>. Something like:<br><br>
+<em style="color:var(--c);font-family:var(--mono);font-size:11px">608 Clementi West Street 1 level 4 3 room</em><br><br>
+<em style="color:var(--t2);font-size:11px">You can also include the <strong>lease year</strong> for better accuracy — e.g. <strong style="color:var(--c)">lease 1979</strong>. Floor area is optional — I'll look it up from the records.</em>`,flatTypeChips());
+      speak('Of course, sir. Please go ahead and input your block number, street, the unit level — that is the floor — and the flat type.');
       mode='ev_waiting';loading=false;sbEl.disabled=false;return;
     }
     mode='ev_waiting';promptMissing(ctx);
@@ -1839,17 +1857,44 @@ const vsSup=document.getElementById('vs-sup');
 let micState='off',recog=null,recogBusy=false;
 let speechTimer=null; // delay before processing — don't interrupt user
 
-// ── Singlish / speech normalizer — fix common mispronunciations before parsing ──
+// ── Singlish / speech normalizer + street abbreviation expander ──
 function normalizeSpeech(txt){
   let s=txt.trim();
-  // Flat type phonetic fixes — "tree room" / "free room" / "tri room" → "3 room" etc
+
+  // ── Street abbreviation expansion (data.gov.sg short forms → full) ──
+  // Must run BEFORE other replacements so "ST 1" becomes "STREET 1" not garbled
+  s=s.replace(/\bST\b(?=\s*\d|\s+\d)/gi,'STREET'); // ST 1 → STREET 1
+  s=s.replace(/\bST\b(?=\s+[A-Z])/gi,'STREET');     // ST MICHAEL → STREET MICHAEL
+  s=s.replace(/\bAVE\b/gi,'AVENUE');
+  s=s.replace(/\bDR\b/gi,'DRIVE');
+  s=s.replace(/\bRD\b/gi,'ROAD');
+  s=s.replace(/\bCL\b/gi,'CLOSE');
+  s=s.replace(/\bCRES\b/gi,'CRESCENT');
+  s=s.replace(/\bCR\b/gi,'CRESCENT');
+  s=s.replace(/\bTER\b/gi,'TERRACE');
+  s=s.replace(/\bPL\b/gi,'PLACE');
+  s=s.replace(/\bHTS\b/gi,'HEIGHTS');
+  s=s.replace(/\bGR\b/gi,'GROVE');
+  s=s.replace(/\bNTH\b/gi,'NORTH');
+  s=s.replace(/\bSTH\b/gi,'SOUTH');
+  s=s.replace(/\bCTRL\b/gi,'CENTRAL');
+  s=s.replace(/\bCTR\b/gi,'CENTRAL');
+  s=s.replace(/\bBT\b/gi,'BUKIT');
+  s=s.replace(/\bUPP\b/gi,'UPPER');
+  s=s.replace(/\bLOR\b/gi,'LORONG');
+  s=s.replace(/\bJLN\b/gi,'JALAN');
+  s=s.replace(/\bBLK\b/gi,'block');
+  s=s.replace(/\bblk\b/gi,'block');
+
+  // ── Flat type phonetic fixes ──
   s=s.replace(/\b(tree|three|tri|thri|free|3)\s*(room|rum|roo|ruum)\b/gi,'3 room');
   s=s.replace(/\b(four|for|4)\s*(room|rum|roo|ruum)\b/gi,'4 room');
   s=s.replace(/\b(five|fife|5)\s*(room|rum|roo|ruum)\b/gi,'5 room');
   s=s.replace(/\b(two|tu|too|2)\s*(room|rum|roo|ruum)\b/gi,'2 room');
   s=s.replace(/\b(one|wan|wun|1)\s*(room|rum|roo|ruum)\b/gi,'1 room');
   s=s.replace(/\bexecu?tive?\b/gi,'executive');
-  // Town phonetic fixes
+
+  // ── Town phonetic fixes ──
   s=s.replace(/\bcleme[nt]+[eiy]?\b/gi,'clementi');
   s=s.replace(/\bkalla?ng?\b/gi,'kallang');
   s=s.replace(/\byish?oon?\b/gi,'yishun');
@@ -1863,21 +1908,42 @@ function normalizeSpeech(txt){
   s=s.replace(/\bqueens?town?\b/gi,'queenstown');
   s=s.replace(/\bjurong?\b/gi,'jurong');
   s=s.replace(/\bserangoon?\b/gi,'serangoon');
-  // Number words for floor/block
-  s=s.replace(/\bfloor\s+(one|wan|first)\b/gi,'floor 1');
-  s=s.replace(/\bfloor\s+(two|too|tu|second)\b/gi,'floor 2');
-  s=s.replace(/\bfloor\s+(three|tree|free|third)\b/gi,'floor 3');
-  s=s.replace(/\bfloor\s+(four|for|fourth)\b/gi,'floor 4');
-  s=s.replace(/\bfloor\s+(five|fife|fifth)\b/gi,'floor 5');
-  s=s.replace(/\bfloor\s+(six|sixth)\b/gi,'floor 6');
-  s=s.replace(/\bfloor\s+(seven|seventh)\b/gi,'floor 7');
-  s=s.replace(/\bfloor\s+(eight|ate|eighth)\b/gi,'floor 8');
-  s=s.replace(/\bfloor\s+(nine|ninth)\b/gi,'floor 9');
-  s=s.replace(/\bfloor\s+(ten|tenth)\b/gi,'floor 10');
-  // Street type aliases
-  s=s.replace(/\bstreet\b/gi,'street');
-  s=s.replace(/\bave\b/gi,'avenue');
-  s=s.replace(/\bblk\b/gi,'block');
+
+  // ── Floor number words ──
+  s=s.replace(/\b(floor|level|storey|unit.?s?\s+level)\s+(one|wan|first)\b/gi,'floor 1');
+  s=s.replace(/\b(floor|level|storey|unit.?s?\s+level)\s+(two|too|tu|second)\b/gi,'floor 2');
+  s=s.replace(/\b(floor|level|storey|unit.?s?\s+level)\s+(three|tree|free|third)\b/gi,'floor 3');
+  s=s.replace(/\b(floor|level|storey|unit.?s?\s+level)\s+(four|for|fourth)\b/gi,'floor 4');
+  s=s.replace(/\b(floor|level|storey|unit.?s?\s+level)\s+(five|fife|fifth)\b/gi,'floor 5');
+  s=s.replace(/\b(floor|level|storey|unit.?s?\s+level)\s+(six|sixth)\b/gi,'floor 6');
+  s=s.replace(/\b(floor|level|storey|unit.?s?\s+level)\s+(seven|seventh)\b/gi,'floor 7');
+  s=s.replace(/\b(floor|level|storey|unit.?s?\s+level)\s+(eight|ate|eighth)\b/gi,'floor 8');
+  s=s.replace(/\b(floor|level|storey|unit.?s?\s+level)\s+(nine|ninth)\b/gi,'floor 9');
+  s=s.replace(/\b(floor|level|storey|unit.?s?\s+level)\s+(ten|tenth)\b/gi,'floor 10');
+  // "unit's level" / "units level" → "floor" keyword so parser picks it up
+  s=s.replace(/\bunits?\s*[''']?\s*level\b/gi,'floor');
+  s=s.replace(/\bwhich is (the\s*)?floor\b/gi,'floor');
+
+  return s;
+}
+
+// ── TTS text cleaner — expand abbreviations so Harvey doesn't say "ess tee" ──
+function cleanForSpeech(txt){
+  let s=txt.replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim();
+  // Street type expansions for TTS
+  s=s.replace(/\bST\b/g,'Street');
+  s=s.replace(/\bAVE\b/g,'Avenue');
+  s=s.replace(/\bDR\b/g,'Drive');
+  s=s.replace(/\bRD\b/g,'Road');
+  s=s.replace(/\bCL\b/g,'Close');
+  s=s.replace(/\bCRES\b/g,'Crescent');
+  s=s.replace(/\bBLK\b/g,'Block');
+  s=s.replace(/\bblk\b/g,'Block');
+  s=s.replace(/\bLOR\b/g,'Lorong');
+  s=s.replace(/\bJLN\b/g,'Jalan');
+  s=s.replace(/\bUPP\b/g,'Upper');
+  // Price — read as natural number
+  s=s.replace(/\$(\d{1,3}(?:,\d{3})*)/g,(m,n)=>n.replace(/,/g,'')+' dollars');
   return s;
 }
 
