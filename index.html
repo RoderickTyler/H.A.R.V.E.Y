@@ -811,75 +811,84 @@ function expandStreetAbbr(s){
 // Supports: full name, abbreviated (ST/DR/CL/AVE/RD/CRES), partial, slight misspelling
 function reverseStreet(streetRaw){
   if(!DB.loaded||!streetRaw)return null;
-  // Contract long form → DB short form, strip accidental block prefix
+
+  // Contract long→short so "Street"→"ST", "Avenue"→"AVE" etc matches DB format
   let s=contractStreetAbbr(streetRaw.toUpperCase().trim())
     .replace(/\bBLOCK\s*\d+[A-Z]?\s*/g,'').replace(/\bBLK\s*\d+[A-Z]?\s*/g,'')
     .replace(/\s+/g,' ').trim();
-  // Also keep original (user may have typed short form already)
   const sOrig=streetRaw.toUpperCase().trim()
     .replace(/\bBLK\s*\d+[A-Z]?\s*/g,'').replace(/\s+/g,' ').trim();
 
-  // Extract trailing street number — MUST match exactly, no fuzzy on numbers
-  const numMatch=s.match(/\s(\d+[A-Z]?)$/);
-  const streetNum=numMatch?numMatch[1]:null; // e.g. "1", "22", "44A"
-
-  // S1: exact match (contracted form)
+  // S1: exact match
   let m=DB.resale.filter(r=>r.street_name&&r.street_name.toUpperCase()===s);
   if(m.length)return _srResult(m);
-  // S1b: exact match (original form)
   if(sOrig!==s){
     m=DB.resale.filter(r=>r.street_name&&r.street_name.toUpperCase()===sOrig);
     if(m.length)return _srResult(m);
   }
 
-  // S2: core-word scoring — strip ALL street-type words AND numbers for name matching
-  // BUT then re-apply the street number as a hard filter on the candidates
-  const stripTypeRx=/\b(STREET|ST|ROAD|RD|AVENUE|AVE|DRIVE|DR|CRESCENT|CRES|CLOSE|CL|WALK|LINK|LANE|LN|WAY|PLACE|PL|RISE|VIEW|HEIGHTS|HTS|GROVE|GR|CIRCLE|TERRACE|TER|NORTH|NTH|SOUTH|STH|EAST|WEST|CENTRAL|CTRL|UPPER|UPP|LOWER|NEW|OLD|LORONG|LOR|JALAN|JLN|BUKIT|BT)\b/g;
-  const core=s.replace(stripTypeRx,'').replace(/\d+[A-Z]?/g,'').replace(/\s+/g,' ').trim();
-  const coreWords=core.split(' ').filter(w=>w.length>=3);
-  if(coreWords.length){
+  // Extract HARD constraints from the input:
+  // 1) Street TYPE (ST / AVE / DR / RD / CL etc) — must match exactly, no crossing AVE↔ST
+  // 2) Trailing NUMBER (1, 22, 44A) — must match exactly
+  const shortTypes=['ST','AVE','DR','RD','CL','CRES','LOR','JLN','BT','UPP','HTS','NTH','STH','CTRL','TER','PL','GR','LN','WALK','LINK','RISE','VIEW','WAY'];
+  const typeRxStr=shortTypes.join('|');
+  const typeRx=new RegExp(`\\b(${typeRxStr})\\b`,'g');
+  const typeMatches=[...s.matchAll(typeRx)];
+  // Use the LAST type keyword found (e.g. "CLEMENTI WEST ST 1" → "ST")
+  const streetType=typeMatches.length?typeMatches[typeMatches.length-1][1]:null;
+  const numMatch=s.match(/\s(\d+[A-Z]?)$/);
+  const streetNum=numMatch?numMatch[1]:null;
+
+  // Strip type words AND numbers to get pure name words
+  const stripRx=new RegExp(`\\b(${typeRxStr}|STREET|AVENUE|DRIVE|ROAD|CLOSE|CRESCENT|LANE|PLACE|HEIGHTS|GROVE|TERRACE|NORTH|SOUTH|EAST|WEST|CENTRAL|UPPER|LOWER|LORONG|JALAN|BUKIT|NEW|OLD)\\b`,'g');
+  const nameOnly=s.replace(stripRx,'').replace(/\d+[A-Z]?/g,'').replace(/\s+/g,' ').trim();
+  const nameWords=nameOnly.split(' ').filter(w=>w.length>=3);
+
+  // Candidate validation — HARD: type AND number must both match
+  function ok(dbName){
+    const up=dbName.toUpperCase();
+    if(streetNum){const n=up.match(/\s(\d+[A-Z]?)$/);if(!n||n[1]!==streetNum)return false;}
+    if(streetType){const t=[...up.matchAll(typeRx)];if(!t.length||t[t.length-1][1]!==streetType)return false;}
+    return true;
+  }
+
+  // S2: name word scoring with hard constraints
+  if(nameWords.length){
     const sc=[];const seen=new Set();
     for(const r of DB.resale){
       if(!r.street_name||seen.has(r.street_name))continue;seen.add(r.street_name);
+      if(!ok(r.street_name))continue;
       const up=r.street_name.toUpperCase();
-      // Hard filter: if user specified a street number, DB street must end with that number
-      if(streetNum){
-        const dbNum=up.match(/\s(\d+[A-Z]?)$/);
-        if(!dbNum||dbNum[1]!==streetNum)continue; // skip streets with different numbers
-      }
-      const score=coreWords.filter(w=>up.includes(w)).length;
+      const score=nameWords.filter(w=>up.includes(w)).length;
       if(score>0)sc.push({score,street:r.street_name});
     }
     sc.sort((a,b)=>b.score-a.score);
     if(sc.length){m=DB.resale.filter(r=>r.street_name===sc[0].street);if(m.length)return _srResult(m);}
   }
 
-  // S3: fuzzy name match — same hard number filter
-  const iw=s.replace(/\d+[A-Z]?/g,'').split(' ').filter(w=>w.length>=4);
-  if(iw.length){
+  // S3: fuzzy (1-char typo) with same hard constraints
+  const fw=s.replace(/\d+[A-Z]?/g,'').split(' ').filter(w=>w.length>=4&&!new RegExp(`^(${typeRxStr})$`).test(w));
+  if(fw.length){
     const sc2=[];const seen2=new Set();
     for(const r of DB.resale){
       if(!r.street_name||seen2.has(r.street_name))continue;seen2.add(r.street_name);
+      if(!ok(r.street_name))continue;
       const up=r.street_name.toUpperCase();
-      // Hard filter on street number
-      if(streetNum){
-        const dbNum=up.match(/\s(\d+[A-Z]?)$/);
-        if(!dbNum||dbNum[1]!==streetNum)continue;
-      }
-      const score=iw.filter(w=>up.includes(w)||_fuzzyWord(up,w)).length;
+      const score=fw.filter(w=>up.includes(w)||_fuzzyWord(up,w)).length;
       if(score>0)sc2.push({score,street:r.street_name});
     }
     sc2.sort((a,b)=>b.score-a.score);
     if(sc2.length){m=DB.resale.filter(r=>r.street_name===sc2[0].street);if(m.length)return _srResult(m);}
   }
 
-  // S4: fallback — if nothing found with hard number filter, try without (street number may be absent)
-  if(streetNum&&coreWords.length){
+  // S4: relax number (user may have omitted it) but KEEP type constraint
+  if(streetType&&nameWords.length){
     const sc3=[];const seen3=new Set();
     for(const r of DB.resale){
       if(!r.street_name||seen3.has(r.street_name))continue;seen3.add(r.street_name);
       const up=r.street_name.toUpperCase();
-      const score=coreWords.filter(w=>up.includes(w)).length;
+      const t=[...up.matchAll(typeRx)];if(!t.length||t[t.length-1][1]!==streetType)continue;
+      const score=nameWords.filter(w=>up.includes(w)).length;
       if(score>0)sc3.push({score,street:r.street_name});
     }
     sc3.sort((a,b)=>b.score-a.score);
@@ -887,6 +896,7 @@ function reverseStreet(streetRaw){
   }
 
   return null;
+}
 }
 function _fuzzyWord(haystack,needle){
   if(needle.length<4)return false;
