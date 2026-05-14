@@ -705,12 +705,24 @@ function parseQuery(raw){
   // Lease year
   const ly=raw.match(/(?:built|lease|commenced?|lease\s*start|year\s*built)\s*(?:year\s*)?(\d{4})|(\d{4})\s*(?:built|lease|commenced?)/i);
   if(ly)res.leaseYear=Number(ly[1]||ly[2]);
-  // Street — must have street-type suffix, strip town/block from match
-  const stMatch=q.match(/\b([A-Z][A-Z0-9\s]*(?:AVENUE|AVE|STREET|DRIVE|ROAD|CRESCENT|CRES|WALK|LINK|LANE|CLOSE|VIEW|RISE|WAY|HEIGHTS|GROVE|CIRCLE|PLACE|TERRACE)\s*\d*[A-Z]?)\b/);
+  // Street — match the full street name including any town name embedded in it
+  // e.g. "Clementi West Street 1", "Bishan Street 22", "Ang Mo Kio Ave 3"
+  // Strategy: look for street-type keyword and grab everything before + the number after
+  const stMatch=q.match(/\b([A-Z][A-Z0-9\s]*?(?:AVENUE|AVE|STREET|DRIVE|ROAD|CRESCENT|CRES|WALK|LINK|LANE|CLOSE|VIEW|RISE|WAY|HEIGHTS|GROVE|CIRCLE|PLACE|TERRACE|LORONG|JALAN|CENTRAL|NORTH|SOUTH|EAST|WEST)\s*\d*[A-Z]?)\b/);
   if(stMatch){
     let candidate=stMatch[1].trim();
-    candidate=TOWNS.reduce((s,t)=>s.replace(new RegExp('\\b'+t+'\\b','g'),''),candidate).replace(/\b(BLK|BLOCK)\s*\d+[A-Z]?\b/g,'').replace(/\s+/g,' ').trim();
-    if(candidate.length>3&&!TOWNS.includes(candidate))res.street=candidate;
+    // Strip standalone BLK/BLOCK + number prefix if it leaked in, but KEEP town names
+    candidate=candidate.replace(/^\s*(?:BLK|BLOCK)\s*\d+[A-Z]?\s*/i,'').trim();
+    if(candidate.length>3) res.street=candidate;
+  }
+  // If no street found via suffix, try DB reverse match — user may have just typed the street name
+  if(!res.street&&!res.town){
+    // Try matching a substring of the input against known streets in DB
+    if(DB.loaded){
+      const qwords=q.split(/\s+/).filter(w=>w.length>=4);
+      const hit=DB.resale.find(r=>qwords.some(w=>r.street_name.toUpperCase().includes(w)&&!TOWNS.includes(w)));
+      if(hit) res.street=hit.street_name;
+    }
   }
   // Price
   const u=raw.match(/(?:under|below|less|max|<)\s*\$?([\d,]+)k?/i);
@@ -1740,14 +1752,39 @@ async function handleInput(){
     return;
   }
 
-  // ── Special: "recent all blocks STREET" — search entire street ──
+  // ── Special: "recent all blocks STREET" — ALL transactions on that street, ignore block filter ──
   if(/^recent all blocks /i.test(raw)){
     const streetName=raw.replace(/^recent all blocks /i,'').trim();
-    const found=reverseStreet(streetName)||{street:streetName.toUpperCase(),town:''};
-    ctx={isEV:false,street:found.street,town:found.town};
-    enrichCtx(ctx);
-    userMsg('All transactions on '+found.street);
-    mode='srch_waiting';await runSearch();return;
+    const found=reverseStreet(streetName);
+    const canonicalStreet=found?found.street:streetName.toUpperCase();
+    // Search ONLY by street — no block filter, no town filter (street is specific enough)
+    const streetRecs=DB.resale.filter(r=>r.street_name===canonicalStreet)
+      .sort((a,b)=>(b.month||'').localeCompare(a.month||''));
+    document.getElementById('welcome')?.remove();
+    userMsg('All transactions on '+canonicalStreet);
+    if(!streetRecs.length){
+      harveyMsg(`No transactions found on <strong>${esc(canonicalStreet)}</strong>, sir.`);
+      loading=false;sbEl.disabled=false;return;
+    }
+    const prices=streetRecs.map(r=>Number(r.resale_price));
+    const median=[...prices].sort((a,b)=>a-b)[Math.floor(prices.length/2)];
+    const rows=streetRecs.map(r=>`<tr><td>${esc(r.month)}</td><td>BLK ${esc(r.block)} ${esc(r.street_name)}</td><td>${esc(r.flat_type)}</td><td>${esc(r.storey_range)}</td><td>${esc(r.floor_area_sqm)}m²</td><td class="pc">${fmtP(r.resale_price)}</td></tr>`).join('');
+    const d=document.createElement('div');d.className='msg-ai';d.style.maxWidth='100%';
+    d.innerHTML=`<span class="mlbl">// ALL ${streetRecs.length} TRANSACTIONS · ${esc(canonicalStreet)}</span>
+      <div class="mbub">All <strong>${streetRecs.length}</strong> transactions on <strong>${esc(canonicalStreet)}</strong>, sir.</div>
+      <div class="rwrap"><div class="rcard">
+        <div class="rh"><span class="rtitle">⬡ ${esc(canonicalStreet)}</span><span class="rcnt">${streetRecs.length} RECORDS · ALL TIME</span></div>
+        <div style="overflow-x:auto"><table><thead><tr><th>MONTH</th><th>BLOCK & STREET</th><th>TYPE</th><th>STOREY</th><th>AREA</th><th>PRICE</th></tr></thead><tbody>${rows}</tbody></table></div>
+      </div>
+      <div class="srow">
+        <div class="sc"><span class="svv">${fmtP(median)}</span><span class="sll">MEDIAN</span></div>
+        <div class="sc"><span class="svv">${fmtP(Math.min(...prices))}</span><span class="sll">LOWEST</span></div>
+        <div class="sc"><span class="svv">${fmtP(Math.max(...prices))}</span><span class="sll">HIGHEST</span></div>
+      </div></div>`;
+    msgsEl.appendChild(d);bot();
+    speak(`${streetRecs.length} transactions on ${cleanForSpeech(canonicalStreet)}, sir.`);
+    setTimeout(()=>harveyMsg('Anything else, sir?',[{label:'ESTIMATE VALUE',val:'estimate value'},{label:'SEARCH AGAIN',val:'search'}]),1200);
+    mode='menu';loading=false;sbEl.disabled=false;return;
   }
 
   // ── Fresh intent ──
@@ -1778,7 +1815,7 @@ async function handleInput(){
   if(ctx.isEV||/valuat|estimate|worth|value|how much|price of|check value/i.test(raw)){
     ctx.isEV=true;
     if(!ctx.town&&!ctx.street&&!ctx.block&&!ctx.flatType&&!ctx.floor){
-      harveyMsg(`Of course, sir. Please go ahead and input your <strong>block number</strong>, <strong>street</strong>, the <strong>unit's level</strong> — that's the floor — and the <strong>flat type</strong>. Something like:<br><br>
+      harveyMsg(`Of course, sir. Please go ahead and input your <strong>block number</strong>, <strong>street</strong>, the <strong>unit's level</strong> and the <strong>flat type</strong>. Something like:<br><br>
 <em style="color:var(--c);font-family:var(--mono);font-size:11px">608 Clementi West Street 1 level 4 3 room</em><br><br>
 <em style="color:var(--t2);font-size:11px">You can also include the <strong>lease year</strong> for better accuracy — e.g. <strong style="color:var(--c)">lease 1979</strong>. Floor area is optional — I'll look it up from the records.</em>`,flatTypeChips());
       speak('Of course, sir. Please go ahead and input your block number, street, the unit level — that is the floor — and the flat type.');
