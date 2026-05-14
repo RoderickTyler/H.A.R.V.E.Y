@@ -1129,24 +1129,79 @@ function showEV(result,params){
     return;
   }
   if(result.type==='no_floor_data'){harveyMsg('Floor level data unavailable for these comps, sir. Try Transaction Search for this area.');speak('Floor data unavailable, sir.');mode='menu';return;}
-  const warn12=result.lookbackUsed===12?`<div class="ev-warn">⚠ Based on last 12 months — not enough 6-month data. Treat as directional guide only.<br><a href="https://wa.me/6597531657" target="_blank" style="color:var(--g)">Chat for a more accurate valuation →</a></div>`:'';
-  const fallNote=result.fallbackLevel==='street'?`<br>⬡ Street-level comps used — limited block data`:'';
-  const sizeNote=params.sizeFromDB?` <em style="color:var(--g)">(from block records)</em>`:params.sizeInferred?` <em style="color:var(--a)">(estimated — verify if incorrect)</em>`:'';
+
+  // ── Build conversational explanation ──
+  const warn12=result.lookbackUsed===12?true:false;
+  const sizeNote=params.sizeFromDB?` <em style="color:var(--g)">(from block records)</em>`:params.sizeInferred?` <em style="color:var(--a)">(estimated)</em>`:'';
+  const fallNote=result.fallbackLevel==='street'?` · street-level comps`:'';
+
+  // Comp price range for the natural language explanation
+  const compPrices=result.refComp?[result.priceLow,result.priceHigh]:[];
+  const rangeText=`${fmtP(result.priceLow)} to ${fmtP(result.priceHigh)}`;
+  const floorNote=result.floorPrem>0?` Your unit is on floor ${result.floor}, and I've applied a floor premium of approximately ${fmtP(result.floorPrem)} per level based on comparable transactions.`:'';
+  const backdateNote=warn12?` Do note this is based on the last 12 months — there wasn't enough data in the past 6 months, so treat this as a directional guide.`:'';
+  const scopeNote=result.fallbackLevel==='street'?` I expanded to street-level comparables as there wasn't enough data at block level specifically.`:'';
+
+  // Harvey's conversational lead sentence — varied phrasing
+  const leads=[
+    `Based on my calculations, sir, your unit should sit around <strong style="color:var(--g);font-size:16px">${fmtP(result.adjusted)}</strong>.`,
+    `Your unit's value should be around <strong style="color:var(--g);font-size:16px">${fmtP(result.adjusted)}</strong>, sir, based on what I've found.`,
+    `The numbers point to <strong style="color:var(--g);font-size:16px">${fmtP(result.adjusted)}</strong> for your unit, sir.`
+  ];
+  const lead=rand(leads);
+
+  const explanation=`I see resale transactions on ${esc(result.fallbackLevel==='street'?result.street:result.block+' '+result.street)} ranging from <strong style="color:var(--c)">${fmtP(result.priceLow)}</strong> to <strong style="color:var(--c)">${fmtP(result.priceHigh)}</strong> — ${result.comps} comparable transaction${result.comps!==1?'s':''} over the last <strong>${result.lookbackUsed} months</strong>.${floorNote}${scopeNote}${backdateNote}`;
+
   const d=document.createElement('div');d.className='msg-ai';d.style.maxWidth='100%';
   d.innerHTML=`<span class="mlbl">// ESTIMATED VALUE · BLK ${esc(result.block)} ${esc(result.street)}</span>
-    <div class="ev-card">${warn12}
-      <div style="font-family:var(--mono);font-size:9px;color:var(--t2);letter-spacing:1px;margin-bottom:8px">${esc(result.flatType)} · FLOOR ${result.floor} · ${result.size}SQM${sizeNote} · ${esc(result.town)}${fallNote}</div>
-      <div class="ev-range">
-        <div><div class="ev-price low">${fmtP(result.priceLow)}</div><div class="ev-label">LOW EST.</div></div>
-        <div class="ev-arrow">──</div>
-        <div><div class="ev-price hi">${fmtP(result.priceHigh)}</div><div class="ev-label">HIGH EST.</div></div>
-      </div>
-      <div style="text-align:center;margin-bottom:8px"><div class="ev-price mid">${fmtP(result.adjusted)}</div><div class="ev-label">ADJUSTED ESTIMATE</div></div>
-      <div class="ev-meta">PSF RANGE: $${result.psfLow} – $${result.psfHigh} per sqft<br>FLOOR PREMIUM: ~${fmtP(result.floorPrem)} per floor<br>BASED ON: ${result.comps} comp${result.comps!==1?'s':''} (${result.fallbackLevel} level · last ${result.lookbackUsed} months)<br>REF COMP: Blk ${esc(result.refComp.block)} ${esc(result.refComp.street_name)} · ${esc(result.refComp.storey_range)} · ${fmtP(result.refComp.resale_price)}</div>
-    </div>`;
+
+  <div class="ev-card">
+    ${warn12?`<div class="ev-warn">⚠ Based on last 12 months — not enough recent data. Treat as directional.<br><a href="https://wa.me/6597531657" target="_blank" style="color:var(--g)">Chat for a more accurate valuation →</a></div>`:''}
+
+    <div style="font-family:var(--mono);font-size:9px;color:var(--t2);letter-spacing:1px;margin-bottom:12px">
+      ${esc(result.flatType)} · FLOOR ${result.floor} · ${result.size}SQM${sizeNote} · ${esc(result.town)}${fallNote}
+    </div>
+
+    <!-- Lead with adjusted estimate -->
+    <div style="text-align:center;margin-bottom:14px">
+      <div style="font-family:var(--mono);font-size:10px;color:var(--t2);letter-spacing:2px;margin-bottom:6px">YOUR UNIT'S ESTIMATED VALUE</div>
+      <div class="ev-price mid" style="font-size:32px">${fmtP(result.adjusted)}</div>
+    </div>
+
+    <!-- Range below -->
+    <div class="ev-range" style="margin-bottom:12px">
+      <div><div class="ev-price low">${fmtP(result.priceLow)}</div><div class="ev-label">CONSERVATIVE</div></div>
+      <div class="ev-arrow">──</div>
+      <div><div class="ev-price hi">${fmtP(result.priceHigh)}</div><div class="ev-label">OPTIMISTIC</div></div>
+    </div>
+
+    <!-- Conversational explanation -->
+    <div style="background:rgba(0,212,255,0.04);border:1px solid var(--b);padding:10px 13px;font-family:var(--ui);font-size:13px;line-height:1.8;color:var(--t2);margin-bottom:10px">
+      ${explanation}
+    </div>
+
+    <!-- Technical details -->
+    <div class="ev-meta">
+      PSF RANGE: $${result.psfLow} – $${result.psfHigh} per sqft ·
+      FLOOR PREMIUM: ~${fmtP(result.floorPrem)}/floor ·
+      REF COMP: Blk ${esc(result.refComp.block)} ${esc(result.refComp.street_name)} · ${esc(result.refComp.storey_range)} · ${fmtP(result.refComp.resale_price)}
+    </div>
+  </div>`;
   msgsEl.appendChild(d);bot();
-  speak(`Estimated value for Block ${result.block}, floor ${result.floor}, between ${fmtP(result.priceLow)} and ${fmtP(result.priceHigh)}, sir. Adjusted estimate ${fmtP(result.adjusted)}.`);
-  setTimeout(()=>harveyMsg('Anything else, sir?',[{label:'SEE TRANSACTIONS',val:`recent ${result.flatType||''} ${result.block?'block '+result.block:''} ${result.street||result.town||''}`},{label:'ESTIMATE ANOTHER',val:'estimate value'},{label:'DIFFERENT FLOOR',val:`value block ${result.block} ${result.street} floor`}]),1400);
+
+  // Harvey speaks the lead answer first, naturally
+  const speechLine=`${result.block} ${result.street}, floor ${result.floor}. Sir, I see transactions ranging from ${fmtP(result.priceLow)} to ${fmtP(result.priceHigh)}. Your unit's value should sit around ${fmtP(result.adjusted)} based on my calculation.`;
+  speak(speechLine);
+
+  // Follow-up offer to show transactions
+  setTimeout(()=>{
+    harveyMsg(`If you need the resale transactions that support this, sir, I can bring them up for you.`,[
+      {label:'YES — SHOW ME THE TRANSACTIONS',val:`recent ${result.flatType||''} ${result.block?'block '+result.block:''} ${result.street||result.town||''}`},
+      {label:'ESTIMATE ANOTHER',val:'estimate value'},
+      {label:'DIFFERENT FLOOR',val:`value block ${result.block} ${result.street} floor`}
+    ]);
+    speak('If you need the resale transactions that support this, sir, I can bring them up.');
+  },1600);
   mode='menu';
 }
 
@@ -1447,6 +1502,100 @@ async function runSearch(){
   loading=false;sbEl.disabled=false;
 }
 
+// ── Smart partial detection: street only → show what we found, be gracious ──
+async function handleStreetOnly(street, ctx){
+  loading=true;sbEl.disabled=true;
+  thinkingMsg();
+  await new Promise(r=>setTimeout(r,200));
+
+  // Look up canonical street + town + all blocks
+  const found=reverseStreet(street);
+  rmThinking();
+
+  if(!found){
+    // Street not recognised at all
+    harveyMsg(`I couldn't find a street matching <strong>${esc(street)}</strong> in my records, sir. Could you double-check the street name?<br><br><em style="color:var(--t2);font-size:11px">e.g. Clementi West Street 1, Tampines Street 44, Bishan Street 12</em>`);
+    speak("I couldn't find that street, sir. Could you double-check the name?");
+    loading=false;sbEl.disabled=false;mode='srch_waiting';return;
+  }
+
+  // Try 6 months first, then 12 months
+  const cut6=evCutoff(6);
+  const cut12=evCutoff(12);
+  const recs6=DB.resale.filter(r=>r.street_name===found.street&&r.month>=cut6);
+  const recs12=recs6.length>0?recs6:DB.resale.filter(r=>r.street_name===found.street&&r.month>=cut12);
+  const timeLabel=recs6.length>0?'6 months':'12 months';
+  const recs=recs12.sort((a,b)=>(b.month||'').localeCompare(a.month||''));
+
+  // Get blocks available in this street
+  const allBlocks=[...new Set(DB.resale.filter(r=>r.street_name===found.street).map(r=>r.block))].sort((a,b)=>Number(a)-Number(b)||a.localeCompare(b));
+
+  // ── Harvey's gracious partial-info speech ──
+  const gracious=[
+    `I wasn't given everything to work with, sir — but I spotted <strong>${esc(found.street)}</strong> in <strong>${esc(found.town)}</strong>. Not entirely your fault, of course. Here's what I found:`,
+    `I did the best with what I had, sir. <strong>${esc(found.street)}</strong>, <strong>${esc(found.town)}</strong> — I took the liberty of pulling the transactions. Have a look:`,
+    `You've given me the street, sir — that's enough to get started. I've found <strong>${esc(found.street)}</strong> in <strong>${esc(found.town)}</strong>. Here's what the last ${timeLabel} look like:`
+  ];
+
+  if(recs.length===0){
+    // Nothing even in 12 months
+    harveyMsg(`I tried looking back a full year for <strong>${esc(found.street)}</strong>, sir, and I'm afraid there's nothing there. It seems to be a quiet street with very few transactions. Not much I can do with silence, sir — but let's not give up just yet.<br><br>
+<em style="color:var(--t2);font-size:11px">Shall we try both? I can look at the broader ${esc(found.town)} area, or we can go straight to estimating the value if you give me the block and floor details.</em>`,[
+      {label:`SEARCH ${found.town}`,val:`recent ${found.town}`},
+      {label:'ESTIMATE VALUE',val:'estimate value'}
+    ]);
+    speak(`I tried looking back a full year for ${found.street}, sir, and found nothing. Very quiet street. Shall we try the broader area, or go straight to an estimate?`);
+    // Pre-fill ctx with what we know
+    ctx.town=found.town;ctx.street=found.street;
+    mode='srch_waiting';loading=false;sbEl.disabled=false;return;
+  }
+
+  // Show partial results
+  const prices=recs.map(r=>Number(r.resale_price));
+  const median=prices.slice().sort((a,b)=>a-b)[Math.floor(prices.length/2)];
+  const shown=recs.slice(0,10);
+  const rows=shown.map(r=>`<tr><td>${esc(r.month)}</td><td>BLK ${esc(r.block)} ${esc(r.street_name)}</td><td>${esc(r.flat_type)}</td><td>${esc(r.storey_range)}</td><td>${esc(r.floor_area_sqm)}m²</td><td class="pc">${fmtP(r.resale_price)}</td></tr>`).join('');
+
+  const blockBadges=allBlocks.slice(0,12).map(b=>`<span class="chip" style="font-size:9px;padding:3px 8px" onclick="chipClick('estimate value block ${b} ${found.street}')">BLK ${b}</span>`).join(' ');
+
+  const d=document.createElement('div');d.className='msg-ai';d.style.maxWidth='100%';
+  d.innerHTML=`<span class="mlbl">// PARTIAL RESULTS · ${found.street.toUpperCase()}</span>
+    <div class="mbub">${rand(gracious)}</div>
+    <div class="rwrap">
+      <div class="rcard">
+        <div class="rh">
+          <span class="rtitle">⬡ ${esc(found.street.toUpperCase())} · ${esc(found.town)}</span>
+          <span class="rcnt">${recs.length} RECORDS · LAST ${timeLabel.toUpperCase()}</span>
+        </div>
+        <div style="overflow-x:auto"><table><thead><tr><th>MONTH</th><th>BLOCK & STREET</th><th>TYPE</th><th>STOREY</th><th>AREA</th><th>PRICE</th></tr></thead><tbody>${rows}</tbody></table></div>
+      </div>
+      <div class="srow">
+        <div class="sc"><span class="svv">${fmtP(median)}</span><span class="sll">MEDIAN</span></div>
+        <div class="sc"><span class="svv">${fmtP(Math.min(...prices))}</span><span class="sll">LOWEST</span></div>
+        <div class="sc"><span class="svv">${fmtP(Math.max(...prices))}</span><span class="sll">HIGHEST</span></div>
+      </div>
+    </div>`;
+  msgsEl.appendChild(d);bot();
+  speak(`${recs.length} transaction${recs.length!==1?'s':''} found on ${found.street}, sir. Median price ${fmtP(median)}.`);
+
+  // Pre-fill ctx
+  ctx.town=found.town;ctx.street=found.street;
+
+  // Follow-up: blocks available + nudge to estimate
+  setTimeout(()=>{
+    const nudgeHtml=`If I may, sir — if you could kindly confirm a few more details, I can get you a proper estimated value for your specific unit.<br><br>
+<strong style="color:var(--c)">Blocks available on this street:</strong><br>
+<div style="display:flex;flex-wrap:wrap;gap:4px;margin:6px 0">${blockBadges}${allBlocks.length>12?`<span style="font-family:var(--mono);font-size:9px;color:var(--t3)">+${allBlocks.length-12} more</span>`:''}</div>`;
+    harveyMsg(nudgeHtml,[
+      {label:'ESTIMATE VALUE',val:'estimate value'},
+      {label:'REFINE SEARCH',val:'__searchform__'},
+      {label:'SEARCH WHOLE TOWN',val:`recent ${found.town}`}
+    ]);
+    speak(`I have ${allBlocks.length} blocks on this street, sir. Click one to estimate, or let me know your block and floor and I will get you the value.`);
+    mode='srch_waiting';loading=false;sbEl.disabled=false;
+  },1400);
+}
+
 // ── MAIN INPUT HANDLER ──
 async function handleInput(){
   const raw=ciEl.value.trim();
@@ -1462,26 +1611,28 @@ async function handleInput(){
     speak('Starting fresh, sir.');loading=false;sbEl.disabled=false;return;
   }
 
+  // ── Search form chip ──
+  if(raw==='__searchform__'){
+    userMsg('Refine search');
+    harveyMsg('Refine your search, sir:<br><br>'+buildSearchForm(ctx),[{label:'🔄 START OVER',val:'__restart__'}]);
+    speak('Here are the search options, sir.');loading=false;sbEl.disabled=false;return;
+  }
+
   userMsg(raw);
   if(!DB.loaded){harveyMsg('Still loading data, sir. One moment...');loading=false;sbEl.disabled=false;return;}
   const parsed=parseQuery(normalizeSpeech(raw));
 
   // ── Confirmation mode after no-data ──
   if(mode==='ev_confirm'){
-    // Restart from scratch
     if(raw==='__restart__'||/start.?over|restart|fresh|new.?query/i.test(raw)){
       ctx={};mode='menu';
       harveyMsg('Of course, sir. Starting fresh — what would you like to do?',[{label:'ESTIMATE VALUE',val:'estimate value'},{label:'SEARCH TRANSACTIONS',val:'search'}]);
       speak('Starting fresh, sir.');loading=false;sbEl.disabled=false;return;
     }
-    // Retry with same details
     if(/^correct(\s+retry)?$|^yes$|^same$|^retry$|^looks\s*(good|right|ok)$/i.test(raw.trim())){
       mode='ev_waiting';await runEV();return;
     }
-    // Parse corrections — including the prefilled format "Block 608 Clementi West Street 1 floor 4 3-room 67 sqm lease 1979"
-    const norm=normalizeSpeech(raw);
-    const p=parseQuery(norm);
-    // Override ctx fields with whatever was provided
+    const p=parseQuery(normalizeSpeech(raw));
     if(p.town)     ctx.town=p.town;
     if(p.flatType) ctx.flatType=p.flatType;
     if(p.street)   ctx.street=p.street;
@@ -1489,13 +1640,8 @@ async function handleInput(){
     if(p.floor)    ctx.floor=p.floor;
     if(p.size){    ctx.size=p.size;ctx.sizeInferred=false;ctx.sizeFromDB=false;}
     if(p.leaseYear)ctx.leaseYear=p.leaseYear;
-    // Re-enrich with updated values
     enrichCtx(ctx);
-    // Re-lookup size from DB with new block/street
-    if(ctx.block&&ctx.flatType&&!p.size){
-      const dbSz=lookupSizeFromDB(ctx.block,ctx.street,ctx.flatType);
-      if(dbSz){ctx.size=dbSz;ctx.sizeFromDB=true;ctx.sizeInferred=false;}
-    }
+    if(ctx.block&&ctx.flatType&&!p.size){const dbSz=lookupSizeFromDB(ctx.block,ctx.street,ctx.flatType);if(dbSz){ctx.size=dbSz;ctx.sizeFromDB=true;ctx.sizeInferred=false;}}
     mode='ev_waiting';await runEV();return;
   }
 
@@ -1527,6 +1673,24 @@ async function handleInput(){
     harveyMsg('Good day, sir. What would you like to know?',[{label:'RESALE TRANSACTIONS',val:'search'},{label:'ESTIMATE VALUE',val:'estimate value'}]);
     speak('Good day, sir.');mode='menu';loading=false;sbEl.disabled=false;return;
   }
+
+  // ── SMART PARTIAL DETECTION ──
+  // Has street but missing block/floor/flatType → show street transactions + nudge
+  if(ctx.street&&!ctx.isEV&&!ctx.block&&!ctx.floor&&!ctx.flatType){
+    await handleStreetOnly(ctx.street,ctx);return;
+  }
+  // Has street + some EV intent but missing block/floor → show street data then nudge to EV
+  if(ctx.street&&ctx.isEV&&(!ctx.block||!ctx.floor)){
+    await handleStreetOnly(ctx.street,ctx);
+    // After partial results show, mode is srch_waiting — switch to EV
+    ctx.isEV=true;return;
+  }
+  // Has town but nothing else → show town transactions and prompt
+  if(ctx.town&&!ctx.street&&!ctx.block&&!ctx.flatType&&!ctx.isEV){
+    ctx.isEV=false;mode='srch_waiting';
+    runSearch();return;
+  }
+
   if(ctx.isEV||/valuat|estimate|worth|value|how much|price of|check value/i.test(raw)){
     ctx.isEV=true;
     if(!ctx.town&&!ctx.street&&!ctx.block&&!ctx.flatType&&!ctx.floor){
