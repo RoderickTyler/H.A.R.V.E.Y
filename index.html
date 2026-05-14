@@ -5,7 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>BlockSense — HARVEY</title>
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700;900&family=Share+Tech+Mono&family=Rajdhani:wght@300;400;500;600&display=swap" rel="stylesheet">
-<script src="https://js.puter.com/v2/"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -453,18 +452,93 @@ const SHEET_URLS = {
   townstreets:`https://docs.google.com/spreadsheets/d/${GOOGLE_SHEET_ID}/gviz/tq?tqx=out:csv&sheet=townstreets`
 };
 
-// ElevenLabs via Puter.js — swap VOICE_ID to Asher once you have it
-// Current: nPczCjzI2devNBz1zQrb (Daniel — British, deep, authoritative)
-const VOICE_ID   = 'nPczCjzI2devNBz1zQrb';
-const VOICE_SPEED = 1.275; // 1.5 × 0.85 as requested
+// ── KOKORO TTS — 100% local, no API key, no credits, runs in browser ──
+// Voice: bm_george (British male, authoritative — closest to Jarvis)
+// Model downloads once (~85MB for q8), then cached in browser forever
+const KOKORO_VOICE = 'bm_george';
+const VOICE_SPEED  = 1.275; // 1.5 × 0.85
+
+let kokoroTTS   = null;   // loaded lazily on first speak
+let kokoroReady = false;
+let kokoroLoading = false;
+let currentAudio = null;
 
 const DB = { resale:[], townStreets:{}, loaded:false };
-let loading=false, qn=0, voiceOn=true, currentAudio=null;
+let loading=false, qn=0, voiceOn=true;
 let mode='boot', ctx={};
 
 const msgsEl = document.getElementById('msgs');
 const ciEl   = document.getElementById('ci');
 const sbEl   = document.getElementById('sb');
+
+// Load Kokoro in background — show progress in db-status indicator
+async function loadKokoro(){
+  if(kokoroReady||kokoroLoading)return;
+  kokoroLoading=true;
+  try{
+    // Load via ESM from jsDelivr CDN — no npm/build needed
+    const {KokoroTTS}=await import('https://cdn.jsdelivr.net/npm/kokoro-js@1.2.0/+esm');
+    document.getElementById('db-status').textContent='VOICE...';
+    kokoroTTS=await KokoroTTS.from_pretrained('onnx-community/Kokoro-82M-v1.0-ONNX',{
+      dtype:'q8',       // ~85MB — good quality, fast
+      device:'wasm',    // works on all browsers, no WebGPU needed
+    });
+    kokoroReady=true;
+    kokoroLoading=false;
+    document.getElementById('db-status').textContent='READY';
+    document.getElementById('db-status').style.color='var(--g)';
+  }catch(e){
+    kokoroLoading=false;
+    console.warn('Kokoro load failed, will use browser TTS fallback',e);
+    // Fallback is fine — browser TTS always works
+  }
+}
+
+// ── SPEAK ──
+async function speak(txt){
+  if(!voiceOn||!txt)return;
+  const clean=cleanForSpeech(txt);
+  if(!clean)return;
+  // Stop any current speech
+  stopSpeech();
+  document.querySelector('.hrw')?.classList.add('speaking');
+  document.getElementById('harvey-speaking-fx')?.classList.add('active');
+
+  if(kokoroReady&&kokoroTTS){
+    try{
+      const audio=await kokoroTTS.generate(clean,{voice:KOKORO_VOICE,speed:VOICE_SPEED});
+      // Convert to playable audio
+      const wav=audio.toWav();
+      const blob=new Blob([wav],{type:'audio/wav'});
+      const url=URL.createObjectURL(blob);
+      const el=new Audio(url);
+      currentAudio=el;
+      el.onended=()=>{
+        document.querySelector('.hrw')?.classList.remove('speaking');
+        document.getElementById('harvey-speaking-fx')?.classList.remove('active');
+        currentAudio=null;
+        URL.revokeObjectURL(url);
+      };
+      el.play();
+      return;
+    }catch(e){
+      console.warn('Kokoro speak error, falling back',e);
+    }
+  }
+
+  // Fallback: browser TTS (always works, no quality guarantee)
+  const u=new SpeechSynthesisUtterance(clean);
+  u.rate=VOICE_SPEED;u.pitch=0.75;u.volume=0.9;
+  // Try to pick a decent male British voice
+  const voices=window.speechSynthesis.getVoices();
+  const brit=voices.find(v=>v.name.includes('George')||v.name.includes('Daniel')||v.name.includes('UK English Male'));
+  if(brit)u.voice=brit;
+  u.onend=()=>{
+    document.querySelector('.hrw')?.classList.remove('speaking');
+    document.getElementById('harvey-speaking-fx')?.classList.remove('active');
+  };
+  window.speechSynthesis.speak(u);
+}
 
 // ── CLOCK ──
 function tick(){
@@ -472,48 +546,25 @@ function tick(){
   document.getElementById('clk').textContent=n.toLocaleTimeString('en-SG',{hour12:false});
   document.getElementById('dt').textContent=n.toLocaleDateString('en-SG',{weekday:'short',day:'2-digit',month:'short',year:'numeric'}).toUpperCase();
 }
-tick(); setInterval(tick,1000);
+tick();setInterval(tick,1000);
 
 ciEl.addEventListener('input',()=>{ciEl.style.height='auto';ciEl.style.height=Math.min(ciEl.scrollHeight,80)+'px'});
 ciEl.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();handleInput()}});
 function bot(){
   msgsEl.scrollTop=msgsEl.scrollHeight;
-  // Auto-apply sortable to any new tables just added
   const tables=msgsEl.querySelectorAll('table:not(.sortable-done)');
   tables.forEach(t=>{t.classList.add('sortable-done');makeSortable(t);});
 }
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
 function rand(a){return a[Math.floor(Math.random()*a.length)]}
-const fmtP = p=>'$'+Number(p).toLocaleString();
-
-// ── SPEAK via Puter.js ElevenLabs ──
-async function speak(txt){
-  if(!voiceOn||!txt) return;
-  const clean=cleanForSpeech(txt);
-  if(!clean) return;
-  if(currentAudio){currentAudio.pause();currentAudio=null;}
-  document.querySelector('.hrw')?.classList.add('speaking');
-  document.getElementById('harvey-speaking-fx')?.classList.add('active');
-  try{
-    const audio=await puter.ai.txt2speech(clean,{provider:'elevenlabs',voice:VOICE_ID,model:'eleven_flash_v2_5'});
-    audio.playbackRate=VOICE_SPEED; audio.preservesPitch=true;
-    currentAudio=audio;
-    audio.onended=()=>{document.querySelector('.hrw')?.classList.remove('speaking');currentAudio=null;};
-    audio.play();
-  }catch(e){
-    // Fallback browser TTS
-    const u=new SpeechSynthesisUtterance(clean);
-    u.rate=VOICE_SPEED;u.pitch=0.75;u.volume=0.9;
-    u.onend=()=>document.querySelector('.hrw')?.classList.remove('speaking');
-    window.speechSynthesis.speak(u);
-  }
-}
+const fmtP=p=>'$'+Number(p).toLocaleString();
 
 // ── Stop speech immediately ──
 function stopSpeech(){
-  if(currentAudio){currentAudio.pause();currentAudio.currentTime=0;currentAudio=null;}
+  if(currentAudio){currentAudio.pause();try{currentAudio.currentTime=0;}catch(e){}currentAudio=null;}
   window.speechSynthesis?.cancel();
   document.querySelector('.hrw')?.classList.remove('speaking');
+  document.getElementById('harvey-speaking-fx')?.classList.remove('active');
 }
 
 // ── Sortable table — call after injecting table HTML ──
@@ -550,7 +601,7 @@ function makeSortable(tableEl){
 // ── VOICE TOGGLE ──
 const vtb=document.createElement('button');
 vtb.className='vtog';vtb.textContent='🔊 HARVEY ON';
-vtb.onclick=()=>{voiceOn=!voiceOn;vtb.textContent=voiceOn?'🔊 HARVEY ON':'🔇 HARVEY OFF';vtb.style.color=voiceOn?'var(--c2)':'var(--t3)';if(!voiceOn){if(currentAudio){currentAudio.pause();currentAudio=null;}window.speechSynthesis.cancel();}};
+vtb.onclick=()=>{voiceOn=!voiceOn;vtb.textContent=voiceOn?'🔊 HARVEY ON':'🔇 HARVEY OFF';vtb.style.color=voiceOn?'var(--c2)':'var(--t3)';if(!voiceOn)stopSpeech();};
 document.getElementById('tb-right').prepend(vtb);
 
 // ── CSV PARSER (from BlockSense) ──
@@ -2362,6 +2413,8 @@ if(SR){
 
 // ── BOOT ──
 window.addEventListener('load',async()=>{
+  // Start loading Kokoro model in background — non-blocking
+  loadKokoro(); // ~85MB download, cached after first time
   setTimeout(()=>{
     document.getElementById('welcome')?.remove();
     const boot=document.createElement('div');boot.className='msg-ai';
