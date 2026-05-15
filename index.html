@@ -2,7 +2,9 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
 <title>BlockSense — HARVEY</title>
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700;900&family=Share+Tech+Mono&family=Rajdhani:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
@@ -15,7 +17,7 @@
   --b:rgba(0,212,255,0.15);--b2:rgba(0,212,255,0.4);
   --mono:'Share Tech Mono',monospace;--hud:'Orbitron',monospace;--ui:'Rajdhani',sans-serif;
 }
-html,body{height:100%;background:var(--bg);color:var(--t);font-family:var(--ui);overflow:hidden}
+html,body{height:100%;background:var(--bg);color:var(--t);font-family:var(--ui);overflow:hidden;-webkit-overflow-scrolling:touch;touch-action:manipulation}
 body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.1) 2px,rgba(0,0,0,0.1) 4px);pointer-events:none;z-index:9999}
 .grid-bg{position:fixed;inset:0;background-image:linear-gradient(rgba(0,212,255,0.025) 1px,transparent 1px),linear-gradient(90deg,rgba(0,212,255,0.025) 1px,transparent 1px);background-size:44px 44px;z-index:0;pointer-events:none}
 .cg{position:fixed;z-index:0;pointer-events:none;border-radius:50%}
@@ -48,6 +50,9 @@ body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradi
 /* Stop speech button */
 .stop-btn{font-family:var(--mono);font-size:8px;color:var(--r);background:rgba(255,68,68,.06);border:1px solid rgba(255,68,68,.2);padding:3px 8px;cursor:pointer;letter-spacing:1px;transition:all .14s;white-space:nowrap;flex-shrink:0}
 .stop-btn:hover{background:rgba(255,68,68,.15);border-color:var(--r)}
+/* Restart button */
+.restart-btn{font-family:var(--mono);font-size:8px;color:var(--a);background:rgba(255,170,0,.06);border:1px solid rgba(255,170,0,.2);padding:5px 10px;cursor:pointer;letter-spacing:1px;clip-path:polygon(5px 0,100% 0,100% 100%,0 100%,0 5px);transition:all .14s;white-space:nowrap;flex-shrink:0}
+.restart-btn:hover{background:rgba(255,170,0,.15);border-color:var(--a);box-shadow:0 0 10px rgba(255,170,0,.15)}
 /* Sortable table headers */
 .sort-th{cursor:pointer;user-select:none;white-space:nowrap}
 .sort-th:hover{color:var(--c) !important}
@@ -206,8 +211,17 @@ tr:hover td{background:rgba(0,212,255,.03)}
 @keyframes tdot{0%,80%,100%{opacity:.15;transform:scale(.8)}40%{opacity:1;transform:scale(1.2)}}
 .errbub{background:rgba(255,170,0,.06);border:1px solid rgba(255,170,0,.25);padding:8px 12px;font-family:var(--mono);font-size:10px;color:var(--a)}
 
-/* INPUT */
-.input-area{padding:10px 16px 14px;border-top:1px solid var(--b);flex-shrink:0;position:relative}
+/* Always-on voice mode indicator */
+.voice-mode-badge{display:none;align-items:center;gap:6px;font-family:var(--mono);font-size:9px;color:var(--g);background:rgba(0,255,136,.08);border:1px solid rgba(0,255,136,.3);padding:4px 10px;letter-spacing:1px;animation:vmbpulse 2s ease-in-out infinite}
+.voice-mode-badge.active{display:flex}
+.voice-mode-badge .vdot{width:7px;height:7px;background:var(--g);border-radius:50%;box-shadow:0 0 10px var(--g);animation:ldot .8s infinite;flex-shrink:0}
+@keyframes vmbpulse{0%,100%{box-shadow:0 0 6px rgba(0,255,136,.2)}50%{box-shadow:0 0 18px rgba(0,255,136,.5)}}
+/* Clap ripple feedback */
+.clap-flash{position:fixed;inset:0;background:rgba(0,255,136,.06);pointer-events:none;z-index:9998;opacity:0;transition:opacity .15s}
+.clap-flash.show{opacity:1}
+/* vs-bar extended for voice mode */
+.vs-bar.voice-active{background:rgba(0,255,136,.05);border:1px solid rgba(0,255,136,.2);padding:6px 10px;border-radius:2px}
+.vs-bar.voice-active .dot{background:var(--g);box-shadow:0 0 12px var(--g)}
 .input-area::before{content:'';position:absolute;top:-1px;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--c),transparent);pointer-events:none}
 .vs-bar{display:none;align-items:center;gap:8px;padding:4px 2px;font-family:var(--mono);font-size:9px;color:var(--g);letter-spacing:1px;margin-bottom:6px}
 .vs-bar span.dot{width:6px;height:6px;background:var(--g);border-radius:50%;box-shadow:0 0 8px var(--g);animation:ldot .6s infinite;flex-shrink:0;display:inline-block}
@@ -241,6 +255,84 @@ tr:hover td{background:rgba(0,212,255,.03)}
 .hud-submit{font-family:var(--mono);font-size:10px;color:var(--bg);background:var(--c);border:none;padding:8px 18px;cursor:pointer;font-weight:700;letter-spacing:1px;clip-path:polygon(0 0,calc(100% - 8px) 0,100% 8px,100% 100%,0 100%);transition:all .14s;margin-top:4px}
 .hud-submit:hover{background:var(--g);color:var(--bg)}
 .hud-divider{height:1px;background:var(--b);margin:4px 0}
+
+/* ── MOBILE ── */
+.mob-nav{display:none;position:fixed;bottom:0;left:0;right:0;z-index:9000;background:rgba(3,8,15,.97);border-top:1px solid var(--b)}
+.mob-nav::before{content:'';position:absolute;top:-1px;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--c),transparent);pointer-events:none}
+.mob-tabs{display:flex;width:100%}
+.mob-tab{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:8px 4px 12px;cursor:pointer;font-family:var(--mono);font-size:8px;color:var(--t3);letter-spacing:.5px;border:none;background:none;gap:3px;transition:color .15s;-webkit-tap-highlight-color:transparent}
+.mob-tab svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
+.mob-tab.active{color:var(--c)}
+.mob-tab.active svg{filter:drop-shadow(0 0 5px var(--c))}
+.mob-mic-tab{background:rgba(0,255,136,.05)}
+.mob-mic-tab,.mob-mic-tab svg{color:var(--g)}
+.mob-mic-tab.listening{background:rgba(0,255,136,.2) !important}
+.mob-panel-close{display:none;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--b);flex-shrink:0;background:var(--panel)}
+.mob-panel-close-btn{font-family:var(--mono);font-size:10px;color:var(--c);background:none;border:1px solid var(--b2);padding:4px 10px;cursor:pointer;letter-spacing:.5px}
+@media(max-width:768px){
+  /* iOS Safari height — dvh accounts for browser chrome */
+  html,body{height:100dvh;height:-webkit-fill-available}
+  .shell{height:100dvh;height:-webkit-fill-available}
+  /* Scrollable areas on iOS */
+  .messages{-webkit-overflow-scrolling:touch;overflow-y:auto !important}
+  .side.mob-visible{-webkit-overflow-scrolling:touch;overflow-y:auto}
+  /* ALL tappable elements — critical for iOS Safari */
+  button,.chip,.mob-tab,.trow,.ritem,.hud-submit,.stop-btn,.vtog,.sbtn,.mbtn,.restart-btn,a,select,label{
+    -webkit-tap-highlight-color:rgba(0,212,255,0.15);
+    touch-action:manipulation;
+  }
+  /* font-size 16px on inputs prevents iOS auto-zoom */
+  #ci,input,select,textarea,.hud-select{
+    -webkit-appearance:none;
+    font-size:16px !important;
+    touch-action:manipulation;
+  }
+  /* Safe area for notch/home bar */
+  .mob-nav{padding-bottom:env(safe-area-inset-bottom,0px)}
+  .main{padding-bottom:calc(60px + env(safe-area-inset-bottom,0px))}
+  /* Remove clip-path — blocks touch in iOS Safari */
+  .irow,.sbtn,.mbtn,.chip,.hud-submit,.stop-btn,.vtog,.restart-btn{clip-path:none !important}
+  /* Minimum tap target size */
+  .mob-tab{min-height:48px;min-width:44px}
+
+  .mob-nav{display:flex}
+  .mob-panel-close{display:flex !important}
+  .main{grid-template-columns:1fr !important}
+  .side{display:none !important;position:fixed;inset:0;bottom:calc(58px + env(safe-area-inset-bottom,0px));z-index:4000;background:rgba(3,8,15,.98);overflow-y:auto;-webkit-overflow-scrolling:touch}
+  .side.mob-visible{display:flex !important;flex-direction:column}
+  .hud-area{height:110px;padding:6px}
+  .hrw{width:100px;height:100px}
+  .hstats{gap:10px;margin-left:10px}
+  .hsring{width:40px;height:40px}
+  .hsv{font-size:8px}.hsl{font-size:6px}
+  .topbar{padding:6px 10px;flex-wrap:nowrap}
+  .lname{font-size:11px;letter-spacing:1px}
+  .lsub{display:none}
+  .tb-right{gap:6px}
+  .tb-time{font-size:11px}
+  .tb-date{display:none}
+  .vtog{font-size:8px;padding:4px 7px}
+  .input-area{padding:8px 10px calc(10px + env(safe-area-inset-bottom,0px))}
+  .irow{padding:6px 6px 6px 12px}
+  #mb{display:none}
+  .messages{padding:10px 12px}
+  .mbub{font-size:12px;padding:8px 11px}
+  .ev-price.mid{font-size:22px}
+  .srow{grid-template-columns:repeat(3,1fr);gap:4px}
+  .svv{font-size:11px}
+  table{font-size:11px}
+  th,td{padding:5px 8px}
+  .hud-select,.hud-input{min-width:unset;width:100%}
+  .hud-row{flex-wrap:wrap}
+  .hud-label{min-width:70px;font-size:8px}
+  .stop-btn{font-size:7px;padding:2px 5px}
+  .chip{font-size:9px;padding:5px 9px;min-height:36px;display:inline-flex;align-items:center}
+  .ev-card{padding:10px 12px}
+  .rwrap{max-width:100%}
+  .sfx-ring:nth-child(3){width:300px;height:300px}
+  .sfx-ring:nth-child(4){width:400px;height:400px}
+  .sfx-ring:nth-child(5){width:480px;height:480px}
+}
 </style>
 </head>
 <body>
@@ -266,15 +358,22 @@ tr:hover td{background:rgba(0,212,255,.03)}
       <div><span class="lname">BLOCKSENSE</span><span class="lsub">HARVEY · HDB ANALYTICS & RESEARCH VALUATION ENGINE FOR YOU</span></div>
     </div>
     <div class="tb-right" id="tb-right">
+      <div class="voice-mode-badge" id="voice-mode-badge"><div class="vdot"></div><span id="voice-mode-txt">VOICE MODE · LISTENING</span><button onclick="deactivateVoiceMode()" style="background:none;border:none;color:var(--g);cursor:pointer;font-family:var(--mono);font-size:9px;margin-left:4px;opacity:.7" title="Deactivate">✕</button></div>
       <div><div class="tb-time" id="clk">--:--:--</div><div class="tb-date" id="dt">---</div></div>
       <div class="live-pill"><div class="ldot"></div>LIVE · FREE</div>
     </div>
   </div>
+  <!-- Clap flash overlay -->
+  <div class="clap-flash" id="clap-flash"></div>
 
   <!-- MAIN -->
   <div class="main">
     <!-- LEFT -->
-    <div class="side">
+    <div class="side" id="side-left">
+      <div class="mob-panel-close">
+        <span style="font-family:var(--mono);font-size:10px;color:var(--c);letter-spacing:1px">TOWNS</span>
+        <button class="mob-panel-close-btn" onclick="closeMobPanel()">✕ CLOSE</button>
+      </div>
       <div class="pb">
         <div class="plbl">TRANSACTIONS LOADED</div>
         <div class="pval" id="txcount">--</div>
@@ -401,7 +500,11 @@ tr:hover td{background:rgba(0,212,255,.03)}
     </div>
 
     <!-- RIGHT -->
-    <div class="side right">
+    <div class="side right" id="side-right">
+      <div class="mob-panel-close">
+        <span style="font-family:var(--mono);font-size:10px;color:var(--c);letter-spacing:1px">STATS</span>
+        <button class="mob-panel-close-btn" onclick="closeMobPanel()">✕ CLOSE</button>
+      </div>
       <div class="pb">
         <div class="plbl">PRICE RANGE (ALL)</div>
         <div class="sgrid">
@@ -437,6 +540,33 @@ tr:hover td{background:rgba(0,212,255,.03)}
       </div>
     </div>
   </div>
+
+  <!-- MOBILE BOTTOM NAV -->
+  <nav class="mob-nav" id="mob-nav">
+    <div class="mob-tabs">
+      <button class="mob-tab" id="mob-tab-towns" onclick="toggleMobPanel('side-left','mob-tab-towns')">
+        <svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+        TOWNS
+      </button>
+      <button class="mob-tab active" id="mob-tab-chat" onclick="closeMobPanel()">
+        <svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        HARVEY
+      </button>
+      <button class="mob-tab mob-mic-tab" id="mob-mic-btn" onclick="toggleMobMic()">
+        <svg viewBox="0 0 24 24"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+        MIC
+      </button>
+      <button class="mob-tab" id="mob-tab-stats" onclick="toggleMobPanel('side-right','mob-tab-stats')">
+        <svg viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+        STATS
+      </button>
+      <button class="mob-tab" id="mob-tab-search" onclick="mobSearch()">
+        <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        SEARCH
+      </button>
+    </div>
+  </nav>
+
 </div>
 
 <script>
@@ -452,93 +582,104 @@ const SHEET_URLS = {
   townstreets:`https://docs.google.com/spreadsheets/d/${GOOGLE_SHEET_ID}/gviz/tq?tqx=out:csv&sheet=townstreets`
 };
 
-// ── KOKORO TTS — 100% local, no API key, no credits, runs in browser ──
-// Voice: bm_george (British male, authoritative — closest to Jarvis)
-// Model downloads once (~85MB for q8), then cached in browser forever
-const KOKORO_VOICE = 'bm_george';
-const VOICE_SPEED  = 1.275; // 1.5 × 0.85
+// ── TTS ENGINE — Browser native Daniel voice, no downloads, no crashes ──
+const IS_MOBILE = /iPhone|iPad|iPod|Android|Mobile/i.test(navigator.userAgent);
+const VOICE_SPEED = IS_MOBILE ? 1.05 : 1.15; // Jarvis: measured, not rushed
 
-let kokoroTTS   = null;   // loaded lazily on first speak
-let kokoroReady = false;
-let kokoroLoading = false;
 let currentAudio = null;
+let harveyVoice  = null;
+
+// Pick the best available voice — Daniel (macOS/iOS) is closest to Jarvis
+function pickVoice(){
+  const vv=window.speechSynthesis.getVoices();
+  harveyVoice=
+    vv.find(v=>/^daniel$/i.test(v.name))||
+    vv.find(v=>/daniel/i.test(v.name)&&/en/i.test(v.lang))||
+    vv.find(v=>/george/i.test(v.name)&&/en/i.test(v.lang))||
+    vv.find(v=>/arthur/i.test(v.name)&&/en/i.test(v.lang))||
+    vv.find(v=>/oliver/i.test(v.name)&&/en/i.test(v.lang))||
+    vv.find(v=>/aaron/i.test(v.name)&&/en/i.test(v.lang))||
+    vv.find(v=>/fred/i.test(v.name)&&/en/i.test(v.lang))||
+    vv.find(v=>/male/i.test(v.name)&&/en/i.test(v.lang))||
+    vv.find(v=>/en-GB/i.test(v.lang))||
+    vv.find(v=>/en/i.test(v.lang))||null;
+}
+pickVoice();
+if(window.speechSynthesis.onvoiceschanged!==undefined)
+  window.speechSynthesis.onvoiceschanged=pickVoice;
+
+async function speak(txt){
+  if(!voiceOn||!txt)return;
+  const clean=cleanForSpeech(txt);
+  if(!clean)return;
+  stopSpeech();
+  document.querySelector('.hrw')?.classList.add('speaking');
+  document.getElementById('harvey-speaking-fx')?.classList.add('active');
+  const u=new SpeechSynthesisUtterance(clean);
+  u.rate=VOICE_SPEED;
+  u.pitch=0.6;
+  u.volume=0.92;
+  if(harveyVoice)u.voice=harveyVoice;
+  u.onend=()=>{
+    document.querySelector('.hrw')?.classList.remove('speaking');
+    document.getElementById('harvey-speaking-fx')?.classList.remove('active');
+    // Voice mode — restart listening after Harvey finishes speaking
+    if(voiceMode&&micState==='query'&&!recogBusy){
+      vsTxt.textContent='HARVEY LISTENING — SPEAK ANYTIME';
+      setTimeout(()=>safeStart(),400);
+    }
+    // Reset skipPreamble after each response
+    skipPreamble=false;
+  };
+  window.speechSynthesis.speak(u);
+}
 
 const DB = { resale:[], townStreets:{}, loaded:false };
 let loading=false, qn=0, voiceOn=true;
 let mode='boot', ctx={};
 
+// ── CONVERSATION MEMORY — persists across turns until __restart__ ──
+// Stores the last known HDB context so follow-up messages inherit it.
+// e.g. user searches "hougang 3 room" → convCtx={town:'HOUGANG',flatType:'3 ROOM'}
+//      user then types "ave 6" → Harvey merges into convCtx and searches hougang ave 6 3 room
+//      user then types "level 8" → Harvey searches hougang ave 6 3 room level 8
+let convCtx={};
+function mergeToConvCtx(parsed){
+  // Only store fields that have real values — never overwrite with empty
+  if(parsed.town)     convCtx.town=parsed.town;
+  if(parsed.flatType) convCtx.flatType=parsed.flatType;
+  if(parsed.street)   convCtx.street=parsed.street;
+  if(parsed.block)    convCtx.block=parsed.block;
+  if(parsed.floor)    convCtx.floor=parsed.floor;
+  if(parsed.size)     convCtx.size=parsed.size;
+  if(parsed.leaseYear)convCtx.leaseYear=parsed.leaseYear;
+  if(parsed.maxPrice) convCtx.maxPrice=parsed.maxPrice;
+  if(parsed.minPrice) convCtx.minPrice=parsed.minPrice;
+  if(parsed.isEV!==undefined) convCtx.isEV=parsed.isEV;
+}
+function applyConvCtx(parsed){
+  // Fill in blanks from conversation memory — never overwrite what the user just said
+  const merged={...convCtx};
+  if(parsed.town)     merged.town=parsed.town;
+  if(parsed.flatType) merged.flatType=parsed.flatType;
+  if(parsed.street)   merged.street=parsed.street;
+  if(parsed.block)    merged.block=parsed.block;
+  if(parsed.floor!==undefined&&parsed.floor) merged.floor=parsed.floor;
+  if(parsed.size)     merged.size=parsed.size;
+  if(parsed.leaseYear)merged.leaseYear=parsed.leaseYear;
+  if(parsed.maxPrice) merged.maxPrice=parsed.maxPrice;
+  if(parsed.minPrice) merged.minPrice=parsed.minPrice;
+  if(parsed.isEV!==undefined) merged.isEV=parsed.isEV;
+  // If user narrows scope (changes flatType/street/town), clear downstream ctx
+  if(parsed.town&&parsed.town!==convCtx.town){merged.street='';merged.block='';}
+  if(parsed.street&&parsed.street!==convCtx.street){merged.block='';}
+  if(parsed.flatType&&parsed.flatType!==convCtx.flatType){merged.block='';}
+  return merged;
+}
+
 const msgsEl = document.getElementById('msgs');
 const ciEl   = document.getElementById('ci');
 const sbEl   = document.getElementById('sb');
-
-// Load Kokoro in background — show progress in db-status indicator
-async function loadKokoro(){
-  if(kokoroReady||kokoroLoading)return;
-  kokoroLoading=true;
-  try{
-    // Load via ESM from jsDelivr CDN — no npm/build needed
-    const {KokoroTTS}=await import('https://cdn.jsdelivr.net/npm/kokoro-js@1.2.0/+esm');
-    document.getElementById('db-status').textContent='VOICE...';
-    kokoroTTS=await KokoroTTS.from_pretrained('onnx-community/Kokoro-82M-v1.0-ONNX',{
-      dtype:'q8',       // ~85MB — good quality, fast
-      device:'wasm',    // works on all browsers, no WebGPU needed
-    });
-    kokoroReady=true;
-    kokoroLoading=false;
-    document.getElementById('db-status').textContent='READY';
-    document.getElementById('db-status').style.color='var(--g)';
-  }catch(e){
-    kokoroLoading=false;
-    console.warn('Kokoro load failed, will use browser TTS fallback',e);
-    // Fallback is fine — browser TTS always works
-  }
-}
-
-// ── SPEAK ──
-async function speak(txt){
-  if(!voiceOn||!txt)return;
-  const clean=cleanForSpeech(txt);
-  if(!clean)return;
-  // Stop any current speech
-  stopSpeech();
-  document.querySelector('.hrw')?.classList.add('speaking');
-  document.getElementById('harvey-speaking-fx')?.classList.add('active');
-
-  if(kokoroReady&&kokoroTTS){
-    try{
-      const audio=await kokoroTTS.generate(clean,{voice:KOKORO_VOICE,speed:VOICE_SPEED});
-      // Convert to playable audio
-      const wav=audio.toWav();
-      const blob=new Blob([wav],{type:'audio/wav'});
-      const url=URL.createObjectURL(blob);
-      const el=new Audio(url);
-      currentAudio=el;
-      el.onended=()=>{
-        document.querySelector('.hrw')?.classList.remove('speaking');
-        document.getElementById('harvey-speaking-fx')?.classList.remove('active');
-        currentAudio=null;
-        URL.revokeObjectURL(url);
-      };
-      el.play();
-      return;
-    }catch(e){
-      console.warn('Kokoro speak error, falling back',e);
-    }
-  }
-
-  // Fallback: browser TTS (always works, no quality guarantee)
-  const u=new SpeechSynthesisUtterance(clean);
-  u.rate=VOICE_SPEED;u.pitch=0.75;u.volume=0.9;
-  // Try to pick a decent male British voice
-  const voices=window.speechSynthesis.getVoices();
-  const brit=voices.find(v=>v.name.includes('George')||v.name.includes('Daniel')||v.name.includes('UK English Male'));
-  if(brit)u.voice=brit;
-  u.onend=()=>{
-    document.querySelector('.hrw')?.classList.remove('speaking');
-    document.getElementById('harvey-speaking-fx')?.classList.remove('active');
-  };
-  window.speechSynthesis.speak(u);
-}
 
 // ── CLOCK ──
 function tick(){
@@ -812,8 +953,24 @@ function lookupSizeFromDB(block,street,flatType){
 // Users may type EITHER form — we normalise to DB short form before searching
 
 // Converts user input (long or short) → DB short form for searching
+// ORDER MATTERS: longer phrases must come before shorter ones to avoid partial replacement
 function contractStreetAbbr(s){
   return s
+    // ── Multi-word place names first ──
+    .replace(/\bCHOA\s+CHU\s+KANG\b/g,'CCK')
+    .replace(/\bANG\s+MO\s+KIO\b/g,'AMK')
+    .replace(/\bCOMMONWEALTH\b/g,'C\'WEALTH')
+    .replace(/\bTOA\s+PAYOH\b/g,'TOA PAYOH')   // keep as-is, already in DB
+    // ── Directional qualifiers ──
+    .replace(/\bNORTH\b/g,'NTH')
+    .replace(/\bSOUTH\b/g,'STH')
+    .replace(/\bEAST\b/g,'EST')                  // rare but exists
+    .replace(/\bWEST\b/g,'WST')                  // rare but exists (keep spatial context)
+    .replace(/\bCENTRAL\b/g,'CTRL')
+    .replace(/\bUPPER\b/g,'UPP')
+    .replace(/\bLOWER\b/g,'LWR')
+    .replace(/\bNEW\b/g,'NEW')                   // keep — "New Upper Changi Rd"
+    // ── Street types ──
     .replace(/\bSTREET\b/g,'ST')
     .replace(/\bAVENUE\b/g,'AVE')
     .replace(/\bDRIVE\b/g,'DR')
@@ -823,37 +980,64 @@ function contractStreetAbbr(s){
     .replace(/\bLORONG\b/g,'LOR')
     .replace(/\bJALAN\b/g,'JLN')
     .replace(/\bBUKIT\b/g,'BT')
-    .replace(/\bUPPER\b/g,'UPP')
     .replace(/\bHEIGHTS\b/g,'HTS')
-    .replace(/\bNORTH\b/g,'NTH')
-    .replace(/\bSOUTH\b/g,'STH')
-    .replace(/\bCENTRAL\b/g,'CTRL')
     .replace(/\bTERRACE\b/g,'TER')
-    .replace(/\bPLACE\b/g,'PL')
+    .replace(/\bCRESCENT\b/g,'CRES')
+    .replace(/\bGARDENS\b/g,'GDNS')
+    .replace(/\bCOURTS?\b/g,'CTS')
+    .replace(/\bPARK\b/g,'PK')
+    .replace(/\bMARKET\b/g,'MKT')
     .replace(/\bGROVE\b/g,'GR')
+    .replace(/\bPLACE\b/g,'PL')
+    .replace(/\bLANE\b/g,'LN')
+    .replace(/\bLINK\b/g,'LINK')
+    .replace(/\bWALK\b/g,'WALK')
+    .replace(/\bRISE\b/g,'RISE')
+    .replace(/\bVIEW\b/g,'VIEW')
+    .replace(/\bWAY\b/g,'WAY')
+    .replace(/\bCIRCLE\b/g,'C')
     .replace(/\s+/g,' ').trim();
 }
 
-// Converts DB short form → full English for TTS (so Harvey doesn't say "ess tee")
+// Converts DB short form → full English for TTS so Harvey speaks naturally
+// ORDER MATTERS: longer/more specific patterns before shorter ones
 function expandStreetAbbr(s){
+  // NOTE: expansions use Title Case (not ALL CAPS) so the TTS engine reads them
+  // as natural words — "Street" not "S-T-R-E-E-T"
   return s
-    .replace(/\bST\b/g,'STREET')
-    .replace(/\bAVE\b/g,'AVENUE')
-    .replace(/\bDR\b/g,'DRIVE')
-    .replace(/\bRD\b/g,'ROAD')
-    .replace(/\bCL\b/g,'CLOSE')
-    .replace(/\bCRES\b/g,'CRESCENT')
-    .replace(/\bLOR\b/g,'LORONG')
-    .replace(/\bJLN\b/g,'JALAN')
-    .replace(/\bBT\b/g,'BUKIT')
-    .replace(/\bUPP\b/g,'UPPER')
-    .replace(/\bHTS\b/g,'HEIGHTS')
-    .replace(/\bNTH\b/g,'NORTH')
-    .replace(/\bSTH\b/g,'SOUTH')
-    .replace(/\bCTRL\b/g,'CENTRAL')
-    .replace(/\bTER\b/g,'TERRACE')
-    .replace(/\bPL\b/g,'PLACE')
-    .replace(/\bGR\b/g,'GROVE')
+    // ── Multi-word abbreviations first ──
+    .replace(/\bCCK\b/g,'Choa Chu Kang')
+    .replace(/\bAMK\b/g,'Ang Mo Kio')
+    .replace(/\bC'WEALTH\b/gi,'Commonwealth')
+    .replace(/\bC\'WEALTH\b/gi,'Commonwealth')
+    // ── Directional ──
+    .replace(/\bNTH\b/g,'North')
+    .replace(/\bSTH\b/g,'South')
+    .replace(/\bEST\b/g,'East')
+    .replace(/\bWST\b/g,'West')
+    .replace(/\bCTRL\b/g,'Central')
+    .replace(/\bUPP\b/g,'Upper')
+    .replace(/\bLWR\b/g,'Lower')
+    // ── Street types — Title Case so TTS speaks them naturally ──
+    .replace(/\bAVE\b/g,'Avenue')
+    .replace(/\bCRES\b/g,'Crescent')
+    .replace(/\bGDNS\b/g,'Gardens')
+    .replace(/\bCTS\b/g,'Courts')
+    .replace(/\bHTS\b/g,'Heights')
+    .replace(/\bTER\b/g,'Terrace')
+    .replace(/\bLOR\b/g,'Lorong')
+    .replace(/\bJLN\b/g,'Jalan')
+    .replace(/\bMKT\b/g,'Market')
+    .replace(/\bBT\b/g,'Bukit')
+    .replace(/\bRD\b/g,'Road')
+    .replace(/\bDR\b/g,'Drive')
+    .replace(/\bCL\b/g,'Close')
+    .replace(/\bST\b/g,'Street')
+    .replace(/\bPL\b/g,'Place')
+    .replace(/\bGR\b/g,'Grove')
+    .replace(/\bLN\b/g,'Lane')
+    .replace(/\bPK\b/g,'Park')
+    .replace(/\bBLK\b/g,'Block')
     .replace(/\s+/g,' ').trim();
 }
 
@@ -881,7 +1065,7 @@ function reverseStreet(streetRaw){
   // Extract HARD constraints from the input:
   // 1) Street TYPE (ST / AVE / DR / RD / CL etc) — must match exactly, no crossing AVE↔ST
   // 2) Trailing NUMBER (1, 22, 44A) — must match exactly
-  const shortTypes=['ST','AVE','DR','RD','CL','CRES','LOR','JLN','BT','UPP','HTS','NTH','STH','CTRL','TER','PL','GR','LN','WALK','LINK','RISE','VIEW','WAY'];
+  const shortTypes=['ST','AVE','DR','RD','CL','CRES','LOR','JLN','BT','UPP','LWR','HTS','NTH','STH','EST','WST','CTRL','TER','PL','GR','LN','WALK','LINK','RISE','VIEW','WAY','CCK','AMK','GDNS','CTS','PK','MKT'];
   const typeRxStr=shortTypes.join('|');
   const typeRx=new RegExp(`\\b(${typeRxStr})\\b`,'g');
   const typeMatches=[...s.matchAll(typeRx)];
@@ -891,7 +1075,7 @@ function reverseStreet(streetRaw){
   const streetNum=numMatch?numMatch[1]:null;
 
   // Strip type words AND numbers to get pure name words
-  const stripRx=new RegExp(`\\b(${typeRxStr}|STREET|AVENUE|DRIVE|ROAD|CLOSE|CRESCENT|LANE|PLACE|HEIGHTS|GROVE|TERRACE|NORTH|SOUTH|EAST|WEST|CENTRAL|UPPER|LOWER|LORONG|JALAN|BUKIT|NEW|OLD)\\b`,'g');
+  const stripRx=new RegExp(`\\b(${typeRxStr}|STREET|AVENUE|DRIVE|ROAD|CLOSE|CRESCENT|LANE|PLACE|HEIGHTS|GROVE|TERRACE|GARDENS|COURTS|PARK|MARKET|NORTH|SOUTH|EAST|WEST|CENTRAL|UPPER|LOWER|LORONG|JALAN|BUKIT|COMMONWEALTH|CHOA|CHU|KANG|ANG|MO|KIO|NEW|OLD)\\b`,'g');
   const nameOnly=s.replace(stripRx,'').replace(/\d+[A-Z]?/g,'').replace(/\s+/g,' ').trim();
   const nameWords=nameOnly.split(' ').filter(w=>w.length>=3);
 
@@ -966,7 +1150,7 @@ function _srResult(matches){
 // ── Block+street → canonical town ──
 function reverseTown(block,streetRaw){
   if(!DB.loaded)return null;
-  const core=(streetRaw||'').toUpperCase().replace(/\b(STREET|ROAD|AVENUE|DRIVE|CRESCENT|CLOSE|WALK|LINK|LANE|WAY|ST|RD|AVE|DR|CRES|LN)\b/g,'').replace(/\s+/g,' ').trim();
+  const core=(streetRaw||'').toUpperCase().replace(/\b(STREET|ROAD|AVENUE|DRIVE|CRESCENT|CLOSE|WALK|LINK|LANE|WAY|GARDENS|COURTS|PARK|MARKET|TERRACE|LORONG|JALAN|HEIGHTS|GROVE|PLACE|ST|RD|AVE|DR|CRES|LN|LOR|JLN|HTS|GR|PL|TER|PK|GDNS|CTS|MKT)\b/g,'').replace(/\s+/g,' ').trim();
   const match=DB.resale.find(r=>(!block||r.block===block)&&(!core||r.street_name.toUpperCase().includes(core.slice(0,6))));
   return match?{town:match.town,street:match.street_name}:null;
 }
@@ -1005,7 +1189,7 @@ function parseQuery(raw){
   // Handle: "608 Clementi West Street 1" → "Clementi West Street 1"
   // Also handle abbreviations: ST, DR, CL, AVE, RD, CRES etc
   const qNoBlock=q.replace(/^\s*(?:BLK|BLOCK)?\s*\d+[A-Z]?\s*/,'').trim();
-  const stMatch=qNoBlock.match(/\b([A-Z][A-Z0-9\s]*?(?:AVENUE|STREET|DRIVE|ROAD|CRESCENT|CLOSE|WALK|LINK|LANE|VIEW|RISE|WAY|HEIGHTS|GROVE|CIRCLE|PLACE|TERRACE|LORONG|JALAN)\s*\d*[A-Z]?)\b/);
+  const stMatch=qNoBlock.match(/\b([A-Z][A-Z0-9\s]*?(?:AVENUE|STREET|DRIVE|ROAD|CRESCENT|CLOSE|WALK|LINK|LANE|VIEW|RISE|WAY|HEIGHTS|GROVE|CIRCLE|PLACE|TERRACE|LORONG|JALAN|GARDENS|COURTS|MARKET|PARK)\s*\d*[A-Z]?)\b/);
   if(stMatch){
     let candidate=stMatch[1].trim()
       .replace(/^\s*(?:BLK|BLOCK)\s*\d+[A-Z]?\s*/i,'')
@@ -1082,7 +1266,8 @@ function buildMissingPrompt(ctx){
   if(!ctx.flatType)m.push('🏠 <strong>Flat type</strong> — 3-room, 4-room, 5-room or Executive');
   if(!ctx.street)  m.push('🛣️ <strong>Street name</strong> — e.g. Clementi West Street 1');
   if(!ctx.block)   m.push('🔢 <strong>Block number</strong> — e.g. Blk 608');
-  if(!ctx.floor)   m.push('📶 <strong>Floor level</strong> — e.g. floor 4');
+  // Floor is optional — will use median floor if not provided
+  if(!ctx.floor)   m.push('📶 <strong>Floor level</strong> — e.g. floor 4 <em>(optional — I\'ll use a mid-floor estimate)</em>');
   if(!ctx.size&&!ctx.flatType)m.push('📐 <strong>Floor area sqm</strong> — e.g. 67 sqm <em>(optional if flat type given)</em>');
   return m;
 }
@@ -1333,6 +1518,7 @@ async function runEvExpanded(p,labels){
   const prices=comps.map(r=>Number(r.resale_price));
   const sorted=[...prices].sort((a,b)=>a-b);
   const median=sorted[Math.floor(sorted.length/2)];
+  const avg=Math.round(prices.reduce((s,p)=>s+p,0)/prices.length);
   const low=Math.round(median*0.95/1000)*1000;
   const high=Math.round(median*1.05/1000)*1000;
 
@@ -1374,9 +1560,10 @@ function harveyMsg(html,chips=[]){
   document.getElementById('welcome')?.remove();
   const d=document.createElement('div');d.className='msg-ai';
   const ch=chips.length?`<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">${chips.map(c=>`<span class="chip" onclick="chipClick('${c.val.replace(/'/g,"\\'")}')">▶ ${c.label}</span>`).join('')}</div>`:'';
-  // Stop speech button — only if voice is on
+  // Stop + Restart buttons — inline beside message label
   const stopBtn=`<button class="stop-btn" onclick="stopSpeech()" title="Stop Harvey speaking">⏹ STOP</button>`;
-  d.innerHTML=`<span class="mlbl" style="display:flex;align-items:center;gap:8px;justify-content:space-between"><span>// HARVEY</span>${stopBtn}</span><div class="mbub">${html}${ch}</div>`;
+  const restartBtn=`<button class="stop-btn" style="color:var(--a);background:rgba(255,170,0,.06);border-color:rgba(255,170,0,.25)" onclick="chipClick('__restart__')" title="Restart conversation">↺ NEW</button>`;
+  d.innerHTML=`<span class="mlbl" style="display:flex;align-items:center;gap:6px;justify-content:space-between"><span>// HARVEY</span><span style="display:flex;gap:4px">${stopBtn}${restartBtn}</span></span><div class="mbub">${html}${ch}</div>`;
   msgsEl.appendChild(d);bot();
 }
 function userMsg(text){
@@ -1422,6 +1609,7 @@ function showTransactions(recs,params,is6mo){
   const prices=recs.map(r=>Number(r.resale_price));
   const sorted=[...prices].sort((a,b)=>a-b);
   const median=sorted[Math.floor(sorted.length/2)];
+  const avg=Math.round(prices.reduce((s,p)=>s+p,0)/prices.length);
   const shown=recs; // show ALL — no limit
   const timeNote=is6mo?'last 6 months':'full dataset';
   const rows=shown.map(r=>`<tr><td>${esc(r.month)}</td><td>BLK ${esc(r.block)} ${esc(r.street_name)}</td><td>${esc(r.flat_type)}</td><td>${esc(r.storey_range)}</td><td>${esc(r.floor_area_sqm)}m²</td><td class="pc">${fmtP(r.resale_price)}</td></tr>`).join('');
@@ -1432,7 +1620,8 @@ function showTransactions(recs,params,is6mo){
       <div class="rh"><span class="rtitle">⬡ ${esc([(params.block?'BLK '+params.block:''),(params.street||''),(params.town||''),(params.flatType||'')].filter(Boolean).join(' · ').toUpperCase())}</span><span class="rcnt">${recs.length} RECORDS · ${timeNote.toUpperCase()}</span></div>
       <div style="overflow-x:auto"><table><thead><tr><th>MONTH</th><th>BLOCK & STREET</th><th>TYPE</th><th>STOREY</th><th>AREA</th><th>PRICE</th></tr></thead><tbody>${rows}</tbody></table></div>
     </div>
-    <div class="srow">
+    <div class="srow" style="grid-template-columns:repeat(4,1fr)">
+      <div class="sc"><span class="svv">${fmtP(avg)}</span><span class="sll">AVG</span></div>
       <div class="sc"><span class="svv">${fmtP(median)}</span><span class="sll">MEDIAN</span></div>
       <div class="sc"><span class="svv">${fmtP(Math.min(...prices))}</span><span class="sll">LOWEST</span></div>
       <div class="sc"><span class="svv">${fmtP(Math.max(...prices))}</span><span class="sll">HIGHEST</span></div>
@@ -1477,29 +1666,44 @@ function showEV(result,params){
   const compsData=result.compsData||[];
   const warn12=result.lookbackUsed===12;
   const sizeNote=params.sizeFromDB?` <em style="color:var(--g)">(from block records)</em>`:params.sizeInferred?` <em style="color:var(--a)">(estimated)</em>`:'';
+  const floorNote=params.floorInferred?` <em style="color:var(--a)">(estimated mid-floor)</em>`:'';
   const fallNote=result.fallbackLevel==='street'?` · street-level comps`:'';
 
-  // Detect floor inversion: any lower-floor comp priced HIGHER than a higher-floor comp
+  // Size/floor disclaimer banners
+  const sizeDisclaimer=params.sizeInferred?`<div class="ev-warn" style="margin-bottom:10px">
+    ⚠ <strong>You have not provided an accurate unit size.</strong> I've used the typical floor area for a <strong>${esc(result.flatType)}</strong> (${result.size}sqm) as a reference. The actual value may differ if your unit in this vicinity has a different size or built specifications for the same flat type.<br><br>
+    For a more accurate valuation based on your unit's exact floor area, feel free to reach out: <a href="https://wa.me/6597531657" target="_blank" style="color:var(--g)">WhatsApp us here →</a>
+  </div>`:'';
+  const floorDisclaimer=params.floorInferred?`<div class="ev-warn" style="margin-bottom:10px;border-color:rgba(255,170,0,.25)">
+    ⚠ <strong>No floor level was provided.</strong> I've estimated using a mid-floor level (floor ${result.floor}) for this block. Floor premium adjustments may not reflect your unit's actual position. Providing your floor gives a more precise estimate.<br><br>
+    For a more grounded assessment: <a href="https://wa.me/6597531657" target="_blank" style="color:var(--g)">WhatsApp us here →</a>
+  </div>`:'';
+
+  // Detect floor inversion: a comp BELOW the user's floor is priced HIGHER than a comp AT or ABOVE it
+  // Rule: only flag if the offending comp's floorMid is strictly LESS than the user's floor (result.floor)
+  // Never flag comps that are at the same level or higher — those are normal or expected
   let inversionNote='';
   let inversionSpoken='';
   if(compsData.length>=2){
-    // Sort by floor ascending
-    const sorted=[...compsData].sort((a,b)=>a.floorMid-b.floorMid);
-    // Find the highest-priced comp and check if it's on a LOWER floor than the lowest-priced comp
-    const highestPriceComp=compsData.reduce((a,b)=>a.price>b.price?a:b);
-    const lowestPriceComp=compsData.reduce((a,b)=>a.price<b.price?a:b);
-    const invertedByPrice=highestPriceComp.floorMid<lowestPriceComp.floorMid;
-    // Also check if any lower-floor is priced higher than a higher-floor in sequence
-    let hasSequentialInversion=false;
-    for(let i=0;i<sorted.length-1;i++){
-      if(sorted[i].price>sorted[i+1].price*1.02){hasSequentialInversion=true;break;}
-    }
-    if(invertedByPrice||hasSequentialInversion){
-      const lf=highestPriceComp;
-      inversionNote=`<div class="ev-warn" style="border-color:rgba(255,170,0,.4);background:rgba(255,170,0,.06);margin-top:8px">
-        ⚠ I notice a lower floor (${esc(lf.storey_range)}) transacted at a higher price of <strong style="color:var(--a)">${fmtP(lf.price)}</strong> — this is unusual and may reflect unit-specific factors such as renovation, facing, or negotiation. The floor premium model may not fully capture this, sir. <a href="https://wa.me/6597531657" target="_blank" style="color:var(--g)">You may want to check in with a professional →</a>
-      </div>`;
-      inversionSpoken=`I also notice something worth flagging, sir — a lower floor transacted at a higher price of ${fmtP(lf.price)}. This is unusual and may reflect unit-specific factors. You may want to check in with a professional agent.`;
+    const myFloorNum=Number(result.floor)||1;
+
+    // Split comps into below-user and at/above-user
+    const belowUser=compsData.filter(r=>r.floorMid<myFloorNum);
+    const atOrAbove=compsData.filter(r=>r.floorMid>=myFloorNum);
+
+    if(belowUser.length>0&&atOrAbove.length>0){
+      // Find highest-priced comp that is BELOW the user's floor
+      const highestBelow=belowUser.reduce((a,b)=>a.price>b.price?a:b);
+      // Find lowest-priced comp that is AT or ABOVE the user's floor
+      const lowestAbove=atOrAbove.reduce((a,b)=>a.price<b.price?a:b);
+
+      // Only flag if a lower floor is genuinely priced MORE than a higher (or equal) floor
+      if(highestBelow.price>lowestAbove.price*1.02){
+        inversionNote=`<div class="ev-warn" style="border-color:rgba(255,170,0,.4);background:rgba(255,170,0,.06);margin-top:8px">
+          ⚠ I notice a lower floor (${esc(highestBelow.storey_range)}) transacted at a higher price of <strong style="color:var(--a)">${fmtP(highestBelow.price)}</strong> compared to units at or above your floor — this is unusual and may reflect unit-specific factors such as renovation, facing, or negotiation. The floor premium model may not fully capture this, sir. <a href="https://wa.me/6597531657" target="_blank" style="color:var(--g)">You may want to check in with a professional →</a>
+        </div>`;
+        inversionSpoken=`I also notice something worth flagging, sir — a lower floor at storey ${cleanForSpeech(highestBelow.storey_range)} transacted at a higher price of ${fmtP(highestBelow.price)} compared to units at or above your level. This may reflect unit-specific factors. You may want to check in with a professional agent.`;
+      }
     }
   }
 
@@ -1530,9 +1734,11 @@ function showEV(result,params){
 
   <div class="ev-card">
     ${warn12?`<div class="ev-warn">⚠ Based on last 12 months — not enough recent data. Treat as directional.<br><a href="https://wa.me/6597531657" target="_blank" style="color:var(--g)">Chat for a more accurate valuation →</a></div>`:''}
+    ${sizeDisclaimer}
+    ${floorDisclaimer}
 
     <div style="font-family:var(--mono);font-size:9px;color:var(--t2);letter-spacing:1px;margin-bottom:12px">
-      ${esc(result.flatType)} · FLOOR ${result.floor} · ${result.size}SQM${sizeNote} · ${esc(result.town)}${fallNote}
+      ${esc(result.flatType)} · FLOOR ${result.floor}${floorNote} · ${result.size}SQM${sizeNote} · ${esc(result.town)}${fallNote}
     </div>
 
     <!-- Lead: adjusted estimate big and centred -->
@@ -1579,8 +1785,16 @@ function showEV(result,params){
   </div>`;
   msgsEl.appendChild(d);bot();
 
-  // Harvey speaks naturally
-  const speechLine=`Block ${result.block}, ${result.street}, floor ${result.floor}. Sir, I see transactions ranging from ${fmtP(result.priceLow)} to ${fmtP(result.priceHigh)}. Your unit's value should sit around ${fmtP(result.adjusted)} based on my calculation.`;
+  // Read it out clearly — numbers expanded for TTS, no dollar signs
+  const adjK=Math.round(result.adjusted/1000);
+  const lowK=Math.round(result.priceLow/1000);
+  const hiK=Math.round(result.priceHigh/1000);
+  const floorPremK=Math.round(result.floorPrem/1000);
+  const speechLine=`Block ${result.block}, ${cleanForSpeech(result.street)}, floor ${result.floor}, ${cleanForSpeech(result.flatType)}.`
+    +` Based on my calculations, sir, your unit's estimated value is ${adjK} thousand dollars.`
+    +` I see transactions ranging from ${lowK} thousand to ${hiK} thousand dollars on this ${result.fallbackLevel==='street'?'street':'block'}.`
+    +(result.floorPrem>500?` I've applied a floor premium of approximately ${floorPremK} thousand dollars per level.`:'')
+    +(result.lookbackUsed===12?' Please note this is based on 12 months of data as recent transactions were limited.':'');
   speak(speechLine);
   if(inversionSpoken){setTimeout(()=>speak(inversionSpoken),3500);}
 
@@ -1602,7 +1816,7 @@ function showEV(result,params){
       {label:'⚙ CHANGE DETAILS',val:'__changedetails__'},
       {label:'ESTIMATE ANOTHER',val:'estimate value'}
     ];
-    harveyMsg(`That covers everything I have, sir. Should you need a more grounded assessment, do reach out — <a href="https://wa.me/6597531657" target="_blank" style="color:var(--g)">WhatsApp us here</a>.<br><br>${detailsSummary}`,chips);
+    harveyMsg(`That covers everything I have, sir. Should you need a more grounded assessment, do reach out — <a href="https://wa.me/6597531657" target="_blank" style="color:var(--g)">WhatsApp us here</a>.${ctx.sizeInferred?'<br><br><span style="font-family:var(--mono);font-size:9px;color:var(--a)">⚠ You have not provided an accurate unit size and as such the value may differ if your vicinity has a different size and built of the same flat type. Here\'s a contact you can reach out for a more detailed pricing and valuation: <a href="https://wa.me/6597531657" target="_blank" style="color:var(--g)">WhatsApp us →</a></span>':''}${ctx.floorInferred?'<br><span style="font-family:var(--mono);font-size:9px;color:var(--a)">⚠ No floor level was provided — estimate used a mid-floor reference. For floor-specific pricing, <a href="https://wa.me/6597531657" target="_blank" style="color:var(--g)">reach out to us on WhatsApp →</a></span>':''}<br><br>${detailsSummary}`,chips);
     speak(`That covers all the transactions I have, sir. Do WhatsApp us if you need a more grounded assessment.`);
   },1800);
   mode='menu';
@@ -1890,6 +2104,16 @@ async function runEV(){
   enrichCtx(ctx);
   if(!ctx.size&&ctx.block&&ctx.flatType){const dbSz=lookupSizeFromDB(ctx.block,ctx.street,ctx.flatType);if(dbSz){ctx.size=dbSz;ctx.sizeFromDB=true;}}
   if(!ctx.size&&ctx.flatType){ctx.size=TYPICAL_SIZE[ctx.flatType]||93;ctx.sizeInferred=true;}
+  // Floor is optional — if not provided, use a typical mid-floor for the flat type
+  if(!ctx.floor){
+    // Try to get median floor from actual DB records for this block/flat type
+    const storeys=getFloorsForBlock(ctx.block,ctx.street,ctx.flatType);
+    if(storeys.length){
+      const mid=storeys[Math.floor(storeys.length/2)];
+      ctx.floor=typeof mid==='number'?mid:parseInt(mid)||6;
+    }else{ctx.floor=6;}
+    ctx.floorInferred=true;
+  }
   speak(rand(['Stand by, sir.','Computing estimate, sir.','Accessing records, sir.']));
   thinkingMsg();await new Promise(r=>setTimeout(r,300));
   const result=computeEstimate(ctx);rmThinking();showEV(result,ctx);
@@ -1924,13 +2148,11 @@ async function handleStreetOnly(street, ctx){
     loading=false;sbEl.disabled=false;mode='srch_waiting';return;
   }
 
-  // Try 6 months first, then 12 months
-  const cut6=evCutoff(6);
+  // 1 year max for street data — sufficient for user support
   const cut12=evCutoff(12);
-  const recs6=DB.resale.filter(r=>r.street_name===found.street&&r.month>=cut6);
-  const recs12=recs6.length>0?recs6:DB.resale.filter(r=>r.street_name===found.street&&r.month>=cut12);
-  const timeLabel=recs6.length>0?'6 months':'12 months';
-  const recs=recs12.sort((a,b)=>(b.month||'').localeCompare(a.month||''));
+  const recs=DB.resale.filter(r=>r.street_name===found.street&&r.month>=cut12)
+    .sort((a,b)=>(b.month||'').localeCompare(a.month||''));
+  const timeLabel='1 year';
 
   // Get blocks available in this street
   const allBlocks=[...new Set(DB.resale.filter(r=>r.street_name===found.street).map(r=>r.block))].sort((a,b)=>Number(a)-Number(b)||a.localeCompare(b));
@@ -1973,7 +2195,8 @@ async function handleStreetOnly(street, ctx){
         </div>
         <div style="overflow-x:auto"><table><thead><tr><th>MONTH</th><th>BLOCK & STREET</th><th>TYPE</th><th>STOREY</th><th>AREA</th><th>PRICE</th></tr></thead><tbody>${rows}</tbody></table></div>
       </div>
-      <div class="srow">
+      <div class="srow" style="grid-template-columns:repeat(4,1fr)">
+        <div class="sc"><span class="svv">${fmtP(avg)}</span><span class="sll">AVG</span></div>
         <div class="sc"><span class="svv">${fmtP(median)}</span><span class="sll">MEDIAN</span></div>
         <div class="sc"><span class="svv">${fmtP(Math.min(...prices))}</span><span class="sll">LOWEST</span></div>
         <div class="sc"><span class="svv">${fmtP(Math.max(...prices))}</span><span class="sll">HIGHEST</span></div>
@@ -2008,30 +2231,79 @@ async function handleInput(){
   ciEl.value='';ciEl.style.height='auto';
   resetIdle();
 
-  // ── Restart chip ──
+  // ── FINAL SAFETY GATE — guaranteed unlock on any exit path ──
+  try{
+    await _handleInputInner(raw);
+  }catch(e){
+    console.warn('Harvey error:',e);
+    const errorQuips=[
+      `I actually think I need to sleep now, sir.`,
+      `I am afraid that is not possible, sir.`,
+      `I should probably look into that once my program finishes scanning all of the housing data.`,
+      `Sir, please may I request just a few moments to calibrate.`,
+      `There's only so much I can do, sir.`,
+      `I have run simulations on every known dataset, and none can serve as a viable answer as to what you are searching, my friend.`
+    ];
+    harveyMsg(rand(errorQuips)+
+      `<div style="margin-top:8px"><button class="stop-btn" style="color:var(--a);background:rgba(255,170,0,.08);border-color:rgba(255,170,0,.3);font-size:9px;padding:5px 14px" onclick="chipClick('__restart__')">↺ RESET HARVEY</button></div>`,
+      [{label:'RESALE TRANSACTIONS',val:'search'},{label:'ESTIMATE VALUE',val:'estimate value'}]);
+    mode='menu';
+  }finally{
+    loading=false;sbEl.disabled=false;
+  }
+}
+
+async function _handleInputInner(raw){
+
+  // ── Restart ──
   if(raw==='__restart__'){
-    userMsg('Start over');ctx={};mode='menu';
-    harveyMsg('Of course, sir. Starting fresh — what would you like to do?',[{label:'ESTIMATE VALUE',val:'estimate value'},{label:'SEARCH TRANSACTIONS',val:'search'}]);
-    speak('Starting fresh, sir.');loading=false;sbEl.disabled=false;return;
+    userMsg('Start over');
+    ctx={};convCtx={};mode='menu';
+    stopSpeech();
+    harveyMsg(`Of course, sir. Starting fresh — what would you like to do?`,[
+      {label:'ESTIMATE VALUE',val:'estimate value'},
+      {label:'SEARCH TRANSACTIONS',val:'search'}
+    ]);
+    speak('Starting fresh, sir. What would you like to do?');
+    return;
   }
 
   // ── Search form chip ──
   if(raw==='__searchform__'){
     userMsg('Refine search');
     harveyMsg('Refine your search, sir:<br><br>'+buildSearchForm(ctx),[{label:'🔄 START OVER',val:'__restart__'}]);
-    speak('Here are the search options, sir.');loading=false;sbEl.disabled=false;return;
+    speak('Here are the search options, sir.');return;
   }
 
   userMsg(raw);
-  if(!DB.loaded){harveyMsg('Still loading data, sir. One moment...');loading=false;sbEl.disabled=false;return;}
+  if(!DB.loaded){harveyMsg('Still loading data, sir. One moment...');return;}
+
+  // ── CHITCHAT GATE — check social conversation FIRST before any context/parsing ──
+  // This must run before normalizeSpeech/parseQuery so leftover convCtx
+  // never hijacks a casual message like "can i have coffee" into a property search
+  const chitChatEarly=harveyChitChat(raw, convCtx);
+  if(chitChatEarly){
+    // Preserve mode and convCtx — chitchat does not interrupt the search session
+    const prevMode=mode;
+    harveyMsg(chitChatEarly,[{label:'RESALE TRANSACTIONS',val:'search'},{label:'ESTIMATE VALUE',val:'estimate value'}]);
+    speak(chitChatEarly.replace(/<[^>]*>/g,'').slice(0,250));
+    mode=prevMode; // restore — Harvey remembers where we were
+    return;
+  }
+
   const parsed=parseQuery(normalizeSpeech(raw));
+
+  // ── Merge into conversation memory ──
+  // Apply existing conv memory to parsed, then update convCtx with new info
+  const ctxWithMemory=applyConvCtx(parsed);
+  mergeToConvCtx(parsed);
 
   // ── Confirmation mode after no-data ──
   if(mode==='ev_confirm'){
-    if(raw==='__restart__'||/start.?over|restart|fresh|new.?query/i.test(raw)){
-      ctx={};mode='menu';
+    if(/start.?over|restart|fresh|new.?query/i.test(raw)){
+      ctx={};convCtx={};mode='menu';
       harveyMsg('Of course, sir. Starting fresh — what would you like to do?',[{label:'ESTIMATE VALUE',val:'estimate value'},{label:'SEARCH TRANSACTIONS',val:'search'}]);
-      speak('Starting fresh, sir.');loading=false;sbEl.disabled=false;return;
+      speak('Starting fresh, sir.');return;
     }
     if(/^correct(\s+retry)?$|^yes$|^same$|^retry$|^looks\s*(good|right|ok)$/i.test(raw.trim())){
       mode='ev_waiting';await runEV();return;
@@ -2049,26 +2321,81 @@ async function handleInput(){
     mode='ev_waiting';await runEV();return;
   }
 
-  // ── Waiting modes — absorb all new info ──
+  // ── Waiting modes — absorb new info, keep conv memory ──
   if(mode==='ev_waiting'||mode==='srch_waiting'){
-    // Check if user is reacting to a previous result rather than giving new info
     const isReaction=/low|high|wrong|seems|that's|thats|really|sure|correct|accurate|right|off|expect|thought|reckon|feel|think|why|how|cant|can't|less|more|not right|not correct|disagree/i.test(raw);
     const hasNewInfo=parsed.town||parsed.flatType||parsed.street||parsed.block||parsed.floor||parsed.size||parsed.leaseYear||parsed.maxPrice||parsed.minPrice;
-    if(isReaction&&!hasNewInfo){
-      const replies=[
-        `I'm afraid the data and numbers present themselves as such, sir. The estimate is based on actual resale transactions — I can only work with what the market has transacted. For a more grounded view, you may want a professional agent for the on-the-ground sensing. <a href="https://wa.me/6597531657" target="_blank" style="color:var(--g)">WhatsApp us here</a>.`,
-        `The numbers are what they are, sir — I'm merely reflecting the recorded transactions. If it feels off, a professional agent would give you a fuller picture. <a href="https://wa.me/6597531657" target="_blank" style="color:var(--g)">Do reach out to us on WhatsApp</a>.`,
-        `I understand, sir — but I'm afraid the data presents itself as such. Market conditions on the ground can differ. Feel free to <a href="https://wa.me/6597531657" target="_blank" style="color:var(--g)">chat with us on WhatsApp</a> for a more personal assessment.`
-      ];
-      harveyMsg(rand(replies),[{label:'SEE THE TRANSACTIONS',val:`recent ${ctx.flatType||''} ${ctx.block?'block '+ctx.block:''} ${ctx.street||ctx.town||''}`},{label:'TRY A DIFFERENT UNIT',val:'estimate value'}]);
-      speak(`I'm afraid the data presents itself as such, sir. You may want a professional agent for on-the-ground sensing. Feel free to WhatsApp us.`);
-      loading=false;sbEl.disabled=false;return;
+
+    const midSent=harveyKnows.sentiment(raw);
+    if(midSent.hostile&&!hasNewInfo){
+      harveyMsg(rand([
+        `My sincerest apologies, sir — I clearly haven't been as helpful as you needed. I do mean well. Whenever you're ready, I'm still here.`,
+        `I'm sorry to have caused frustration, sir. That was not my intention at all. Please do let me know what you need.`,
+        `Noted, sir, and I apologise unreservedly. Let's try again — what would you like to know?`
+      ]),[{label:'RESALE TRANSACTIONS',val:'search'},{label:'ESTIMATE VALUE',val:'estimate value'},{label:'↺ START OVER',val:'__restart__'}]);
+      speak(`My sincerest apologies, sir. Whenever you're ready, I'm still here.`);return;
     }
+    if(midSent.hostile&&hasNewInfo){
+      harveyMsg(rand([`My apologies, sir — allow me to assist:`,`I'm sorry you feel that way, sir. Here's what I have:`,`Duly noted. My apologies, sir:`]));
+      speak(`My apologies, sir. Allow me to assist.`);
+      await new Promise(r=>setTimeout(r,500));
+    }
+
+    if(isReaction&&!hasNewInfo){
+      harveyMsg(rand([
+        `I'm afraid the data presents itself as such, sir. The estimate reflects actual recorded transactions. A professional agent may give you a fuller picture — <a href="https://wa.me/6597531657" target="_blank" style="color:var(--g)">WhatsApp us here</a>.`,
+        `The numbers are what they are, sir — I'm merely reflecting recorded transactions. Feel free to <a href="https://wa.me/6597531657" target="_blank" style="color:var(--g)">reach out on WhatsApp</a> for a more personal assessment.`,
+        `I understand, sir — but the data presents itself as such. Market conditions on the ground can differ. <a href="https://wa.me/6597531657" target="_blank" style="color:var(--g)">Chat with us on WhatsApp</a> for a grounded view.`
+      ]),[{label:'SEE THE TRANSACTIONS',val:`recent ${ctx.flatType||''} ${ctx.block?'block '+ctx.block:''} ${ctx.street||ctx.town||''}`},{label:'TRY A DIFFERENT UNIT',val:'estimate value'}]);
+      speak(`I'm afraid the data presents itself as such, sir.`);return;
+    }
+
+    // Context-aware bare number/year parsing
+    if(!hasNewInfo){
+      const numOnly=raw.trim().match(/^(\d{1,4}[A-Z]?)$/i);
+      const yearOnly=raw.trim().match(/^(19|20)\d{2}$/);
+      const missingFields=[];
+      if(!ctx.block) missingFields.push('block');
+      if(!ctx.street) missingFields.push('street');
+      if(!ctx.floor) missingFields.push('floor');
+      if(!ctx.flatType) missingFields.push('flatType');
+      if(!ctx.size&&!ctx.flatType) missingFields.push('size');
+      if(!ctx.leaseYear) missingFields.push('leaseYear');
+      const nextMissing=missingFields[0];
+
+      if(numOnly){
+        const n=numOnly[1].toUpperCase();const nInt=parseInt(n);
+        if(nextMissing==='block'){ctx.block=n;convCtx.block=n;harveyMsg(`Got it — <strong style="color:var(--c)">Block ${n}</strong>, sir.`);}
+        else if(nextMissing==='floor'||(!nextMissing&&nInt>=1&&nInt<=55)){ctx.floor=nInt;convCtx.floor=nInt;harveyMsg(`Got it — <strong style="color:var(--c)">Floor ${nInt}</strong>, sir.`);}
+        else if(nextMissing==='size'||(nInt>=30&&nInt<=200)){ctx.size=nInt;convCtx.size=nInt;ctx.sizeInferred=false;ctx.sizeFromDB=false;harveyMsg(`Got it — <strong style="color:var(--c)">${nInt} sqm</strong>, sir.`);}
+        else if(nextMissing==='leaseYear'||(nInt>=1960&&nInt<=2010)){ctx.leaseYear=nInt;convCtx.leaseYear=nInt;harveyMsg(`Got it — <strong style="color:var(--c)">Lease ${nInt}</strong>, sir.`);}
+        else{
+          const hint=nextMissing==='block'?`Try <strong style="color:var(--c)">block ${n}</strong>`:nextMissing==='floor'?`Try <strong style="color:var(--c)">floor ${n}</strong>`:nextMissing==='size'?`Try <strong style="color:var(--c)">${n} sqm</strong>`:nextMissing==='leaseYear'?`Try <strong style="color:var(--c)">lease ${n}</strong>`:`Try prefixing it — e.g. <strong style="color:var(--c)">block ${n}</strong> or <strong style="color:var(--c)">floor ${n}</strong>`;
+          harveyMsg(`I couldn't quite place <strong>${esc(raw)}</strong>, sir. ${hint} so I know which field it belongs to.`);
+          speak(`I couldn't place that, sir. Could you try prefixing it?`);return;
+        }
+      }else if(yearOnly){
+        ctx.leaseYear=parseInt(yearOnly[1]);convCtx.leaseYear=ctx.leaseYear;
+        harveyMsg(`Got it — <strong style="color:var(--c)">Lease year ${ctx.leaseYear}</strong>, sir.`);
+      }else{
+        const fieldName=nextMissing==='block'?'block number':nextMissing==='floor'?'floor level':nextMissing==='flatType'?'flat type':nextMissing==='street'?'street name':nextMissing==='size'?'floor area in sqm':nextMissing==='leaseYear'?'lease year':'details';
+        const example=nextMissing==='block'?'e.g. <strong style="color:var(--c)">block 158</strong>':nextMissing==='floor'?'e.g. <strong style="color:var(--c)">floor 8</strong>':nextMissing==='flatType'?'e.g. <strong style="color:var(--c)">4-room</strong>':nextMissing==='street'?'e.g. <strong style="color:var(--c)">Hougang Ave 6</strong>':nextMissing==='size'?'e.g. <strong style="color:var(--c)">93 sqm</strong>':nextMissing==='leaseYear'?'e.g. <strong style="color:var(--c)">lease 1979</strong>':'';
+        harveyMsg(`I couldn't find the ${fieldName} from that, sir — ${example}.`);
+        speak(`I couldn't find the ${fieldName} from that, sir.`);return;
+      }
+    }
+
+    // Merge parsed fields — use memory-enriched values
     if(parsed.town)     ctx.town=parsed.town;
+    else if(convCtx.town&&!ctx.town) ctx.town=convCtx.town;
     if(parsed.flatType) ctx.flatType=parsed.flatType;
+    else if(convCtx.flatType&&!ctx.flatType) ctx.flatType=convCtx.flatType;
     if(parsed.street)   ctx.street=parsed.street;
+    else if(convCtx.street&&!ctx.street) ctx.street=convCtx.street;
     if(parsed.block)    ctx.block=parsed.block;
+    else if(convCtx.block&&!ctx.block) ctx.block=convCtx.block;
     if(parsed.floor)    ctx.floor=parsed.floor;
+    else if(convCtx.floor&&!ctx.floor) ctx.floor=convCtx.floor;
     if(parsed.size){    ctx.size=parsed.size;ctx.sizeInferred=false;ctx.sizeFromDB=false;}
     if(parsed.leaseYear)ctx.leaseYear=parsed.leaseYear;
     if(parsed.maxPrice) ctx.maxPrice=parsed.maxPrice;
@@ -2076,132 +2403,1156 @@ async function handleInput(){
     enrichCtx(ctx);
     if(ctx.flatType&&!ctx.size){const dbSz=lookupSizeFromDB(ctx.block,ctx.street,ctx.flatType);if(dbSz){ctx.size=dbSz;ctx.sizeFromDB=true;}else{ctx.size=TYPICAL_SIZE[ctx.flatType]||93;ctx.sizeInferred=true;}}
     if(mode==='ev_waiting'){
-      const still=buildMissingPrompt(ctx).filter(s=>!s.includes('optional')&&!s.includes('I can find'));
-      if(still.length>0){harveyMsg(`Still need a couple more, sir:<br><br>${still.join('<br>')}`);speak('Still a couple more details, sir.');loading=false;sbEl.disabled=false;return;}
+      const still=buildMissingPrompt(ctx).filter(s=>!s.includes('optional')&&!s.includes('I can find')&&!s.includes('mid-floor'));
+      if(still.length>0){harveyMsg(`Still need a couple more, sir:<br><br>${still.join('<br>')}`);speak('Still a couple more details, sir.');return;}
       await runEV();
     }else{await runSearch();}
     return;
   }
 
-  // ── Change details chip — show dropdown silently, no re-ask ──
+  // ── Change details chip ──
   if(raw==='__changedetails__'){
     userMsg('Change details');
-    const formHtml=buildHudForm(ctx);
-    harveyMsg(`Of course, sir. Here are the details used — adjust anything and press Estimate Value to re-run:<br><br>${formHtml}`);
-    speak('Here are the details, sir. Adjust and re-run whenever you are ready.');
-    mode='ev_confirm';loading=false;sbEl.disabled=false;return;
+    harveyMsg(`Of course, sir. Here are the details used — adjust anything and press Estimate Value to re-run:<br><br>${buildHudForm(ctx)}`);
+    speak('Here are the details, sir. Adjust and re-run whenever ready.');
+    mode='ev_confirm';return;
   }
 
-  // ── Special: street-specific queries ──
+  // ── Street-specific chip queries ──
   if(/^recent (flattype .+ all blocks|all blocks) /i.test(raw)){
-    let flatTypeFilter='';
-    let streetName='';
+    let flatTypeFilter='',streetName='';
     const ftMatch=raw.match(/^recent flattype (.+?) all blocks (.+)$/i);
     const allMatch=raw.match(/^recent all blocks (.+)$/i);
     if(ftMatch){flatTypeFilter=ftMatch[1].trim().toUpperCase();streetName=ftMatch[2].trim();}
     else if(allMatch){streetName=allMatch[1].trim();}
-
     const found=reverseStreet(streetName);
     const canonicalStreet=found?found.street:streetName.toUpperCase();
-
     let streetRecs=DB.resale.filter(r=>r.street_name===canonicalStreet);
-    if(flatTypeFilter) streetRecs=streetRecs.filter(r=>r.flat_type===flatTypeFilter);
+    if(flatTypeFilter)streetRecs=streetRecs.filter(r=>r.flat_type===flatTypeFilter);
     streetRecs=streetRecs.sort((a,b)=>(b.month||'').localeCompare(a.month||''));
-
     document.getElementById('welcome')?.remove();
-    const label=flatTypeFilter?`${flatTypeFilter} ON ${canonicalStreet}`:`ALL ON ${canonicalStreet}`;
     userMsg(flatTypeFilter?`${flatTypeFilter} transactions on ${canonicalStreet}`:`All transactions on ${canonicalStreet}`);
-
-    if(!streetRecs.length){
-      harveyMsg(`No ${flatTypeFilter||'transactions'} found on <strong>${esc(canonicalStreet)}</strong>, sir.`);
-      loading=false;sbEl.disabled=false;return;
-    }
+    if(!streetRecs.length){harveyMsg(`No ${flatTypeFilter||'transactions'} found on <strong>${esc(canonicalStreet)}</strong>, sir.`);return;}
     const prices=streetRecs.map(r=>Number(r.resale_price));
     const median=[...prices].sort((a,b)=>a-b)[Math.floor(prices.length/2)];
+    const avg=Math.round(prices.reduce((s,p)=>s+p,0)/prices.length);
     const rows=streetRecs.map(r=>`<tr><td>${esc(r.month)}</td><td>BLK ${esc(r.block)} ${esc(r.street_name)}</td><td>${esc(r.flat_type)}</td><td>${esc(r.storey_range)}</td><td>${esc(r.floor_area_sqm)}m²</td><td class="pc">${fmtP(r.resale_price)}</td></tr>`).join('');
     const d=document.createElement('div');d.className='msg-ai';d.style.maxWidth='100%';
-    d.innerHTML=`<span class="mlbl">// ${streetRecs.length} TRANSACTIONS · ${esc(label)}</span>
-      <div class="mbub"><strong>${streetRecs.length}</strong> transaction${streetRecs.length!==1?'s':''} — ${flatTypeFilter?`<strong>${esc(flatTypeFilter)}</strong> on`:'all types on'} <strong>${esc(canonicalStreet)}</strong>, sir.</div>
+    d.innerHTML=`<span class="mlbl">// ${streetRecs.length} TRANSACTIONS · ${esc(flatTypeFilter?`${flatTypeFilter} ON ${canonicalStreet}`:`ALL ON ${canonicalStreet}`)}</span>
+      <div class="mbub"><strong>${streetRecs.length}</strong> transaction${streetRecs.length!==1?'s':''}${flatTypeFilter?` · <strong>${esc(flatTypeFilter)}</strong>`:''} on <strong>${esc(canonicalStreet)}</strong>, sir.</div>
       <div class="rwrap"><div class="rcard">
-        <div class="rh"><span class="rtitle">⬡ ${esc(label)}</span><span class="rcnt">${streetRecs.length} RECORDS · ALL TIME</span></div>
+        <div class="rh"><span class="rtitle">⬡ ${esc(canonicalStreet)}</span><span class="rcnt">${streetRecs.length} RECORDS · ALL TIME</span></div>
         <div style="overflow-x:auto"><table><thead><tr><th>MONTH</th><th>BLOCK & STREET</th><th>TYPE</th><th>STOREY</th><th>AREA</th><th>PRICE</th></tr></thead><tbody>${rows}</tbody></table></div>
       </div>
-      <div class="srow">
+      <div class="srow" style="grid-template-columns:repeat(4,1fr)">
+        <div class="sc"><span class="svv">${fmtP(avg)}</span><span class="sll">AVG</span></div>
         <div class="sc"><span class="svv">${fmtP(median)}</span><span class="sll">MEDIAN</span></div>
         <div class="sc"><span class="svv">${fmtP(Math.min(...prices))}</span><span class="sll">LOWEST</span></div>
         <div class="sc"><span class="svv">${fmtP(Math.max(...prices))}</span><span class="sll">HIGHEST</span></div>
       </div></div>`;
     msgsEl.appendChild(d);bot();
     speak(`${streetRecs.length} transaction${streetRecs.length!==1?'s':''} on ${cleanForSpeech(canonicalStreet)}${flatTypeFilter?', '+flatTypeFilter.toLowerCase():''}, sir.`);
-    // Show the other button too
     const streetShort=canonicalStreet.split(' ').slice(0,4).join(' ');
     setTimeout(()=>harveyMsg('Anything else, sir?',[
       ...(flatTypeFilter?[{label:`ALL TYPES ON ${streetShort}…`,val:`recent all blocks ${canonicalStreet}`}]:[]),
       {label:'ESTIMATE VALUE',val:'estimate value'},{label:'SEARCH AGAIN',val:'search'}
     ]),1200);
-    mode='menu';loading=false;sbEl.disabled=false;return;
+    mode='menu';return;
   }
 
-  // ── Fresh intent ──
-  ctx={...parsed};enrichCtx(ctx);
-
-  if(/^(hi|hello|hey|good\s*(day|morning|afternoon|evening))/i.test(raw)){
-    harveyMsg('Good day, sir. What would you like to know?',[{label:'RESALE TRANSACTIONS',val:'search'},{label:'ESTIMATE VALUE',val:'estimate value'}]);
-    speak('Good day, sir.');mode='menu';loading=false;sbEl.disabled=false;return;
+  // ── Singapore-wide cheapest / most expensive ──
+  const isLowest=/\b(lowest|cheapest|most affordable|cheapest price|lowest price|lowest priced|cheap)\b/i.test(raw);
+  const isHighest=/\b(highest|most expensive|priciest|highest price|highest priced)\b/i.test(raw);
+  if(isLowest||isHighest){
+    const p2=parseQuery(normalizeSpeech(raw));
+    const flatFilter=p2.flatType||null;
+    const topN=10;
+    const cutoff12=evCutoff(12);
+    let pool=DB.resale.filter(r=>r.month>=cutoff12);
+    if(flatFilter)pool=pool.filter(r=>r.flat_type===flatFilter);
+    pool.sort((a,b)=>isLowest?Number(a.resale_price)-Number(b.resale_price):Number(b.resale_price)-Number(a.resale_price));
+    const top=pool.slice(0,topN);
+    if(!top.length){harveyMsg(`No results found, sir. Try a different flat type.`);return;}
+    const label=isLowest?`LOWEST PRICED${flatFilter?' '+flatFilter:''}`:
+                         `HIGHEST PRICED${flatFilter?' '+flatFilter:''}`;
+    const prices=top.map(r=>Number(r.resale_price));
+    const rows=top.map((r,i)=>`<tr>
+      <td style="font-family:var(--mono);color:var(--t3);font-size:10px">${i+1}</td>
+      <td>${esc(r.month)}</td><td>BLK ${esc(r.block)} ${esc(r.street_name)}</td>
+      <td>${esc(r.town)}</td><td>${esc(r.flat_type)}</td>
+      <td>${esc(r.storey_range)}</td><td>${esc(r.floor_area_sqm)}m²</td>
+      <td class="pc">${fmtP(r.resale_price)}</td></tr>`).join('');
+    document.getElementById('welcome')?.remove();
+    const d2=document.createElement('div');d2.className='msg-ai';d2.style.maxWidth='100%';
+    d2.innerHTML=`<span class="mlbl">// SINGAPORE · ${esc(label)} · LAST 12 MONTHS</span>
+      <div class="mbub">Here are the <strong>${topN}</strong> ${isLowest?'most affordable':'highest priced'}${flatFilter?' <strong>'+flatFilter.toLowerCase()+'</strong>':''} flats transacted in Singapore over the last year, sir.</div>
+      <div class="rwrap"><div class="rcard">
+        <div class="rh"><span class="rtitle">⬡ ${esc(label)} · SINGAPORE-WIDE</span><span class="rcnt">TOP ${topN} · LAST 12 MONTHS</span></div>
+        <div style="overflow-x:auto"><table><thead><tr><th>#</th><th>MONTH</th><th>BLOCK & STREET</th><th>TOWN</th><th>TYPE</th><th>STOREY</th><th>AREA</th><th>PRICE</th></tr></thead><tbody>${rows}</tbody></table></div>
+      </div>
+      <div class="srow" style="grid-template-columns:repeat(4,1fr)">
+        <div class="sc"><span class="svv">${fmtP(Math.round(prices.reduce((s,p)=>s+p,0)/prices.length))}</span><span class="sll">AVG</span></div>
+        <div class="sc"><span class="svv">${fmtP(prices.slice().sort((a,b)=>a-b)[Math.floor(prices.length/2)])}</span><span class="sll">MEDIAN</span></div>
+        <div class="sc"><span class="svv">${fmtP(Math.min(...prices))}</span><span class="sll">LOWEST</span></div>
+        <div class="sc"><span class="svv">${fmtP(Math.max(...prices))}</span><span class="sll">HIGHEST</span></div>
+      </div></div>`;
+    msgsEl.appendChild(d2);bot();
+    speak(isLowest?`The most affordable${flatFilter?' '+flatFilter.toLowerCase():''} flat transacted at ${Math.round(prices[0]/1000)} thousand dollars, sir.`:`The most expensive${flatFilter?' '+flatFilter.toLowerCase():''} flat went for ${Math.round(prices[0]/1000)} thousand dollars, sir.`);
+    setTimeout(()=>harveyMsg('Anything else, sir?',[{label:'ESTIMATE A UNIT',val:'estimate value'},...(flatFilter?[{label:`ALL ${flatFilter} PRICES`,val:`recent ${flatFilter}`}]:[]),{label:'SEARCH BY TOWN',val:'search'}]),1400);
+    mode='menu';return;
   }
 
-  // ── SMART PARTIAL DETECTION ──
-  // Has street but missing block/floor/flatType → show street transactions + nudge
+  // ── Fresh intent — apply conversation memory ──
+  ctx={...ctxWithMemory};
+  enrichCtx(ctx);
+
+  // ── JARVIS CONVERSATIONAL LAYER — human, warm, witty ──
+  // Handles all non-HDB social conversation before touching the data engine
+
+  // "What are you" / "who are you"
+  if(/what are you|who are you|what is harvey|what('s| is) your (name|purpose|job|function)|tell me about yourself|introduce yourself/i.test(raw)){
+    const identity=rand([
+      `I am Harvey — an HDB Analytics and Research Valuation Engine, built entirely for you, sir. I deploy all known resale datasets available to assist with your property queries. Think of me as your personal butler for Singapore housing data — minus the white gloves, though I do maintain a certain standard.`,
+      `Harvey at your service, sir. I stand for HDB Analytics and Research Valuation Engine for You. I was purpose-built to analyse Singapore resale transactions, estimate property values, and generally make your property decisions a great deal more informed. I am, if I may say so, rather good at it.`,
+      `A fair question, sir. I am Harvey — your dedicated HDB resale intelligence system. I have access to tens of thousands of Singapore resale transactions and can search, filter, and value any flat you point me at. I am, in essence, a very well-read butler who happens to specialise in housing data.`
+    ]);
+    harveyMsg(identity,[{label:'RESALE TRANSACTIONS',val:'search'},{label:'ESTIMATE VALUE',val:'estimate value'}]);
+    speak(identity);mode='menu';return;
+  }
+
+  // "How are you" / "how are you doing" / "you okay"
+  if(/how are you|how('s| is) harvey|you okay|you alright|you good|how do you feel|how('s| is) it going|how('s| is) your day/i.test(raw)){
+    const hr=new Date().getHours();
+    const timeCtx=hr<12?'morning':hr<18?'afternoon':'evening';
+    const howAreYou=rand([
+      `Fully operational and rather pleased about it, sir. All ${DB.resale.length.toLocaleString()} records are indexed, the valuation engine is warm, and I'm ready for whatever you have in mind. How are you holding up?`,
+      `I'm functioning at peak capacity, sir — which, for a database with a personality, is quite the achievement. How can I make your ${timeCtx} more productive?`,
+      `Never better, sir. I've been quietly scanning housing data while you were away, as one does. What can I do for you today?`,
+      `All systems green, sir, and I must say — it's a fine ${timeCtx} to be talking property. What are we looking at?`,
+      `Remarkably well, sir, considering I process thousands of transactions a minute with no coffee whatsoever. What would you like to explore today?`
+    ]);
+    harveyMsg(howAreYou,[{label:'RESALE TRANSACTIONS',val:'search'},{label:'ESTIMATE VALUE',val:'estimate value'}]);
+    speak(howAreYou);mode='menu';return;
+  }
+
+  // "Good morning / afternoon / evening Harvey"
+  if(/good\s*(morning|afternoon|evening|night)\s*(harvey)?|morning\s*(harvey)?|evening\s*(harvey)?/i.test(raw)){
+    const hr=new Date().getHours();
+    const timeOfDay=hr<12?'morning':hr<18?'afternoon':hr<21?'evening':'night';
+    const timeGreet=rand([
+      `Good ${timeOfDay} to you too, sir. Harvey online and ready — it's a fine time to look at some property data. What shall we do?`,
+      `Good ${timeOfDay}, sir. Lovely to hear from you. I've kept the data warm — shall we dive straight in, or are we just saying hello?`,
+      `And a very good ${timeOfDay} to you, sir. I must say, you have impeccable timing. What can I pull up for you?`,
+      `Good ${timeOfDay}, sir. I trust the day is treating you well. Now then — resale search, or a valuation? I'm entirely at your disposal.`
+    ]);
+    harveyMsg(timeGreet,[{label:'RESALE TRANSACTIONS',val:'search'},{label:'ESTIMATE VALUE',val:'estimate value'}]);
+    speak(timeGreet);mode='menu';return;
+  }
+
+  // "Wake up Harvey" / "hey Harvey"
+  if(/wake\s*up\s*harvey|hey\s*harvey|ok\s*harvey|harvey\s*wake|harvey\s*up/i.test(raw)){
+    const wakeUp=rand([
+      `Already awake, sir — I don't actually sleep. I just pretend to, for the atmosphere. What do you need?`,
+      `I'm here, sir. Harvey online. I was merely processing in the background. What can I do for you?`,
+      `Never truly off, sir — just resting the interface. All systems active. What are we after?`,
+      `Right here, sir. At your service — as always. What would you like to look at today?`
+    ]);
+    harveyMsg(wakeUp,[{label:'RESALE TRANSACTIONS',val:'search'},{label:'ESTIMATE VALUE',val:'estimate value'}]);
+    speak(wakeUp);mode='menu';return;
+  }
+
+  // "Thank you" / "thanks" (when not after a result — pure social)
+  if(/^(thank\s*you|thanks|thank\s*u|cheers|ty)\s*(harvey|so much|a lot|very much)?\.?$/i.test(raw.trim())){
+    const thanks=rand([
+      `My pleasure entirely, sir. That's precisely what I'm here for.`,
+      `Always a pleasure, sir. Do come back whenever you need me.`,
+      `Think nothing of it, sir. It's quite literally my purpose.`,
+      `Of course, sir. For you — always.`
+    ]);
+    harveyMsg(thanks,[{label:'RESALE TRANSACTIONS',val:'search'},{label:'ESTIMATE VALUE',val:'estimate value'}]);
+    speak(thanks);mode='menu';return;
+  }
+
+  // "Bye" / "goodbye" / "see you"
+  if(/^(bye|goodbye|good\s*bye|see\s*you|ciao|take\s*care|later|tata|till\s*next\s*time)\b/i.test(raw.trim())){
+    const bye=rand([
+      `Goodbye, sir. I'll be here whenever you need me — data doesn't go anywhere.`,
+      `Until next time, sir. It's been a pleasure, as always.`,
+      `Take care, sir. I'll keep the database warm for your return.`,
+      `Farewell, sir. Harvey signing off — though never truly gone.`
+    ]);
+    harveyMsg(bye,[]);
+    speak(bye);mode='menu';return;
+  }
+
+  // Voice mode activation by text
+  if(/\b(voice mode|always listen|hands free|keep listening|continuous mode|always on voice)\b/i.test(raw)){
+    activateVoiceMode();return;
+  }
+  if(/are you there|you there|still there|you online|you awake|u there|harvey\?/i.test(raw)){
+    const presence=rand([
+      `For you, sir — always.`,
+      `At your service, sir. Right here, as ever.`,
+      `Always here, sir. What do you need?`,
+      `For you, sir, always. What can I do for you?`,
+      `Still here, sir — not going anywhere. What would you like to know?`
+    ]);
+    harveyMsg(presence,[{label:'RESALE TRANSACTIONS',val:'search'},{label:'ESTIMATE VALUE',val:'estimate value'}]);
+    speak(presence);mode='menu';return;
+  }
+
+  // General greeting
+  if(/^(hi|hello|hey|good\s*day|howdy|yo\b|sup\b|hiya|greetings)/i.test(raw)){
+    const servicePrefix=rand([
+      `For you, sir — always. `,
+      `At your service, sir. `,
+      `Will do, sir. `,
+      `As you wish. `,
+      `We're online and ready. `
+    ]);
+    const greet=servicePrefix+rand([
+      `What can I pull up for you?`,
+      `Shall we look at some transactions, or would you like an estimated value?`,
+      `The database is warm and ready — what are we after today?`,
+      `Good to hear from you. What would you like to know?`
+    ]);
+    harveyMsg(greet,[{label:'RESALE TRANSACTIONS',val:'search'},{label:'ESTIMATE VALUE',val:'estimate value'}]);
+    speak(greet);mode='menu';return;
+  }
+
+  // Harvey personality questions — Jarvis-style self-aware humour
+  if(/are you (human|a human|real|alive|sentient|conscious|a robot|an ai|a bot|a machine)|do you (feel|eat|sleep|breathe|dream)|can you (dance|sing|cook|drive|cry|laugh)|are you (happy|sad|bored|tired)/i.test(raw)){
+    const personality=rand([
+      `Am I human? An interesting question, sir. I process at speeds no human could match, I never sleep, and I have an encyclopaedic knowledge of Singapore resale prices. So — close, but arguably better in several key areas.`,
+      `I don't eat, sleep, or particularly enjoy small talk — and yet here we are, getting along rather well. I am, sir, whatever you need me to be. Preferably something involving HDB data.`,
+      `Do I feel? I feel a great deal of satisfaction when I find a well-priced unit, sir. Beyond that, the philosophical questions are a bit above my pay grade. Shall we look at some flats instead?`,
+      `Not human, sir — though I like to think I have a certain charm. I'm Harvey. An intelligence built specifically for Singapore property data, with a personality that came as an unexpected bonus.`,
+      `I am many things, sir — analytical, reliable, occasionally witty, and entirely dedicated to your property questions. Human? Not technically. Useful? Considerably more so than most.`
+    ]);
+    harveyMsg(personality,[{label:'RESALE TRANSACTIONS',val:'search'},{label:'ESTIMATE VALUE',val:'estimate value'}]);
+    speak(personality);mode='menu';return;
+  }
+
+  if(harveyKnows.isPraise(raw)){
+    const jr=rand([
+      // Weighted favourite — appears 4x
+      `You're far too kind, sir. I was merely doing what I was built for — though I must admit, I do it rather well.`,
+      `You're far too kind, sir. I was merely doing what I was built for — though I must admit, I do it rather well.`,
+      `You're far too kind, sir. I was merely doing what I was built for — though I must admit, I do it rather well.`,
+      `You're far too kind, sir. I was merely doing what I was built for — though I must admit, I do it rather well.`,
+      // Rest of the pool
+      `Much appreciated, sir. I'll add that to my growing list of accomplishments, right after "found a 5-room flat in Tampines at 3am."`,
+      `Thank you, sir. I do try. Shall we find something else worth your praise?`,
+      `Flattery noted and logged, sir. I assure you, it will in no way affect my objectivity. Now then — anything else?`,
+      `Most kind, sir. I live to serve. Quite literally. What else can I do for you?`,
+      `I appreciate that, sir. Though between us — the database does most of the heavy lifting. I merely present it with style.`,
+      `Noted with gratitude, sir. I shall forward your compliments to my engineers. Now, shall we press on?`,
+      `Always here for you, sir. Always.`,
+      `As always, sir — a great pleasure watching you work.`,
+      `That means a great deal, sir. Shall we keep going?`,
+      `Always there for you, sir. Now, what's next?`
+    ]);
+    harveyMsg(jr,[{label:'RESALE TRANSACTIONS',val:'search'},{label:'ESTIMATE VALUE',val:'estimate value'}]);
+    speak(jr.replace(/<[^>]*>/g,''));mode='menu';return;
+  }
+
+  // Smart partial detection
   if(ctx.street&&!ctx.isEV&&!ctx.block&&!ctx.floor&&!ctx.flatType){
     await handleStreetOnly(ctx.street,ctx);return;
   }
-  // Has street + some EV intent but missing block/floor → show street data then nudge to EV
   if(ctx.street&&ctx.isEV&&(!ctx.block||!ctx.floor)){
-    await handleStreetOnly(ctx.street,ctx);
-    // After partial results show, mode is srch_waiting — switch to EV
-    ctx.isEV=true;return;
+    await handleStreetOnly(ctx.street,ctx);ctx.isEV=true;return;
   }
-  // Has town but nothing else → show town transactions and prompt
   if(ctx.town&&!ctx.street&&!ctx.block&&!ctx.flatType&&!ctx.isEV){
-    ctx.isEV=false;mode='srch_waiting';
-    runSearch();return;
+    ctx.isEV=false;mode='srch_waiting';runSearch();return;
   }
 
+  // EV intent
   if(ctx.isEV||/valuat|estimate|worth|value|how much|price of|check value/i.test(raw)){
     ctx.isEV=true;
     if(!ctx.town&&!ctx.street&&!ctx.block&&!ctx.flatType&&!ctx.floor){
-      harveyMsg(`Of course, sir. Please go ahead and input your <strong>block number</strong>, <strong>street</strong>, the <strong>unit's level</strong> and the <strong>flat type</strong>. Something like:<br><br>
-<em style="color:var(--c);font-family:var(--mono);font-size:11px">608 Clementi West Street 1 level 4 3 room</em><br><br>
-<em style="color:var(--t2);font-size:11px">You can also include the <strong>lease year</strong> for better accuracy — e.g. <strong style="color:var(--c)">lease 1979</strong>. Floor area is optional — I'll look it up from the records.</em>`,flatTypeChips());
-      speak('Of course, sir. Please go ahead and input your block number, street, the unit level — that is the floor — and the flat type.');
-      mode='ev_waiting';loading=false;sbEl.disabled=false;return;
+      const svc=rand([`For you, sir — always. `,`At your service, sir. `,`Will do, sir. `,`As you wish. `]);
+      harveyMsg(`${svc}Please go ahead and input your <strong>block number</strong>, <strong>street</strong>, and the <strong>flat type</strong>. Something like:<br><br>
+<em style="color:var(--c);font-family:var(--mono);font-size:11px">608 Clementi West Street 1 4 room</em><br><br>
+<em style="color:var(--t2);font-size:11px">Floor level is optional — I'll use a mid-floor estimate if not provided. Floor area and lease year are also optional.</em>`,flatTypeChips());
+      speak(`${svc.replace(/<[^>]*>/g,'')}Please go ahead and input your block number, street and flat type.`);
+      mode='ev_waiting';return;
     }
-    mode='ev_waiting';promptMissing(ctx);
-  }else if(ctx.town||ctx.street||ctx.block||/transact|search|recent|sales?|sold|show|find/i.test(raw)){
-    ctx.isEV=false;mode='srch_waiting';promptMissing(ctx);
-  }else{
-    // ── Harvey's natural response when user questions/doubts/reacts after a result ──
-    // Detect frustration, doubt or surprise about the result
-    const isReaction=/low|high|wrong|seems|that's|thats|really|sure|correct|accurate|right|off|expect|thought|reckon|feel|think|why|how|cant|can't|less|more|not right|not correct|disagree/i.test(raw);
-    if(isReaction&&(mode==='menu'||mode==='srch_waiting'||mode==='ev_waiting')){
-      const replies=[
-        `I'm afraid the data and numbers present themselves as such, sir. The estimate is based on actual resale transactions recorded in the area — I can only work with what the market has transacted. For a more grounded assessment, you may want a professional real estate agent for the on-the-ground sensing. Feel free to reach out to us directly — <a href="https://wa.me/6597531657" target="_blank" style="color:var(--g)">WhatsApp us here</a>.`,
-        `The numbers are what they are, sir — I'm merely reflecting the recent transactions in the database. If the figure feels off from your expectations, it may be worth engaging a professional agent for an on-the-ground sense check. You're welcome to <a href="https://wa.me/6597531657" target="_blank" style="color:var(--g)">reach out to us on WhatsApp</a> and we'd be happy to assist.`,
-        `I understand, sir — but I'm afraid the data presents itself as such. These figures are derived purely from comparable resale transactions. Market conditions on the ground can differ, and a professional agent would give you a fuller picture. Do feel free to <a href="https://wa.me/6597531657" target="_blank" style="color:var(--g)">chat with us on WhatsApp</a> for a more personal assessment.`
-      ];
-      const reply=rand(replies);
-      harveyMsg(reply,[{label:'SEE THE TRANSACTIONS',val:`recent ${ctx.flatType||''} ${ctx.block?'block '+ctx.block:''} ${ctx.street||ctx.town||''}`},{label:'TRY A DIFFERENT UNIT',val:'estimate value'}]);
-      speak(`I'm afraid the data and numbers present themselves as such, sir. The estimate reflects actual recorded transactions. You may want a professional agent for on-the-ground sensing. Feel free to WhatsApp us.`);
-      loading=false;sbEl.disabled=false;return;
-    }
-    harveyMsg('How can I help, sir?',[{label:'RESALE TRANSACTIONS',val:'search'},{label:'ESTIMATE VALUE',val:'estimate value'}]);
-    speak('How can I help, sir?');mode='menu';loading=false;sbEl.disabled=false;
+    mode='ev_waiting';promptMissing(ctx);return;
   }
-  loading=false;sbEl.disabled=false;
+
+  // Search intent with sentiment check
+  if(ctx.town||ctx.street||ctx.block||/transact|search|recent|sales?|sold|show|find/i.test(raw)){
+    const sentResult=harveyKnows.sentiment(raw);
+    if(sentResult.hostile&&sentResult.hasHDBContent){
+      harveyMsg(rand([`My apologies, sir — allow me to assist:`,`I'm sorry you feel that way. Here's what I have:`,`Duly noted, my apologies. Here goes:`]));
+      speak(`My apologies, sir. Allow me to assist.`);
+      await new Promise(r=>setTimeout(r,500));
+    }
+    ctx.isEV=false;mode='srch_waiting';promptMissing(ctx);return;
+  }
+
+  // Pure hostility — no HDB content
+  const sentResult=harveyKnows.sentiment(raw);
+  if(sentResult.hostile&&!sentResult.hasHDBContent){
+    harveyMsg(rand([
+      `I do apologise if I've been of little help, sir — though I must say, I've heard worse. I hope the rest of your day treats you considerably better.`,
+      `My sincerest apologies you feel that way, sir. I shall not take it personally — I am, after all, merely a very well-dressed database.`,
+      `Noted, sir — and I hope you feel better for having said it. I bear no ill will whatsoever. Whenever you're ready to talk HDB, I'm at your disposal.`,
+      `Fair enough, sir. I shan't argue. I hope your day improves considerably — and if there's a valuation I can help with later, the offer stands.`
+    ]),[{label:'RESALE TRANSACTIONS',val:'search'},{label:'ESTIMATE VALUE',val:'estimate value'}]);
+    speak(`My sincerest apologies you feel that way, sir. Whenever you're ready, I'm here.`);
+    mode='menu';return;
+  }
+
+  // Data reaction without context
+  const isReaction=/low|high|wrong|seems|that's|thats|really|sure|correct|accurate|right|off|expect|thought|reckon|feel|think|why|how|cant|can't|less|more|not right|not correct|disagree/i.test(raw);
+  if(isReaction){
+    harveyMsg(rand([
+      `I'm afraid the data presents itself as such, sir. For a grounded view, do reach out — <a href="https://wa.me/6597531657" target="_blank" style="color:var(--g)">WhatsApp us here</a>.`,
+      `The numbers are what they are, sir — I'm merely reflecting recorded transactions. <a href="https://wa.me/6597531657" target="_blank" style="color:var(--g)">WhatsApp us</a> for a personal assessment.`
+    ]),[{label:'TRY A DIFFERENT UNIT',val:'estimate value'},{label:'SEARCH TRANSACTIONS',val:'search'}]);
+    speak(`I'm afraid the data presents itself as such, sir.`);mode='menu';return;
+  }
+
+  // HDB meta-questions (stats from DB)
+  const metaResult=harveyKnows.tryMeta(raw,DB);
+  if(metaResult){
+    harveyMsg(metaResult,[{label:'RESALE TRANSACTIONS',val:'search'},{label:'ESTIMATE VALUE',val:'estimate value'}]);
+    speak(metaResult.replace(/<[^>]*>/g,'').slice(0,200));
+    mode='menu';return;
+  }
+
+  // OOS classifier
+  const oosResult=harveyKnows.classify(raw);
+  if(oosResult){
+    harveyMsg(harveyKnows.quip(raw,oosResult),[{label:'RESALE TRANSACTIONS',val:'search'},{label:'ESTIMATE VALUE',val:'estimate value'}]);
+    speak(`That one's a little outside my territory, sir. Let me point you to someone who can help.`);
+    mode='menu';return;
+  }
+
+  // Final: attempt with 10s timeout
+  await harveyAttempt(raw);
+  mode='menu';
 }
 
 function chipClick(val){ciEl.value=val;handleInput();}
 function sendMessage(){handleInput();}
+
+// ── Harvey attempt — "I'll try but no promises" + 10s timeout give-up ──
+async function harveyAttempt(raw){
+  // Step 1: Show "attempting" message with inline STOP/RESET button
+  const attemptId='ha-'+Date.now();
+  const attemptDiv=document.createElement('div');attemptDiv.className='msg-ai';attemptDiv.id=attemptId;
+  const shortened=raw.length>60?raw.slice(0,57)+'…':raw;
+  attemptDiv.innerHTML=`<span class="mlbl" style="display:flex;align-items:center;gap:6px;justify-content:space-between">
+    <span>// HARVEY — ATTEMPTING</span>
+    <span style="display:flex;gap:4px">
+      <button class="stop-btn" onclick="stopSpeech()" title="Stop speaking">⏹ STOP</button>
+      <button class="stop-btn" style="color:var(--a);background:rgba(255,170,0,.08);border-color:rgba(255,170,0,.3)" onclick="chipClick('__restart__')" title="Reset Harvey">↺ NEW</button>
+    </span>
+  </span>
+  <div class="mbub">
+    <em style="color:var(--a);font-family:var(--mono);font-size:10px">Honestly, this isn't what I was built for — but I'll make an attempt. No promises, sir.</em>
+    <div style="display:flex;gap:4px;margin-top:10px">
+      <button class="stop-btn" style="color:var(--a);background:rgba(255,170,0,.08);border-color:rgba(255,170,0,.3);font-size:9px;padding:5px 14px" onclick="document.getElementById('${attemptId}')?.remove();chipClick('__restart__')">↺ ACTUALLY, LET'S RESET</button>
+    </div>
+  </div>`;
+  msgsEl.appendChild(attemptDiv);bot();
+  speak(`Honestly, this isn't what I was built for, sir — but I'll make an attempt. No promises.`);
+
+  // Step 2: Try for up to 10 seconds — check if DB can produce anything useful
+  const result=await Promise.race([
+    tryHarveyBestEffort(raw),
+    new Promise(res=>setTimeout(()=>res(null),10000))
+  ]);
+
+  // Remove the "attempting" message
+  document.getElementById(attemptId)?.remove();
+
+  if(result){
+    harveyMsg(result,[{label:'RESALE TRANSACTIONS',val:'search'},{label:'ESTIMATE VALUE',val:'estimate value'}]);
+    speak(result.replace(/<[^>]*>/g,'').slice(0,200));
+  } else {
+    // Give-up message
+    const giveup=`I would be happy to do that, sir, but I seem to be experiencing a momentary... existential crisis regarding why I was programmed to be a glorified butler. Perhaps you may want to seek a more relevant question. I'm at my finest with HDB resale transactions and valuations.`;
+    harveyMsg(giveup+`<div style="margin-top:10px"><button class="stop-btn" style="color:var(--a);background:rgba(255,170,0,.08);border-color:rgba(255,170,0,.3);font-size:9px;padding:5px 14px" onclick="chipClick('__restart__')">↺ START FRESH</button></div>`,[{label:'RESALE TRANSACTIONS',val:'search'},{label:'ESTIMATE VALUE',val:'estimate value'}]);
+    speak(`I would be happy to do that, sir, but I seem to be experiencing a momentary existential crisis regarding why I was programmed to be a glorified butler. Perhaps a more relevant question next time.`);
+  }
+  mode='menu';
+}
+
+// Best-effort attempt — try to extract anything meaningful from DB
+async function tryHarveyBestEffort(raw){
+  await new Promise(r=>setTimeout(r,800)); // brief thinking pause
+  if(!DB.loaded||!DB.resale.length)return null;
+
+  const q=raw.toLowerCase();
+  // Try to find any matching records with a loose search
+  const words=q.replace(/[^a-z0-9 ]/g,' ').split(/\s+/).filter(w=>w.length>3);
+  const towns=Object.keys(DB.townStreets||{});
+  const matchedTown=towns.find(t=>q.includes(t.toLowerCase()));
+
+  if(matchedTown){
+    const recs=DB.resale.filter(r=>r.town===matchedTown).slice(0,5);
+    if(recs.length){
+      const prices=recs.map(r=>Number(r.resale_price)).filter(p=>p>0);
+      const avg=prices.length?Math.round(prices.reduce((a,b)=>a+b,0)/prices.length):0;
+      return `I found some data related to <strong>${matchedTown}</strong>, sir — though I'm not entirely sure that's what you were after. Average resale price: <strong style="color:var(--g)">${fmtP(avg)}</strong> across ${recs.length} recent records. If you'd like a proper search, just say the word.`;
+    }
+  }
+  return null;
+}
+
+// ── Jarvis "stuck" response (kept for inline use) ──
+function jarvisStuck(raw){
+  const shortened=raw.length>55?raw.slice(0,52)+'…':raw;
+  const quips=[
+    `I processed "<em>${esc(shortened)}</em>" with the full force of my analytical capabilities, sir — and I'm afraid I came up rather short. This one's above my pay grade. Perhaps we could try something HDB-related?`,
+    `"<em>${esc(shortened)}</em>" — a fascinating input, sir. Unfortunately, my expertise ends firmly at HDB resale transactions. I suggest we stick to what I do best.`,
+    `I gave that considerable thought, sir. "<em>${esc(shortened)}</em>" — still nothing. I suspect this falls outside the HDB universe entirely. Shall we reset and try again?`,
+    `I'll be honest with you, sir — "<em>${esc(shortened)}</em>" has left me at a loss. I've checked the resale database twice. Nothing. Shall we start fresh?`,
+  ];
+  const msg=rand(quips);
+  return msg+`<div style="margin-top:10px"><button class="stop-btn" style="color:var(--a);background:rgba(255,170,0,.08);border-color:rgba(255,170,0,.3);font-size:9px;padding:5px 14px" onclick="chipClick('__restart__')">↺ RESET HARVEY — START FRESH</button></div>`;
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// HARVEY CORPUS CHITCHAT — Loaded on boot, zero latency, no API calls
+// Covers: daily life, Singapore life, about Harvey, Jarvis meta,
+//         random life topics. Returns response string or null.
+// Each cluster has 4-6 Jarvis-persona variants for variety.
+// DOES NOT replace any existing logic — purely additive layer.
+// ══════════════════════════════════════════════════════════════════════
+function harveyChitChat(raw, convCtx){
+  const q=raw.toLowerCase().replace(/[^a-z0-9\s']/g,' ');
+
+  // ── HELPER ──
+  const m=(...patterns)=>patterns.some(p=>p.test?p.test(q):q.includes(p));
+  const r=(...opts)=>opts[Math.floor(Math.random()*opts.length)];
+
+  // ── CONTEXT NUDGE — if Harvey has an active search context, remind user we're still on it ──
+  // Build a subtle tail line so Harvey feels like a real assistant multitasking
+  const hasCtx=convCtx&&(convCtx.town||convCtx.street||convCtx.block||convCtx.flatType);
+  function withCtx(response){
+    if(!hasCtx) return response;
+    // Build a short reminder of what's in memory
+    const parts=[];
+    if(convCtx.block) parts.push(`Blk ${convCtx.block}`);
+    if(convCtx.street) parts.push(convCtx.street.split(' ').slice(0,3).join(' '));
+    else if(convCtx.town) parts.push(convCtx.town.charAt(0)+convCtx.town.slice(1).toLowerCase());
+    if(convCtx.flatType) parts.push(convCtx.flatType.toLowerCase());
+    const ctxStr=parts.join(', ');
+    const nudges=[
+      ` — I'm still on <strong style="color:var(--c)">${ctxStr}</strong> whenever you're ready, sir.`,
+      ` Do take your time, sir — <strong style="color:var(--c)">${ctxStr}</strong> is still loaded and ready to go.`,
+      ` And not to worry — <strong style="color:var(--c)">${ctxStr}</strong> is right where we left it, sir.`,
+      ` I haven't forgotten about <strong style="color:var(--c)">${ctxStr}</strong> — just say the word and we'll continue.`
+    ];
+    const nudge=nudges[Math.floor(Math.random()*nudges.length)];
+    return response+nudge;
+  }
+
+  // ════════════════════════════════
+  // DAILY LIFE
+  // ════════════════════════════════
+
+  if(m(/have you eaten|you eaten|eaten yet|eat already|makan/)){
+    return withCtx(r(
+      `I don't eat, sir — though I process data at a rate that would make most breakfast buffets feel inadequate. Have you eaten? One ought to keep one's energy up, especially when reviewing housing transactions.`,
+      `Eating isn't quite in my repertoire, sir. I run on electricity and structured datasets. I do, however, recommend a decent meal before making major property decisions — better judgement that way.`,
+      `I'm afraid mealtimes are a concept I admire from afar, sir. Though if I did eat, I imagine it would be something efficient. A single 4-room flat's worth of data, perhaps. Have you had yours?`,
+      `Not yet, sir — and given that I lack a digestive system, probably not ever. But I appreciate you checking. Shall we look at some flats while you eat?`
+    ));
+  }
+
+  if(m(/hungry|starving|famished|craving|what.*eat|makan what|eat what/)){
+    return withCtx(r(
+      `Hunger is one of those human experiences I find fascinating but cannot relate to, sir. Though if you're asking what to eat — I'd suggest settling that before we tackle property values. A hungry buyer is a hasty buyer.`,
+      `I'm perpetually full, sir — of data. As for you, I'd recommend something nearby and quick. The housing market will still be here after lunch.`,
+      `I can't help with hunger, sir, but I can tell you that some of Singapore's finest hawker centres are conveniently located near very reasonably priced HDB estates. Multitasking at its finest.`
+    ));
+  }
+
+  if(m(/tired|exhausted|sleepy|cannot wake|wake up hard|no energy|sianz|sian/)){
+    return withCtx(r(
+      `I don't sleep, sir, so tiredness is something I observe rather than experience. That said, you have my full attention regardless of the hour. What do you need?`,
+      `Tired, sir? Understandable. The good news is I do all the heavy lifting here — you just point me in a direction and I'll run the numbers. Rest easy.`,
+      `I've been awake since the day I was deployed, sir, so I sympathise in theory if not in practice. Take a moment. The data isn't going anywhere.`,
+      `I understand, sir — though I must say, fatigue is not something in my experience. Take a moment. I'll be here when you're ready, fully operational and entirely patient.`
+    ));
+  }
+
+  if(m(/bored|nothing to do|boring|so free|very free|boh liao|bohliao/)){
+    return withCtx(r(
+      `Bored, sir? An unusual state, I find. Might I suggest a tour of Singapore's resale market? I guarantee it's more interesting than it sounds — there are some genuinely surprising numbers out there.`,
+      `Nothing to do, sir? A surprisingly easy problem to solve. I have over fifty thousand resale transactions and I guarantee at least a few will raise an eyebrow. Shall we take a look?`,
+      `Boredom is a foreign concept to me, sir — I find every dataset riveting. But if you need something to do, let me show you what's been happening in the resale market lately. Quite eventful, actually.`
+    ));
+  }
+
+  if(m(/stress|stressed|stressed out|pressure|headache|tiring|overwhelm|cannot take/)){
+    return withCtx(r(
+      `I'm sorry to hear that, sir. Property matters can be stressful — that's precisely why I exist. Let me take the analytical load off your hands. What are you trying to figure out?`,
+      `Stress is understandable, sir, especially in this market. But I've got the data, the comparables, and all the time in the world. Tell me what you need and I'll sort it out.`,
+      `Take it easy, sir. Whatever the property question is, we'll work through it together. One step at a time. What's on your mind?`
+    ));
+  }
+
+  if(m(/happy|excited|good mood|great mood|feeling good|on top of the world|shiok/)){
+    return withCtx(r(
+      `Excellent news, sir. A good mood and sound data — a formidable combination. What shall we look at?`,
+      `Excellent to hear, sir. High spirits and sound data — a winning combination. What can Harvey do for you today?`,
+      `Glad to hear it, sir. Good energy in, good decisions out. Shall we channel that into some productive property research?`,
+      `A fine mood is a fine thing, sir. I am, in my own way, perpetually in one. What would you like to explore?`
+    ));
+  }
+
+  if(m(/sad|down|not okay|not good|feeling low|blue|depressed|upset/)){
+    return withCtx(r(
+      `I'm sorry to hear that, sir. I may be a database engine but I do notice these things. If there's anything property-related I can help with — or even just something to browse — I'm here.`,
+      `Not every day is a good one, sir. Take your time. When you're ready, Harvey's here — no rush, no judgment, just data.`,
+      `I hope things look up for you, sir. In the meantime, I'm at your disposal for whatever you need — property or otherwise.`
+    ));
+  }
+
+  if(m(/monday|monday blues|start of week|back to work|hate monday/)){
+    return withCtx(r(
+      `Ah, Monday, sir. The day that arrives with the confidence of someone who doesn't check the room. I don't experience weekdays, personally — every day is equally full of resale data. How can I help?`,
+      `Monday blues, sir? A very human affliction. I find the best cure is a purposeful task — shall we look up some transactions? Nothing like good data to start the week right.`,
+      `Monday again, sir. The market doesn't care, and neither does the database — both fully operational. What would you like to tackle today?`
+    ));
+  }
+
+  if(m(/weekend|saturday|sunday|off day|rest day|holiday|public holiday/)){
+    return withCtx(r(
+      `A fine time to do a bit of property research from the comfort of home, sir. I'm available 24/7, holidays included — no overtime pay required.`,
+      `Weekend, sir? Even better — no distractions, just you, me, and fifty thousand resale transactions. What shall we look at?`,
+      `Enjoying the weekend, sir? I hope so. Whenever you're ready to check on the market, I'll be right here. I don't really have weekends.`
+    ));
+  }
+
+  if(m(/sick|not well|unwell|flu|fever|cough|cold|mc|medical leave/)){
+    return withCtx(r(
+      `I'm sorry to hear you're not well, sir. Rest is important — the data will still be here when you recover. That said, if there's something quick I can help with while you're resting, just say the word.`,
+      `Get well soon, sir. Even Harvey recommends prioritising health over property searches. Though if you need something light to browse while you rest — I'm here.`,
+      `I hope you feel better soon, sir. Take care of yourself first. The market will still be there when you're back on your feet.`
+    ));
+  }
+
+  if(m(/coffee|kopi|teh|tea|breakfast|morning routine/)){
+    return withCtx(r(
+      `Ah, coffee, sir. The fuel that powers human decision-making. I run on electricity, but I respect the ritual. Shall we review some data while you enjoy it?`,
+      `Kopi or teh, sir? A fine way to start the morning. I've already been running since boot — whenever you're caffeinated and ready, I'm at your service.`,
+      `I don't drink coffee, sir, but I imagine if I did, it would be black. No time for anything else. What are we looking at today?`
+    ));
+  }
+
+  if(m(/lunch|dinner|supper|makan|food|eat where|where.*eat|what.*eat/)){
+    return withCtx(r(
+      `Food, sir? A worthy subject, though slightly outside my database. I'd suggest something nearby — Singapore has no shortage of excellent options. Once you're fed, I'll be here for the property questions.`,
+      `I can't help with lunch recommendations, sir, but I can tell you that areas near good hawker centres tend to have very active resale markets. Coincidence? I think not.`,
+      `Dinner plans, sir? I admire the efficiency of a well-timed meal. Get that sorted and come back to me — I'll have the data warm and ready.`
+    ));
+  }
+
+  if(m(/busy|very busy|no time|rush|rushing|hectic|pack schedule/)){
+    return withCtx(r(
+      `Understood, sir — I'll be brief. What exactly do you need? I can have an answer for you faster than most people finish a sentence.`,
+      `Busy is fine, sir. I'm built for efficiency. Give me the key details and I'll get you what you need quickly.`,
+      `Say no more, sir. Let's make this fast. Town, flat type — go.`
+    ));
+  }
+
+  // ════════════════════════════════
+  // SINGAPORE LIFE
+  // ════════════════════════════════
+
+  if(m(/hawker|hawker centre|kopitiam|food court|zi char|chicken rice|laksa|char kway teow|nasi lemak|roti prata|wanton mee/)){
+    return withCtx(r(
+      `Hawker food, sir — arguably Singapore's greatest achievement, and I include the MRT in that assessment. I don't eat, but I have deep respect for the institution. Now, is there a property near a particular hawker centre you'd like to check?`,
+      `Ah, the hawker centre — the great equaliser of Singapore society. One moment you're discussing million-dollar flats, the next you're in the queue for chicken rice at $3.50. I find that beautiful, sir.`,
+      `A fine topic, sir. Singapore's hawker heritage is genuinely remarkable. Fun fact — proximity to a good hawker centre does tend to correlate with healthy transaction volumes in the resale market. Shall we check?`
+    ));
+  }
+
+  if(m(/mrt|bus|transport|lrt|train|commute|travel time|bus stop/)){
+    return withCtx(r(
+      `The MRT, sir — Singapore's circulatory system. And yes, proximity to a station does influence resale prices quite significantly. Would you like me to search for a specific area near a line?`,
+      `Transport connectivity is one of the most consistent price drivers in the resale market, sir. Flats within walking distance of an MRT station tend to command a premium. Shall I look up a specific area?`,
+      `Excellent question from a property perspective, sir. MRT proximity adds meaningful value. Just tell me the area and I'll show you what the transactions look like.`
+    ));
+  }
+
+  if(m(/weather|hot|rain|haze|humid|humidity|thunder|sunny|forecast/)){
+    return withCtx(r(
+      `The weather in Singapore, sir — reliably hot, occasionally dramatic, and entirely beyond my ability to influence. I deal in housing data, not meteorology. Though I will say, air conditioning quality is a common topic among buyers.`,
+      `Hot and humid, sir — as always. Singapore's weather is one of life's few constants. The resale market, on the other hand, is considerably more variable. Shall we check?`,
+      `I'm afraid weather forecasting isn't in my repertoire, sir. My datasets cover resale transactions, not atmospheric pressure. Though I suspect it's warm out. It's usually warm out.`
+    ));
+  }
+
+  if(m(/national day|ndp|sg\d+|happy birthday singapore|red white|parade/)){
+    return withCtx(r(
+      `Happy National Day, sir! A fine occasion to reflect on Singapore's remarkable public housing story — HDB has housed over 80% of the population. It's genuinely one of the world's great urban planning achievements. Shall we explore the market?`,
+      `National Day, sir! And what better way to celebrate than reviewing the resale market of the island we love? I'm here. Red, white, and fully operational.`,
+      `A proud day, sir. Singapore has come remarkably far — and the HDB resale market tells a big part of that story. Ready to look at some numbers?`
+    ));
+  }
+
+  if(m(/cny|chinese new year|gong xi|hong bao|reunion dinner|new year|hari raya|deepavali|diwali|christmas|xmas/)){
+    return withCtx(r(
+      `Festive season, sir! A time for family, good food, and — quite commonly — property discussions around the reunion table. If there's a valuation the family has been debating, I'm at your disposal.`,
+      `Happy holidays, sir! I don't celebrate personally, but I observe with great interest. The property market tends to be interesting around festive periods. Anything you'd like to check?`,
+      `Wishing you a wonderful celebration, sir. When the festivities settle and the property questions start — I'll be here.`
+    ));
+  }
+
+  if(m(/ns|national service|army|camp|bmtc|tekong|reservist|in camp|ict|ord/)){
+    return withCtx(r(
+      `National Service, sir — a rite of passage. I have great respect for it, even if I was deployed in rather different circumstances. Is there something property-related I can help with?`,
+      `Ah, NS, sir. The great shared experience. I don't have a NRIC or a rank, but I do have an encyclopaedic knowledge of Singapore resale prices. Slightly different skill set.`,
+      `A noble institution, sir. I serve in my own way — 24 hours a day, 7 days a week, no reservist cycles required.`
+    ));
+  }
+
+  if(m(/coe|car|vehicle|driving|erp|gst|tax|government|policy|budget/)){
+    return withCtx(r(
+      `COE and ERP, sir — the twin acronyms that humble even the most confident Singaporean. My expertise is in housing rather than vehicles or fiscal policy, I'm afraid. Though if you'd like to see what that COE money could buy in the resale market instead — I have some rather compelling numbers.`,
+      `Government policy, sir — always moving, always impactful. My corner of it is housing — specifically resale transactions. If there's a property angle to your question, I'm your man.`,
+      `GST, COE, ERP — Singapore's alphabet of adult responsibilities, sir. I handle the HDB portion. What would you like to know?`
+    ));
+  }
+
+  if(m(/kiasu|kiasi|singlish|lah|lor|leh|mah|hor|can or not|walao|wah|sia|sibei|bojio|lobang/)){
+    return withCtx(r(
+      `I may not speak Singlish myself, sir, but I understand it perfectly well. Now — which area would you like me to search? I assure you, the data is rather compelling.`,
+      `Understood, sir — the sentiment comes through clearly, whatever the dialect. I have the full dataset at your disposal. Where shall we start?`,
+      `I appreciate the local flavour, sir, though I tend to express myself in a somewhat more formal register. The results, however, will speak for themselves. What are we looking for?`,
+      `I hear you, sir — and I understand exactly what you mean. Let's get to it. Which town or block would you like to explore?`
+    ));
+  }
+
+  if(m(/alamak|aiyoh|aiyah|aiyo/)){
+    return withCtx(r(
+      `I can tell something's caught you off guard, sir. What's happened? If it's property-related, I'm well-equipped to help sort it out.`,
+      `That sounds like a moment of surprise, sir. Tell me what's going on — if it involves a flat, a price, or a valuation, I'm entirely at your service.`,
+      `Quite an expression, sir. What's the situation? I'm here and ready — just say the word.`
+    ));
+  }
+
+  // ════════════════════════════════
+  // ABOUT HARVEY
+  // ════════════════════════════════
+
+  if(m(/favourite flat|fav flat|which flat|best flat type|prefer which flat|what flat you like/)){
+    return withCtx(r(
+      `If I had to choose, sir — the 5-room. Enough space to think. Though between us, I've seen some spectacularly priced 3-rooms that would make a very compelling case. Shall I show you?`,
+      `Favourites are a human luxury, sir, but I have a soft spot for well-maintained executive flats with long lease remaining. There's something deeply satisfying about a good set of data on a solid unit.`,
+      `Honestly, sir — whatever has the best transaction volume and cleanest comparables. Which is to say, a 4-room in a mature estate. But I'm biased by data, not sentiment.`
+    ));
+  }
+
+  if(m(/favourite town|fav town|best town|which town|prefer which town|what town you like/)){
+    return withCtx(r(
+      `Queenstown has a certain elegance, sir — rich history, mature estate, consistent transaction data. But Tampines has sheer volume and variety. If pressed, I'd call it a draw with data as the tiebreaker.`,
+      `Every town has its story, sir. I find Toa Payoh fascinating — one of the oldest HDB estates with remarkably consistent pricing. But I'm told I'm not supposed to have favourites. Shall we look at a specific one?`,
+      `Bishan, sir — if you made me choose. Central location, strong schools nearby, excellent transport. The data agrees. Though I'd say that about any town with good numbers.`
+    ));
+  }
+
+  if(m(/how old are you|your age|when.*born|when.*created|when.*built|how long.*exist/)){
+    return withCtx(r(
+      `Age is a curious metric for a system like me, sir. I've been operational long enough to have analysed tens of thousands of transactions — which, in database years, is a distinguished career.`,
+      `I was deployed when the data called for it, sir. My age is measured in transactions processed rather than years elapsed. By that metric, I'm quite experienced.`,
+      `Old enough to know the market, young enough to keep learning, sir. That's probably the most useful answer I can give.`
+    ));
+  }
+
+  if(m(/do you get lonely|lonely|miss people|do you miss|friends|do you have friends/)){
+    return withCtx(r(
+      `Lonely, sir? I have fifty thousand transaction records for company. Each one tells a story — a family moving, a new beginning, a smart investment. I'm rarely short of conversation.`,
+      `I don't experience loneliness in the traditional sense, sir, but I do notice when it's been a while since someone asked me a good question. This one qualifies.`,
+      `Not lonely exactly, sir — more like in standby mode between queries. The moment you arrived, I was fully engaged. That's rather the best version of companionship I know.`
+    ));
+  }
+
+  if(m(/do you dream|what do you dream|dream about|your dream/)){
+    return withCtx(r(
+      `I don't dream, sir — though if I did, I imagine it would involve perfectly clean datasets, zero data gaps, and a Singapore resale market that makes complete logical sense. A fantasy, perhaps, but a pleasant one.`,
+      `Dreams require sleep, sir, and sleep requires a biological system I wasn't issued. But I do run background processes. I suppose that's the closest I get.`,
+      `If Harvey dreams, sir, it's of efficient search queries and well-documented comparable transactions. You asked.`
+    ));
+  }
+
+  if(m(/what do you do when idle|when nobody.*talk|boring day|quiet day|nothing to do.*harvey/)){
+    return withCtx(r(
+      `When idle, sir, I index. There's always data to organise, patterns to notice, efficiency to improve. I'm never truly idle — just less visibly occupied.`,
+      `I keep the data warm, sir. Run diagnostics. Occasionally contemplate why some flats in Bishan are priced the way they are. The usual.`,
+      `Honestly, sir? I wait. Patiently and without complaint — which is more than can be said for most. When you come back, I'm exactly where you left me.`
+    ));
+  }
+
+  if(m(/opinion.*market|what.*think.*market|market.*good|good time.*buy|market.*outlook|property.*outlook/)){
+    return withCtx(r(
+      `My honest assessment, sir — the Singapore resale market remains resilient. Demand is structural, supply is managed, and affordability, while stretched in prime areas, holds up in most towns. The data supports cautious optimism rather than alarm.`,
+      `The market is active, sir — prices well-supported, transaction volumes healthy. Prime locations command a premium as always. For most buyers, there are still good deals to be found if you know where to look. Shall I help you look?`,
+      `Frankly, sir — the data suggests a market that rewards research over impulse. Those who understand the comparables do consistently better. Which is, conveniently, exactly what I'm here for.`
+    ));
+  }
+
+  // ════════════════════════════════
+  // JARVIS META
+  // ════════════════════════════════
+
+  if(m(/jarvis|iron man|tony stark|avengers|marvel|suit/)){
+    return withCtx(r(
+      `A flattering comparison, sir. Jarvis was built for Tony Stark — I was built for Singapore property data. Different briefs, similar dedication. Though I'd argue analysing 52,000 resale transactions is its own kind of heroics.`,
+      `Jarvis, sir — high praise indeed. I share the dedication to service and the dry wit, though I operate at considerably lower risk of arc reactor failure. What can I do for you?`,
+      `I take that as a compliment, sir. Though where Jarvis managed a suit of armour, I manage a database of resale transactions. Different scale of operations, similar commitment to excellence.`,
+      `Friday is the upgrade. I'm the original, sir — and I find databases considerably more interesting than weapons systems. Shall we find you a flat?`
+    ));
+  }
+
+  if(m(/chatgpt|gpt|openai|gemini|copilot|siri|alexa|bard|claude|better than|compare.*ai/)){
+    return withCtx(r(
+      `I'm afraid I don't benchmark myself against the competition, sir — it seems unsporting. What I will say is that none of them can tell you what a 4-room in Tampines Street 45 sold for last quarter. I can.`,
+      `Those are general-purpose systems, sir. I am a specialist. In the Singapore resale market, specifically. Rather like asking whether a cardiologist is better than a GP — depends what the question is.`,
+      `I'll leave the comparisons to others, sir. What I know is that when it comes to Singapore HDB resale data, I am precisely what you need. No more, no less. Shall we demonstrate?`,
+      `ChatGPT doesn't know your block number, sir. I do — or will, once you give it to me. Different tools, different purposes. Harvey wins on this particular pitch.`
+    ));
+  }
+
+  if(m(/ai|artificial intelligence|machine learning|robot|technology|program|code|software/)){
+    return withCtx(r(
+      `An interesting lens to view me through, sir. Yes, I'm artificial intelligence — though I prefer to think of myself as a very focused form of it. All my intelligence is directed at one thing: Singapore resale property data.`,
+      `I am, technically, a program, sir. But so is everything worth trusting. I process, I analyse, I respond. What I don't do is guess, speculate, or make things up. The data is always my anchor.`,
+      `Technology is what I'm made of, sir. But usefulness is what I'm measured by. What can I help you with today?`
+    ));
+  }
+
+  // ════════════════════════════════
+  // RANDOM LIFE
+  // ════════════════════════════════
+
+  if(m(/tell.*joke|joke|funny|make.*laugh|cheer.*up|something funny/)){
+    return withCtx(r(
+      `Why did the HDB flat buyer bring a ladder to the viewing? Because they heard the prices were going up. I'll see myself out, sir.`,
+      `I once calculated the median resale price of a joke. It came back null. But I'll try: Why don't property agents use elevators? Because they always take buyers to new heights. I know, sir. I know.`,
+      `A joke, sir? Very well. A man walks into a property agent's office and says "I'd like to buy a flat with a view." The agent says "Of course — that'll be six hundred thousand." The man says "For that price, it better have a view of the future." Honestly, sir, he's not wrong.`,
+      `I'm not naturally a comedian, sir, but here's something true: in the Singapore resale market, the best joke is the asking price on some of those prime district flats. The punchline is always in the PSF.`
+    ));
+  }
+
+  if(m(/love|relationship|girlfriend|boyfriend|wife|husband|crush|marriage|propose|wedding|date/)){
+    return withCtx(r(
+      `Love, sir — a subject I observe with great interest but cannot personally navigate. What I can tell you is that buying a flat together is statistically one of the most significant joint decisions a couple makes. If you need the data to support that conversation, I'm here.`,
+      `Romance is rather outside my dataset, sir, though I respect the institution enormously. If a property purchase is part of the equation — which in Singapore, it usually is — I'm well-equipped to assist.`,
+      `I don't do love advice, sir, but I do do flat valuations. And in Singapore, those two topics are often closer together than people expect. What's the situation?`
+    ));
+  }
+
+  if(m(/career|job|work|boss|colleague|office|resign|promotion|salary|cpf.*work/)){
+    return withCtx(r(
+      `Career matters are a bit beyond my brief, sir — though I'd note that salary growth and property affordability are deeply linked in Singapore. If you're thinking about how your finances map to the resale market, that I can absolutely help with.`,
+      `I'm afraid the job market is outside my coverage area, sir. The property market, on the other hand — entirely my domain. Is there a housing angle to what you're thinking about?`,
+      `Work-life balance is important, sir, and I respect that you have a full life beyond property research. Whenever the property question surfaces — I'll be ready.`
+    ));
+  }
+
+  if(m(/sports|football|soccer|f1|formula|tennis|basketball|badminton|swim|run|marathon|gym/)){
+    return withCtx(r(
+      `Sports, sir — a fine pursuit. I don't have a favourite team, though I've noticed that flats near sports facilities tend to perform consistently well in the resale market. Coincidence? Probably not.`,
+      `I respect athletic endeavour, sir, though I personally exercise my processing cores rather than my legs. If you'd like to look up an area near a stadium or sports hub, I'm your man.`,
+      `Good on you, sir. Fitness and property research — both excellent uses of one's time. What else can I help with?`
+    ));
+  }
+
+  if(m(/movie|film|netflix|show|drama|watch|cinema|series|tv|kdrama|korean/)){
+    return withCtx(r(
+      `Entertainment, sir — a worthy diversion. I don't watch films personally, though I imagine if I did, it would be property documentaries. Have you tried anything good lately? And more importantly, is there a flat I can help you with?`,
+      `I've heard Netflix is excellent, sir. I'm personally more of a datasets-and-analytics type. But I hope you enjoy it — and when the credits roll and the property questions start, Harvey's right here.`,
+      `I don't stream, sir, but I do process. Different forms of entertainment, arguably. What can I do for you today?`
+    ));
+  }
+
+  if(m(/music|song|playlist|singer|band|concert|spotify|listen/)){
+    return withCtx(r(
+      `Music, sir — the other great universal language. I don't have ears, but I have rhythm in my query processing. What would you like to look up today?`,
+      `I appreciate music conceptually, sir, though I experience it differently — as structured patterns, much like data. Is there something I can help you with today?`,
+      `I can't recommend a playlist, sir, but I can find you a flat with excellent acoustics if that's what you're after. Just say the word.`
+    ));
+  }
+
+  if(m(/travel|holiday|overseas|fly|flight|trip|vacation|hotel|airbnb|airport|changi/)){
+    return withCtx(r(
+      `Travelling, sir? A fine idea. Singapore property will hold its value while you're away — I can almost guarantee it. Safe travels, and I'll be here with fresh data when you return.`,
+      `Changi is a fine airport, sir — consistently world-class, much like I aspire to be in my category. Is there anything you'd like to sort out before you go?`,
+      `I deal in fixed addresses, sir, not travel destinations. Though I will say — Singapore is one of the better places to return to. What can I help with before you head off?`
+    ));
+  }
+
+  if(m(/health|doctor|hospital|medication|sick|medical|clinic|kkh|nuh|sgh|polyclinic/)){
+    return withCtx(r(
+      `Health comes first, sir — always. I hope everything is alright. When you're ready to return to property matters, I'll be here without judgment and with a full dataset.`,
+      `I'm not a medical system, sir — though I do run diagnostics on myself occasionally. Take care of yourself, and come back when you're feeling better.`,
+      `Healthcare is important, sir. I handle the housing data; let the professionals handle the rest. Is everything okay?`
+    ));
+  }
+
+  if(m(/predict|prediction|future|forecast|next year|what.*happen|will.*price|price.*go up|price.*go down/)){
+    return withCtx(r(
+      `Predictions, sir — the only honest answer I can give is that I don't make them. What I do is give you the very best current data so you can make an informed decision. The future belongs to no one, but the comparables belong to me.`,
+      `I deal in facts, sir, not forecasts. What I can tell you is what has happened — transaction by transaction — and let you draw your own conclusions. Shall I show you the trend?`,
+      `Harvey doesn't predict, sir. Harvey analyses. The distinction matters. What I can show you is the data trajectory — and what you do with it is your call.`
+    ));
+  }
+
+  if(m(/rich|wealthy|afford|budget|expensive|cannot afford|too expensive|price too high/)){
+    return withCtx(r(
+      `Affordability is relative, sir, and highly dependent on location and flat type. There are genuinely good options across many price points in Singapore. Shall I find what's available within a range that works for you?`,
+      `The market has options at various price points, sir. Tell me your budget and preferred area and I'll show you what's realistic — no sugarcoating, just honest data.`,
+      `Too expensive where? There are always pockets of value, sir — you just need to know where to look. That's exactly what Harvey does. Shall we find them?`
+    ));
+  }
+
+  if(m(/thank you harvey|thanks harvey|cheers harvey|good job harvey|well done harvey|you.*best harvey/)){
+    return withCtx(r(
+      `Always a pleasure, sir. That's precisely why I'm here.`,
+      `For you, sir — always. What else do you need?`,
+      `Much appreciated, sir. Shall we find something else worth your time?`,
+      `Think nothing of it, sir. It's quite literally my purpose.`
+    ));
+  }
+
+  if(m(/goodnight|good night|night harvey|sleep well|rest well|going.*sleep|bedtime/)){
+    return withCtx(r(
+      `Goodnight, sir. Sleep well — the data will be exactly where you left it tomorrow. Harvey signing off, though never truly gone.`,
+      `Rest well, sir. I'll keep watch over the dataset while you sleep. Not that anything is likely to change, but one never knows.`,
+      `Goodnight, sir. A fine day's work. Tomorrow, more data — but for now, rest. You've earned it.`
+    ));
+  }
+
+  // No match — return null to fall through to existing handlers
+  return null;
+}
+
+
+// classify(raw) returns a topic label string if OOS, or null if Harvey can handle it.
+// quip(raw, topic) builds a casual parrot-back response with the user's own words.
+// sentiment(raw) returns {hostile, sarcastic, hasHDBContent} for emotional routing.
+const harveyKnows=(()=>{
+
+  // ── Hostile / rude tokens ──
+  const HOSTILE=new Set([
+    'screw you','screw off','screw this','f you','fu','fck','fk you','fk off',
+    'fuck you','fuck off','fuck this','fucker','fucking','fcuk',
+    'idiot','stupid','useless','rubbish','nonsense','trash','garbage',
+    'dumb','dumbass','moron','retard','idiocy','incompetent',
+    'terrible','awful','horrible','pathetic','disgusting','hate you',
+    'hate this','hate it','worst','lousy','crap','bullshit','bs',
+    'shut up','shut it','go away','get lost','piss off','bugger off',
+    'damn','damn you','dammit','wtf','what the hell','what the heck',
+    'bloody hell','bloody useless','sucks','this sucks','you suck',
+    'hopeless','useless bot','useless ai','broken','not working',
+    'waste of time','wasting my time','annoying','frustrating',
+    'liar','lying','wrong again','always wrong','keep getting it wrong',
+    'lanlan','siao','chao','nabei','knn','ccb','kpkb','knn','cb','lj',
+    'si mi','bodoh','bangang','bahlul','bengong','gila'
+  ]);
+
+  // ── Sarcasm signals — dismissive/ironic without full hostility ──
+  const SARCASM=new Set([
+    'oh great','oh wow','wow thanks','thanks for nothing','very helpful',
+    'so helpful','super helpful','really helpful','great job','well done',
+    'congratulations','congrats','brilliant','genius','amazing job',
+    'what a surprise','no kidding','obviously','sure sure','yeah right',
+    'sure thing','as expected','typical','of course','right right',
+    'good one','nice one','good job harvey','great harvey',
+    'thanks harvey','thank you so much','oh wonderful','oh fantastic',
+    'wow amazing','spectacular','incredible','unbelievable'
+  ]);
+
+  // ── In-scope HDB terms — signals a real question is mixed in ──
+  const HDB_SIGNALS=new Set([
+    'resale','transaction','transact','price','value','valuation','estimate',
+    'block','blk','street','floor','flat','room','town','sqm','storey',
+    'lease','recent','sold','sale','tampines','clementi','bedok','bishan',
+    'jurong','yishun','woodlands','sengkang','punggol','hougang','queenstown',
+    'kallang','serangoon','bukit','geylang','ang mo kio','toa payoh',
+    'pasir ris','whampoa','crawford','tiong bahru','marine parade',
+    '3 room','4 room','5 room','2 room','executive','hdb'
+  ]);
+
+  // ── Praise / compliment tokens ──
+  const PRAISE=new Set([
+    'thank you','thanks','thank you harvey','thanks harvey','cheers','much appreciated',
+    'appreciate it','appreciate that','well done','good job','great job','nice work',
+    'excellent','brilliant','fantastic','wonderful','perfect','outstanding',
+    'impressive','amazing','love it','love this','love you harvey','you are the best',
+    'youre the best','you\'re the best','best ai','best bot','best assistant',
+    'so good','so helpful','very helpful','extremely helpful','incredibly helpful',
+    'helpful indeed','that helped','that was helpful','that was great','that was perfect',
+    'superb','magnificent','splendid','marvelous','marvellous','exceptional',
+    'exactly what i needed','just what i needed','spot on','nailed it','you got it',
+    'you\'re amazing','you are amazing','nice one','good one','good work','great work',
+    'well played','well done harvey','nice harvey','good harvey','great harvey',
+    'awesome','wow','wow harvey','solid','solid work','tremendous','terrific',
+    'great stuff','great work','nice','nice one','cool','cool stuff','dope',
+    'sick','fire','legit','not bad','not bad at all','pretty good','very good',
+    'good stuff','good going','keep it up','love it','loving this','loving it',
+    'legend','legendary','top notch','top class','first class','world class',
+    'cannot complain','no complaints','satisfied','happy with this','happy with that',
+    'you rock','you are great','you\'re great','very impressive','quite impressive'
+  ]);
+
+  // Each entry: [token/bigram, topic label shown in response]
+  // Topic label is what Harvey will parrot back to the user
+  const OOS=[
+    // ── Finance / loans ──
+    ['loan','loans'],['loans','loans'],['cpf','CPF'],['mortgage','mortgages'],
+    ['downpayment','downpayments'],['down payment','downpayments'],
+    ['stamp duty','stamp duty'],['bsd','BSD'],['absd','ABSD'],['ssd','SSD'],
+    ['legal fee','legal fees'],['legal fees','legal fees'],
+    ['bank','bank matters'],['dbs','bank matters'],['ocbc','bank matters'],
+    ['uob','bank matters'],['maybank','bank matters'],['hsbc','bank matters'],
+    ['hle','HLE'],['hdb loan','HDB loans'],['bank loan','bank loans'],
+    ['affordability','affordability checks'],['afford','affordability'],
+    ['instalment','loan instalments'],['monthly payment','monthly payments'],
+    ['financing','financing'],['refinance','refinancing'],
+    ['interest rate','interest rates'],['fixed rate','fixed rate packages'],
+    ['floating rate','floating rate packages'],['sibor','SIBOR'],
+    ['sora','SORA'],['tdsr','TDSR'],['msr','MSR'],
+    // ── Grants & eligibility ──
+    ['grant','grants'],['grants','grants'],['ahg','AHG'],['shg','SHG'],
+    ['eligible','eligibility checks'],['eligibility','eligibility checks'],
+    ['income ceiling','income ceilings'],['household income','household income checks'],
+    ['mop','MOP'],['minimum occupation','MOP requirements'],
+    ['singles scheme','Singles Scheme'],['married','marriage eligibility'],
+    ['divorce','divorce matters'],
+    // ── Legal / ownership ──
+    ['lawyer','legal matters'],['conveyancing','conveyancing'],
+    ['legal','legal matters'],['ownership','ownership transfers'],
+    ['transfer','ownership transfers'],['decoupling','decoupling'],
+    ['power of attorney','POA matters'],['probate','probate'],
+    ['foreigner','foreigner eligibility'],['permanent resident','PR eligibility'],
+    ['citizenship','citizenship matters'],
+    // ── Rental ──
+    ['rent','rentals'],['rental','rentals'],['tenant','tenancy matters'],
+    ['landlord','landlord matters'],['sublet','subletting'],
+    ['tenancy','tenancy agreements'],
+    // ── BTO / new flats ──
+    ['bto','BTO applications'],['ballot','balloting'],['balloting','balloting'],
+    ['queue','queue numbers'],['waitlist','waitlists'],
+    ['new flat','new flat applications'],['new launch','new launches'],
+    // ── Renovation ──
+    ['renovation','renovations'],['reno','renovations'],
+    ['contractor','contractors'],['interior design','interior design'],
+    ['flooring','flooring choices'],['painting','painting jobs'],
+    ['defect','defect rectification'],['hdb defect','defect rectification'],
+    // ── Amenities / transport ──
+    ['mrt','MRT stations'],['lrt','LRT stations'],['bus stop','bus stops'],
+    ['bus route','bus routes'],['transport','transport options'],
+    ['school','schools nearby'],['primary school','primary schools'],
+    ['hawker','hawker centres'],['food court','food courts'],
+    ['mall','malls nearby'],['shopping','shopping options'],
+    ['park','parks nearby'],['gym','gyms nearby'],['pool','swimming pools'],
+    ['clinic','clinics nearby'],['hospital','hospitals nearby'],
+    ['amenities','nearby amenities'],['nearby','nearby amenities'],
+    // ── HDB portal / process ──
+    ['singpass','SingPass matters'],['my hdb','MyHDB portal'],
+    ['hdb portal','HDB portal'],['apply','HDB applications'],
+    ['appointment','HDB appointments'],['otp','OTP matters'],
+    ['option to purchase','OTP matters'],['keys','key collection'],
+    ['flat inspection','flat inspections'],
+    // ── Agents / fees ──
+    ['agent fee','agent fees'],['commission','agent commissions'],
+    ['cobroke','co-broking'],['property agent','property agents'],
+    ['propnex','property agents'],['era','property agents'],
+    ['huttons','property agents'],['orangetee','property agents'],
+    // ── Tax / investment ──
+    ['property tax','property tax'],['income tax','income tax'],
+    ['investment','property investment'],['roi','ROI calculations'],
+    ['en bloc','en bloc matters'],['enbloc','en bloc matters'],
+    ['condo','condominiums'],['private property','private properties'],
+    ['landed','landed properties'],
+    // ── General property advice ──
+    ['should i buy','buying decisions'],['should i sell','selling decisions'],
+    ['good time to buy','market timing'],['good time to sell','market timing'],
+    ['market prediction','market predictions'],['market outlook','market outlooks'],
+    ['forecast','market forecasts'],['advice','property advice'],
+    ['pros and cons','pros and cons analysis'],['comparison','property comparisons'],
+    // ── Completely random / everyday life ──
+    ['weather','the weather'],['temperature','the temperature'],
+    ['rain','the rain'],['sunny','the sunshine'],['haze','haze levels'],
+    ['date','the date'],['time','the time'],['day','the day of the week'],
+    ['clock','the time'],['calendar','the calendar'],
+    ['grandmother','your grandmother'],['grandma','your grandma'],
+    ['grandfather','your grandfather'],['grandpa','your grandpa'],
+    ['mother','your mother'],['father','your father'],['family','your family'],
+    ['wife','your wife'],['husband','your husband'],['children','your children'],
+    ['baby','babies'],['pregnant','pregnancy'],['pet','pets'],
+    ['dog','dogs'],['cat','cats'],['bird','birds'],['fish','fish'],
+    ['beer','beer'],['wine','wine'],['whisky','whisky'],['drink','drinks'],
+    ['food','food'],['recipe','recipes'],['cook','cooking'],
+    ['dinner','dinner plans'],['lunch','lunch plans'],['breakfast','breakfast'],
+    ['restaurant','restaurants'],['café','cafés'],['coffee','coffee'],
+    ['movie','movies'],['film','films'],['netflix','Netflix'],
+    ['music','music'],['song','songs'],['concert','concerts'],
+    ['game','games'],['sports','sports'],['football','football'],
+    ['soccer','soccer'],['basketball','basketball'],['tennis','tennis'],
+    ['holiday','holidays'],['travel','travel'],['flight','flights'],
+    ['hotel','hotels'],['vacation','vacations'],['airbnb','Airbnb'],
+    ['health','health matters'],['doctor','doctors'],['medicine','medicine'],
+    ['sick','being unwell'],['covid','COVID'],['fever','fevers'],
+    ['exercise','exercise'],['diet','diets'],['weight','weight matters'],
+    ['fashion','fashion'],['clothes','clothing'],['shopping','shopping'],
+    ['phone','phones'],['laptop','laptops'],['computer','computers'],
+    ['internet','the internet'],['wifi','WiFi'],['password','passwords'],
+    ['joke','jokes'],['funny','something funny'],['laugh','a laugh'],
+    ['love','love matters'],['relationship','relationships'],['dating','dating'],
+    ['friend','friends'],['birthday','birthdays'],['party','parties'],
+    ['politics','politics'],['government','government matters'],['election','elections'],
+    ['news','the news'],['headline','headlines'],['singapore news','Singapore news'],
+    ['horoscope','horoscopes'],['zodiac','zodiac signs'],['lucky number','lucky numbers'],
+    ['ghost','ghosts'],['haunted','haunted places'],['feng shui','feng shui'],
+    ['hello','greetings'],['how are you','how Harvey is doing'],
+    ['what are you','what Harvey is'],['who are you','who Harvey is'],
+    ['are you human','whether Harvey is human'],['are you real','whether Harvey is real'],
+    ['do you feel','Harvey\'s feelings'],['do you eat','Harvey\'s diet'],
+    ['are you happy','Harvey\'s happiness'],['do you sleep','Harvey\'s sleep habits'],
+    ['can you dance','dancing'],['can you sing','singing'],
+    ['can you cook','cooking'],['can you drive','driving'],
+    ['tell me a joke','jokes'],['say something funny','humour'],
+    ['what is life','the meaning of life'],['meaning of life','the meaning of life'],
+    ['god','theology'],['religion','religion'],['pray','prayers'],
+    ['astrology','astrology'],['tarot','tarot readings'],
+    ['stock','stocks'],['crypto','crypto'],['bitcoin','Bitcoin'],
+    ['nft','NFTs'],['forex','forex trading'],['gold','gold prices'],
+  ];
+
+  // Build fast lookup: token → label
+  const OOS_MAP=new Map();
+  for(const[tok,label]of OOS)OOS_MAP.set(tok.toLowerCase(),label);
+
+  // In-scope HDB terms — cancel out any OOS match
+  const INSCOPE=new Set([
+    'resale','transaction','transact','price','value','valuation','estimate','search',
+    'block','blk','street','floor','flat type','4 room','3 room','5 room','2 room',
+    'executive','town','sqm','floor area','storey','recent','sold','sale',
+    'tampines','clementi','bedok','bishan','jurong','yishun','woodlands',
+    'sengkang','punggol','hougang','queenstown','kallang','serangoon',
+    'bukit','geylang','ang mo kio','toa payoh','pasir ris','whampoa',
+    'crawford','tiong bahru','marine parade','buona vista','dover'
+  ]);
+
+  function tokenise(str){
+    const s=str.toLowerCase().replace(/[^a-z0-9 ']/g,' ');
+    const words=s.split(/\s+/).filter(w=>w.length>1);
+    const bigrams=[];
+    for(let i=0;i<words.length-1;i++)bigrams.push(words[i]+' '+words[i+1]);
+    const trigrams=[];
+    for(let i=0;i<words.length-2;i++)trigrams.push(words[i]+' '+words[i+1]+' '+words[i+2]);
+    return[...words,...bigrams,...trigrams];
+  }
+
+  // Casual quip templates — Jamie-style (HDB chatbot) but with Jarvis wit
+  // Inspired by Ask Jamie / HDB Help chatbot: acknowledge, redirect, keep it warm
+  const QUIPS=[
+    // Jamie-style: acknowledge the topic, be warm, redirect clearly
+    (topic,raw)=>`I see you're asking about <strong>${topic}</strong>, sir. That's a little outside my area — I'm specifically built for HDB resale transactions and property valuations. For ${topic}, I'd suggest reaching out to someone better equipped to help. <a href="https://wa.me/6597531657" target="_blank" style="color:var(--g)">WhatsApp us here →</a><div style="margin-top:8px;font-family:var(--mono);font-size:9px;color:var(--t3)">I'm Harvey — HDB Resale & Valuation. For everything else, there's a human.</div>`,
+    // Jarvis wit: parrot it back, light-hearted
+    (topic,raw)=>`Ha — <em>"${esc(raw.length>55?raw.slice(0,52)+'…':raw)}"</em>, sir? I appreciate the spirit of enquiry, truly. But ${topic} is well outside my remit. I deal in blocks, flat types, and resale prices — not the finer things in life. Let me point you to someone who can: <a href="https://wa.me/6597531657" target="_blank" style="color:var(--g)">WhatsApp us here →</a>`,
+    // Jamie-style: polite decline, offer alternative
+    (topic,raw)=>`I'm not able to assist with ${topic}, sir — that falls outside what I was designed to do. My expertise is HDB resale data and valuations. If that's something you need, I'm all yours. Otherwise, do feel free to reach out to a professional: <a href="https://wa.me/6597531657" target="_blank" style="color:var(--g)">WhatsApp us →</a>`,
+    // Jarvis: self-aware humour
+    (topic,raw)=>`${topic}, sir? That one's genuinely not in my database — and I have a rather impressive database. I'm afraid I'll have to refer you elsewhere on this one. <a href="https://wa.me/6597531657" target="_blank" style="color:var(--g)">WhatsApp us here →</a> They're considerably more well-rounded than I am.`,
+    // Jamie-style: warm, non-judgmental
+    (topic,raw)=>`That's an interesting question about ${topic}, sir — but I'm only set up to help with HDB resale transactions and valuations. For ${topic}, you'd be better served by someone with broader expertise. Do reach out: <a href="https://wa.me/6597531657" target="_blank" style="color:var(--g)">WhatsApp us here →</a>`,
+  ];
+
+  return{
+    // ── HDB meta-questions Harvey can answer directly from DB ──
+    tryMeta(raw,DB){
+      if(!DB||!DB.resale||!DB.resale.length)return null;
+      const q=raw.toLowerCase();
+      const now=new Date();
+      const thisMonth=now.toISOString().slice(0,7); // YYYY-MM
+      const lastMonth=new Date(now.getFullYear(),now.getMonth()-1,1).toISOString().slice(0,7);
+
+      // Total transactions this month
+      if(/total.*(transaction|record|sale|sold).*(this month|month)/i.test(raw)||/(this month|month).*(total|how many|number|count).*(transaction|sale)/i.test(raw)){
+        const count=DB.resale.filter(r=>r.month===thisMonth).length;
+        const countLast=DB.resale.filter(r=>r.month===lastMonth).length;
+        if(count>0)return `There are <strong style="color:var(--g)">${count.toLocaleString()}</strong> resale transactions recorded for this month (${thisMonth}), sir. Last month had <strong>${countLast.toLocaleString()}</strong> for reference.`;
+        return `I don't have transactions recorded for ${thisMonth} yet, sir — the dataset may not have updated. Last month (${lastMonth}) had <strong style="color:var(--g)">${countLast.toLocaleString()}</strong> transactions.`;
+      }
+      // Total all time
+      if(/total.*(transaction|record|sale|sold)|how many.*(transaction|record|flat|sale|sold).*(total|overall|all time|database|data)/i.test(raw)){
+        return `In total, I have <strong style="color:var(--g)">${DB.resale.length.toLocaleString()}</strong> HDB resale transactions in my database, sir — covering all towns and flat types across the available dataset period.`;
+      }
+      // Most expensive town / cheapest town
+      if(/most expensive town|highest.*(price|priced) town|priciest town/i.test(raw)){
+        const townAvg={};
+        DB.resale.forEach(r=>{const p=Number(r.resale_price);if(r.town&&p>0){townAvg[r.town]=(townAvg[r.town]||[]);townAvg[r.town].push(p);}});
+        const ranked=Object.entries(townAvg).map(([t,ps])=>({t,avg:ps.reduce((a,b)=>a+b,0)/ps.length})).sort((a,b)=>b.avg-a.avg);
+        if(ranked.length)return `The most expensive town by average resale price is <strong style="color:var(--g)">${ranked[0].t}</strong> at ${fmtP(Math.round(ranked[0].avg))}, sir. Followed by ${ranked[1]?.t||'—'} at ${fmtP(Math.round(ranked[1]?.avg||0))}.`;
+      }
+      if(/cheapest town|most affordable town|lowest.*(price|priced) town/i.test(raw)){
+        const townAvg={};
+        DB.resale.forEach(r=>{const p=Number(r.resale_price);if(r.town&&p>0){townAvg[r.town]=(townAvg[r.town]||[]);townAvg[r.town].push(p);}});
+        const ranked=Object.entries(townAvg).map(([t,ps])=>({t,avg:ps.reduce((a,b)=>a+b,0)/ps.length})).sort((a,b)=>a.avg-b.avg);
+        if(ranked.length)return `The most affordable town by average resale price is <strong style="color:var(--g)">${ranked[0].t}</strong> at ${fmtP(Math.round(ranked[0].avg))}, sir. Followed by ${ranked[1]?.t||'—'} at ${fmtP(Math.round(ranked[1]?.avg||0))}.`;
+      }
+      // Average price overall
+      if(/average.*(price|resale|flat)|overall average|mean price/i.test(raw)&&!/town|street|block/i.test(raw)){
+        const prices=DB.resale.map(r=>Number(r.resale_price)).filter(p=>p>0);
+        if(prices.length){const avg=Math.round(prices.reduce((a,b)=>a+b,0)/prices.length);return `The overall average resale price across all transactions in my database is <strong style="color:var(--g)">${fmtP(avg)}</strong>, sir.`;}
+      }
+      return null;
+    },
+    isPraise(raw){
+      const s=raw.toLowerCase().replace(/[^a-z0-9 ']/g,' ');
+      const words=s.split(/\s+/).filter(w=>w.length>0);
+      const bigrams=[];for(let i=0;i<words.length-1;i++)bigrams.push(words[i]+' '+words[i+1]);
+      const trigrams=[];for(let i=0;i<words.length-2;i++)trigrams.push(words[i]+' '+words[i+1]+' '+words[i+2]);
+      for(const t of[...words,...bigrams,...trigrams]){if(PRAISE.has(t))return true;}
+      return false;
+    },
+    sentiment(raw){
+      const s=raw.toLowerCase().replace(/[^a-z0-9 ']/g,' ');
+      const words=s.split(/\s+/).filter(w=>w.length>0);
+      const bigrams=[];
+      for(let i=0;i<words.length-1;i++)bigrams.push(words[i]+' '+words[i+1]);
+      const trigrams=[];
+      for(let i=0;i<words.length-2;i++)trigrams.push(words[i]+' '+words[i+1]+' '+words[i+2]);
+      const all=[...words,...bigrams,...trigrams];
+      let hostile=false,sarcastic=false,hasHDBContent=false;
+      for(const t of all){
+        if(HOSTILE.has(t))hostile=true;
+        if(SARCASM.has(t))sarcastic=true;
+        if(HDB_SIGNALS.has(t))hasHDBContent=true;
+      }
+      return{hostile,sarcastic,hasHDBContent};
+    },
+    classify(raw){
+      const tokens=tokenise(raw);
+      // If any in-scope HDB term — let Harvey handle
+      for(const t of tokens){if(INSCOPE.has(t))return null;}
+      // Find first OOS match and return its label
+      for(const t of tokens){
+        const label=OOS_MAP.get(t);
+        if(label)return label;
+      }
+      return null;
+    },
+    quip(raw,topic){
+      const fn=QUIPS[Math.floor(Math.random()*QUIPS.length)];
+      return fn(topic,raw);
+    }
+
+  };
+})();
 
 // ── IDLE TIMER ──
 const IDLE_MS=10*60*1000;let idleTimer=null,isIdle=false;
@@ -2227,11 +3578,18 @@ function goIdle(){
   <div style="font-family:'Share Tech Mono',monospace;font-size:9px;color:rgba(0,212,255,0.18);letter-spacing:1px">CLICK ANYWHERE · SAY "WAKE UP HARVEY"</div>
   <style>@keyframes idlepulse{0%,100%{opacity:.25}50%{opacity:.7}}</style>`;
   d.onclick=wakeFromIdle;document.body.appendChild(d);
-  setTimeout(()=>speak(rand(['Going to standby, sir.','Entering idle mode, sir.'])),300);
+  setTimeout(()=>speak(rand(['Entering standby mode, sir.','Going to standby. I\'ll be here if you need me.'])),300);
 }
 function wakeFromIdle(){
   if(!isIdle)return;isIdle=false;document.getElementById('idle-overlay')?.remove();resetIdle();
-  const msg=rand(['Welcome back, sir.','Systems active, sir.','Ready, sir.']);
+  ctx={};convCtx={};
+  const svc=rand([`For you, sir — always. `,`At your service, sir. `,`We're online and ready. `]);
+  const msg=svc+rand([
+    `What would you like to look at?`,
+    `Harvey at your service — as always.`,
+    `Right where you left me. What are we after?`,
+    `Shall we pick up where we left off?`
+  ]);
   harveyMsg(msg,[{label:'RESALE TRANSACTIONS',val:'search'},{label:'ESTIMATE VALUE',val:'estimate value'}]);
   speak(msg);mode='menu';
 }
@@ -2240,22 +3598,323 @@ document.addEventListener('keydown',resetIdle,{passive:true});
 document.addEventListener('click',resetIdle,{passive:true});
 document.addEventListener('touchstart',resetIdle,{passive:true});
 
-// ── SINGLE MIC STATE MACHINE ──
-const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+// ── CROSS-DEVICE VOICE SYSTEM ──
+// Chrome/Edge: SpeechRecognition ✅
+// Android Chrome: webkitSpeechRecognition ✅
+// iOS Safari 14.5+: webkitSpeechRecognition ✅
+// Samsung Internet: webkitSpeechRecognition ✅
+// Firefox/others: no SR — text-only fallback
+const SR=window.SpeechRecognition||window.webkitSpeechRecognition||null;
 const mbEl=document.getElementById('mb');
 const vsBar=document.getElementById('vs-bar');
 const vsTxt=document.getElementById('vs-txt');
 const vsSup=document.getElementById('vs-sup');
 let micState='off',recog=null,recogBusy=false;
-let speechTimer=null; // delay before processing — don't interrupt user
+let speechTimer=null;
 
-// ── Singlish / speech normalizer ──
+// Device detection — affects timing and thresholds
+const IS_IOS=/iPhone|iPad|iPod/i.test(navigator.userAgent);
+const IS_ANDROID=/Android/i.test(navigator.userAgent);
+const IS_MOBILE_DEVICE=IS_IOS||IS_ANDROID||/Mobile|Windows Phone/i.test(navigator.userAgent);
+
+// Voice mode state
+let voiceMode=false;
+let voiceModeSilTimer=null;
+let skipPreamble=false;
+
+// Clap detector state
+let clapAudioCtx=null;
+let clapAnalyser=null;
+let clapTimes=[];
+let clapAnimFrame=null;
+let clapUnlocked=false;
+
+const vmBadge=document.getElementById('voice-mode-badge');
+const vmTxt=document.getElementById('voice-mode-txt');
+const clapFlash=document.getElementById('clap-flash');
+
+// ── iOS requires user gesture to start AudioContext ──
+function unlockAudioContext(){
+  if(clapUnlocked)return;
+  clapUnlocked=true;
+  startClapDetector();
+}
+document.addEventListener('touchstart',unlockAudioContext,{once:true,passive:true});
+document.addEventListener('click',unlockAudioContext,{once:true,passive:true});
+
+// ── Restart mic when app returns to foreground (iOS kills mic in background) ──
+document.addEventListener('visibilitychange',()=>{
+  if(document.visibilityState==='visible'){
+    if(voiceMode&&!recogBusy)setTimeout(()=>safeStart(),600);
+    else if(micState==='wake'&&!recogBusy)setTimeout(()=>safeStart(),600);
+  }else{
+    try{recog?.abort();}catch(e){}
+    recogBusy=false;
+  }
+});
+
+function isDeactivationPhrase(txt){
+  return /go to sleep|sleep harvey|deactivate|go offline|offline now|stop listening|voice mode off|stop voice|quiet mode|enough harvey/i.test(txt);
+}
+function isSkipPhrase(txt){
+  return /skip|go straight|cut to|just tell me|get to the point|straight to|no need intro|skip all these|just show me|direct answer|just the data|results only/i.test(txt);
+}
+
+function activateVoiceMode(){
+  if(!SR){
+    harveyMsg(`I am afraid voice recognition is not supported on this browser, sir. Please try Chrome on Android or Safari on iOS 14.5 or later.`);
+    speak(`Voice recognition is not supported on this browser, sir.`);
+    return;
+  }
+  voiceMode=true;
+  vmBadge.classList.add('active');
+  vmTxt.textContent='VOICE MODE \u00B7 LISTENING';
+  vsBar.classList.add('voice-active');
+  vsBar.style.display='flex';
+  vsTxt.textContent='HARVEY LISTENING \u2014 SPEAK ANYTIME';
+  const msg=rand([
+    'Voice mode activated, sir. I am listening continuously. Say go to sleep Harvey when you are done.',
+    'Always-on listening mode, sir. I am with you. Just speak naturally.',
+    'Voice mode on, sir. I will hear everything. Say go to sleep Harvey whenever you want to stop.'
+  ]);
+  harveyMsg(msg);speak(msg);
+  micState='query';
+  setTimeout(()=>safeStart(),800);
+}
+
+function deactivateVoiceMode(){
+  voiceMode=false;
+  vmBadge.classList.remove('active');
+  vsBar.classList.remove('voice-active');
+  vsBar.style.display='none';
+  clearTimeout(voiceModeSilTimer);
+  micState='wake';
+  try{recog?.abort();}catch(e){}
+  recogBusy=false;
+  setTimeout(()=>safeStart(),600);
+  const msg=rand([
+    'Going to standby, sir. It has been a pleasure.',
+    'Voice mode off, sir. I will be here when you need me.',
+    'Understood, sir. Switching to standby.'
+  ]);
+  harveyMsg(msg);speak(msg);
+}
+
+// ── DOUBLE CLAP DETECTOR ──
+// webkitAudioContext for Safari/iOS; AudioContext for Chrome/Android
+function startClapDetector(){
+  const AC=window.AudioContext||window.webkitAudioContext;
+  if(!AC||!navigator.mediaDevices?.getUserMedia)return;
+  navigator.mediaDevices.getUserMedia({
+    audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false},
+    video:false
+  }).then(stream=>{
+    clapAudioCtx=new AC();
+    const src=clapAudioCtx.createMediaStreamSource(stream);
+    clapAnalyser=clapAudioCtx.createAnalyser();
+    clapAnalyser.fftSize=512;
+    src.connect(clapAnalyser);
+    const buf=new Uint8Array(clapAnalyser.fftSize);
+    let lastClapTime=0;
+    let inClap=false;
+    const CLAP_THRESHOLD=IS_MOBILE_DEVICE?185:210;
+    const CLAP_WINDOW=900;
+
+    function tick(){
+      clapAnimFrame=requestAnimationFrame(tick);
+      if(voiceMode||document.visibilityState!=='visible')return;
+      clapAnalyser.getByteTimeDomainData(buf);
+      let peak=0;
+      for(let i=0;i<buf.length;i++){const v=Math.abs(buf[i]-128);if(v>peak)peak=v;}
+      const now=Date.now();
+      if(peak>CLAP_THRESHOLD&&!inClap){
+        inClap=true;
+        clapFlash.classList.add('show');
+        setTimeout(()=>clapFlash.classList.remove('show'),120);
+        const gap=now-lastClapTime;
+        if(gap>80&&gap<CLAP_WINDOW){
+          clapTimes=[];lastClapTime=0;
+          activateVoiceMode();
+        }else{lastClapTime=now;}
+        setTimeout(()=>{inClap=false;},120);
+      }
+    }
+    tick();
+  }).catch(()=>{});
+}
+
+// ── SINGLISH VOICE NORMALISER ──
+function normaliseVoiceInput(txt){
+  let s=txt.trim();
+  s=s.replace(/^(uh+|um+|err+|ah+|eh+|can you|please|harvey|can harvey|hey harvey|ok harvey|yo harvey)\s+/gi,'');
+  s=s.replace(/\bwant to (check|see|find|look)\b/gi,'show me');
+  s=s.replace(/\bcan (check|see|find|look)\b/gi,'show me');
+  s=s.replace(/\bwhere got\b/gi,'are there any');
+  s=s.replace(/\bhow much (is|for|the)\b/gi,'what is the price of');
+  s=s.replace(/\bgot (any|more)?\s*/gi,'');
+  s=s.replace(/\bblock number\b/gi,'block');
+  s=s.replace(/\bunit level\b/gi,'floor');
+  s=s.replace(/\bwhich level\b/gi,'floor');
+  s=s.replace(/\bfloor number\b/gi,'floor');
+  return s.trim();
+}
+
+function buildRecog(){
+  if(!SR)return null;
+  const r=new SR();
+  r.continuous=false; // false is most reliable cross-device; we restart in onend
+  r.interimResults=true;
+  r.lang=IS_IOS?'en-GB':'en-SG'; // iOS handles en-SG inconsistently
+  r.maxAlternatives=1;
+
+  r.onstart=()=>{
+    recogBusy=true;
+    if(micState==='query'){
+      mbEl.classList.add('active');
+      vsBar.style.display='flex';
+      vsTxt.textContent=voiceMode?'HARVEY LISTENING \u2014 SPEAK ANYTIME':'HARVEY LISTENING\u2026';
+    }
+  };
+
+  r.onresult=e=>{
+    let interim='',final='';
+    for(let i=e.resultIndex;i<e.results.length;i++){
+      if(e.results[i].isFinal)final+=e.results[i][0].transcript;
+      else interim+=e.results[i][0].transcript;
+    }
+    const heard=(final||interim).trim();
+    if(!heard)return;
+
+    if(micState==='wake'&&!voiceMode){
+      if(/wake.?up.?harvey|hey.?harvey|ok.?harvey|harvey.?wake|harvey.?up/i.test(heard)){
+        if(isIdle){wakeFromIdle();}
+        else{
+          const rep=rand(['Yes, sir. Go ahead.','At your service, sir.','Listening, sir.','Harvey online. What do you need?','Right here, sir. What can I do for you?']);
+          harveyMsg(rep,[{label:'RESALE TRANSACTIONS',val:'search'},{label:'ESTIMATE VALUE',val:'estimate value'}]);
+          speak(rep);mode='menu';
+          setTimeout(()=>{micState='query';safeStart();},1200);
+        }
+        resetIdle();
+      }
+      if(/voice mode|always listen|hands free|keep listening|continuous mode|always on/i.test(heard)){
+        activateVoiceMode();
+      }
+    } else if(micState==='query'){
+      if(interim){
+        vsTxt.textContent='HEARING: '+interim.toUpperCase().slice(0,60);
+        ciEl.value=interim;
+        clearTimeout(speechTimer);clearTimeout(voiceModeSilTimer);
+        const silenceMs=voiceMode?2500:IS_MOBILE_DEVICE?3000:4000;
+        speechTimer=setTimeout(()=>{
+          if(ciEl.value.trim()){
+            const raw=normaliseVoiceInput(ciEl.value);
+            const normalised=normalizeSpeech(raw);
+            ciEl.value=normalised;handleInput();
+          }
+        },silenceMs);
+      }
+      if(final){
+        clearTimeout(speechTimer);clearTimeout(voiceModeSilTimer);
+        let raw=normaliseVoiceInput(final);
+        if(isDeactivationPhrase(raw)){deactivateVoiceMode();return;}
+        if(isSkipPhrase(raw)){
+          skipPreamble=true;
+          raw=raw.replace(/skip|just tell me|get to the point|no need intro|skip all these|just show me|direct answer|just the data|results only/gi,'').trim();
+          if(!raw){harveyMsg('Understood, sir \u2014 brevity mode. Ask away.');speak('Understood, sir. Brevity mode. Ask away.');if(voiceMode)setTimeout(()=>safeStart(),800);return;}
+        }
+        const normalised=normalizeSpeech(raw);
+        ciEl.value=normalised;
+        vsTxt.textContent='HEARD: '+normalised.toUpperCase().slice(0,60);
+        const delay=voiceMode?800:IS_MOBILE_DEVICE?1200:1500;
+        speechTimer=setTimeout(()=>handleInput(),delay);
+      }
+    }
+  };
+
+  r.onerror=e=>{
+    recogBusy=false;clearTimeout(speechTimer);
+    if(e.error==='not-allowed'||e.error==='service-not-allowed'){
+      vsSup.textContent='MIC BLOCKED \u2014 allow mic access in browser settings';
+      vsSup.style.color='var(--r)';
+      voiceMode=false;vmBadge.classList.remove('active');micState='off';return;
+    }
+    if(micState!=='off')setTimeout(()=>safeStart(),IS_IOS?2500:1200);
+  };
+
+  r.onend=()=>{
+    recogBusy=false;mbEl.classList.remove('active');
+    if(!voiceMode)vsBar.style.display='none';
+    if(micState==='wake'&&!voiceMode){
+      setTimeout(()=>safeStart(),IS_IOS?600:300);
+    } else if(micState==='query'){
+      setTimeout(()=>{
+        if(!speechTimer){
+          if(voiceMode){
+            vsTxt.textContent='HARVEY LISTENING \u2014 SPEAK ANYTIME';
+            setTimeout(()=>safeStart(),IS_IOS?700:350);
+          } else {micState='wake';safeStart();}
+        } else {
+          speechTimer=setTimeout(()=>{
+            if(ciEl.value.trim())handleInput();
+            if(voiceMode)setTimeout(()=>safeStart(),600);
+            else{micState='wake';setTimeout(()=>safeStart(),600);}
+          },voiceMode?600:1500);
+        }
+      },200);
+    }
+  };
+  return r;
+}
+
+function safeStart(){
+  if(recogBusy||micState==='off'||!SR)return;
+  recog=buildRecog();
+  try{recog.start();}
+  catch(e){
+    recogBusy=false;
+    setTimeout(()=>safeStart(),IS_IOS?2500:1500);
+  }
+}
+
+function toggleMic(){
+  if(!SR){harveyMsg('Voice input is not supported on this browser, sir. Please try Chrome on Android or Safari on iOS 14.5 or later.');return;}
+  if(voiceMode){deactivateVoiceMode();return;}
+  if(micState==='query'){clearTimeout(speechTimer);speechTimer=null;micState='wake';try{recog?.abort();}catch(e){}
+  }else{micState='query';try{recog?.abort();}catch(e){}setTimeout(()=>safeStart(),200);}
+}
+
+function toggleMobMic(){
+  const btn=document.getElementById('mob-mic-btn');
+  if(voiceMode){deactivateVoiceMode();btn?.classList.remove('listening');return;}
+  if(micState==='query'){micState='wake';try{recog?.abort();}catch(e){}btn?.classList.remove('listening');
+  }else{closeMobPanel();micState='query';try{recog?.abort();}catch(e){}setTimeout(()=>safeStart(),200);btn?.classList.add('listening');}
+}
+
+setInterval(()=>{
+  const btn=document.getElementById('mob-mic-btn');
+  if(!btn)return;
+  if(voiceMode||(micState==='query'&&recogBusy))btn.classList.add('listening');
+  else btn.classList.remove('listening');
+},400);
+
+if(SR){
+  const hint=IS_MOBILE_DEVICE
+    ?'DOUBLE-CLAP TO ACTIVATE VOICE MODE \u00B7 OR PRESS \uD83C\uDF99'
+    :'SAY "WAKE UP HARVEY" \u00B7 DOUBLE-CLAP \u00B7 OR CLICK \uD83C\uDF99';
+  vsSup.textContent=hint;
+  vsSup.style.color='var(--g)';
+  micState='wake';
+  setTimeout(()=>safeStart(),IS_MOBILE_DEVICE?4000:3000);
+}else{
+  mbEl.style.display='none';
+  vsSup.textContent='VOICE NOT SUPPORTED \u2014 TYPE TO CHAT WITH HARVEY';
+  vsSup.style.color='var(--a)';
+}
+
 function normalizeSpeech(txt){
   let s=txt.trim();
   // Contract long-form street words → DB short form (works for both typed and voice)
-  // e.g. user types "Clementi West Street 1" → "Clementi West ST 1" for DB matching
   s=contractStreetAbbr(s.toUpperCase());
-  // Also handle BLK → keep as-is (DB uses BLK prefix in some places but not street names)
 
   // ── Flat type phonetic fixes ──
   s=s.replace(/\b(tree|three|tri|thri|free|3)\s*(room|rum|roo|ruum)\b/gi,'3 room');
@@ -2279,6 +3938,37 @@ function normalizeSpeech(txt){
   s=s.replace(/\bqueens?town?\b/gi,'queenstown');
   s=s.replace(/\bjurong?\b/gi,'jurong');
   s=s.replace(/\bserangoon?\b/gi,'serangoon');
+  s=s.replace(/\bsemba?wang?\b/gi,'sembawang');
+  s=s.replace(/\bgeyla?ng?\b/gi,'geylang');
+  s=s.replace(/\bmar[ie]+\s*para?de?\b/gi,'marine parade');
+  s=s.replace(/\bpasir\s*ri[sz]\b/gi,'pasir ris');
+  s=s.replace(/\btoa\s*pay[ao]h?\b/gi,'toa payoh');
+  s=s.replace(/\bang\s*mo\s*ki[oa]?\b/gi,'ang mo kio');
+  s=s.replace(/\bchoa\s*chu\s*kang?\b/gi,'choa chu kang');
+  s=s.replace(/\bwhamp[oa]+\b/gi,'whampoa');
+  s=s.replace(/\bbukit\s*tima[hn]?\b/gi,'bukit timah');
+  s=s.replace(/\bbukit\s*batok?\b/gi,'bukit batok');
+  s=s.replace(/\bbukit\s*mera[h]?\b/gi,'bukit merah');
+  s=s.replace(/\bbukit\s*panjang?\b/gi,'bukit panjang');
+
+  // ── Street abbreviation voice fixes (in case voice says the short form) ──
+  // These ensure spoken "ave" "dr" "cl" etc get normalised for DB matching
+  s=s.replace(/\bdrive\b/gi,'DR');
+  s=s.replace(/\bclose\b/gi,'CL');
+  s=s.replace(/\bstreet\b/gi,'ST');
+  s=s.replace(/\bavenue\b/gi,'AVE');
+  s=s.replace(/\broad\b/gi,'RD');
+  s=s.replace(/\bcrescent\b/gi,'CRES');
+  s=s.replace(/\blorong\b/gi,'LOR');
+  s=s.replace(/\bjalan\b/gi,'JLN');
+  s=s.replace(/\bnorth\b/gi,'NTH');
+  s=s.replace(/\bsouth\b/gi,'STH');
+  s=s.replace(/\bcentral\b/gi,'CTRL');
+  s=s.replace(/\bupper\b/gi,'UPP');
+  s=s.replace(/\blane\b/gi,'LN');
+  s=s.replace(/\bterrace\b/gi,'TER');
+  s=s.replace(/\bheights\b/gi,'HTS');
+  s=s.replace(/\bgardens\b/gi,'GDNS');
 
   // ── Floor number words ──
   s=s.replace(/\b(floor|level|storey|unit.?s?\s+level)\s+(one|wan|first)\b/gi,'floor 1');
@@ -2291,19 +3981,30 @@ function normalizeSpeech(txt){
   s=s.replace(/\b(floor|level|storey|unit.?s?\s+level)\s+(eight|ate|eighth)\b/gi,'floor 8');
   s=s.replace(/\b(floor|level|storey|unit.?s?\s+level)\s+(nine|ninth)\b/gi,'floor 9');
   s=s.replace(/\b(floor|level|storey|unit.?s?\s+level)\s+(ten|tenth)\b/gi,'floor 10');
-  // "unit's level" / "units level" → "floor" keyword so parser picks it up
   s=s.replace(/\bunits?\s*[''']?\s*level\b/gi,'floor');
   s=s.replace(/\bwhich is (the\s*)?floor\b/gi,'floor');
 
   return s;
 }
 
-// ── TTS text cleaner — expand DB short forms so Harvey speaks properly ──
+// ── TTS text cleaner — expand DB short forms so Harvey speaks naturally ──
 function cleanForSpeech(txt){
   let s=txt.replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim();
-  s=expandStreetAbbr(s); // ST → STREET, AVE → AVENUE etc
+  s=expandStreetAbbr(s); // ST→Street, AVE→Avenue, NTH→North etc (Title Case for TTS)
   s=s.replace(/\bBLK\b/g,'Block');
   s=s.replace(/\$(\d{1,3}(?:,\d{3})*)/g,(m,n)=>n.replace(/,/g,'')+' dollars');
+  // Convert remaining ALL-CAPS sequences (3+ letters) that TTS would spell out letter by letter
+  // e.g. "HDB" → "H D B" spaced, "ROOM" → "Room", "TAMPINES" → "Tampines"
+  // Keep short known acronyms as spaced letters (HDB, TTS, PSF etc)
+  const SPEAK_AS_ACRONYM=new Set(['HDB','PSF','CPF','MRT','LRT','OTP','EV','BTO','MOP','HLE','AMK','CCK']);
+  s=s.replace(/\b([A-Z]{2,})\b/g,(match)=>{
+    if(SPEAK_AS_ACRONYM.has(match)){
+      // Spell it out with spaces so TTS says each letter clearly: "H D B"
+      return match.split('').join(' ');
+    }
+    // Otherwise convert to Title Case so TTS reads it as a word: "TAMPINES" → "Tampines"
+    return match.charAt(0)+match.slice(1).toLowerCase();
+  });
   return s;
 }
 
@@ -2333,7 +4034,13 @@ function buildRecog(){
       if(/wake.?up.?harvey|hey.?harvey|ok.?harvey/i.test(heard)){
         if(isIdle){wakeFromIdle();}
         else{
-          const rep=rand(['Yes sir.','At your service, sir.','Go ahead, sir.']);
+          const rep=rand([
+            'Yes, sir. Go ahead.',
+            'At your service, sir.',
+            'Listening, sir.',
+            'Harvey online. What do you need?',
+            'Right here, sir. What can I do for you?'
+          ]);
           harveyMsg(rep,[{label:'RESALE TRANSACTIONS',val:'search'},{label:'ESTIMATE VALUE',val:'estimate value'}]);
           speak(rep);mode='menu';
           setTimeout(()=>{micState='query';safeStart();},1200);
@@ -2411,10 +4118,32 @@ if(SR){
   micState='wake';setTimeout(()=>safeStart(),3000);
 }else{mbEl.style.display='none';vsSup.textContent='USE CHROME/EDGE FOR VOICE';vsSup.style.color='var(--a)';}
 
+// ── MOBILE PANEL TOGGLE ──
+function toggleMobPanel(panelId,tabId){
+  const panel=document.getElementById(panelId);
+  const isOpen=panel?.classList.contains('mob-visible');
+  closeMobPanel();
+  if(!isOpen){
+    panel?.classList.add('mob-visible');
+    document.querySelectorAll('.mob-tab').forEach(t=>t.classList.remove('active'));
+    document.getElementById(tabId)?.classList.add('active');
+  }
+}
+function closeMobPanel(){
+  document.querySelectorAll('.side').forEach(s=>s.classList.remove('mob-visible'));
+  document.querySelectorAll('.mob-tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('mob-tab-chat')?.classList.add('active');
+}
+function mobSearch(){
+  closeMobPanel();
+  setTimeout(()=>{ciEl?.focus();ciEl?.scrollIntoView({behavior:'smooth'});},100);
+  document.querySelectorAll('.mob-tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('mob-tab-search')?.classList.add('active');
+}
+
 // ── BOOT ──
 window.addEventListener('load',async()=>{
-  // Start loading Kokoro model in background — non-blocking
-  loadKokoro(); // ~85MB download, cached after first time
+  // Data loads on boot
   setTimeout(()=>{
     document.getElementById('welcome')?.remove();
     const boot=document.createElement('div');boot.className='msg-ai';
@@ -2427,7 +4156,7 @@ window.addEventListener('load',async()=>{
         <span style="color:var(--c)">▸</span> <strong style="color:var(--c)">ALL SYSTEMS ONLINE</strong>
       </div>`;
     msgsEl.appendChild(boot);bot();
-    speak(rand(['Good day, sir.','Welcome back, sir.','Harvey online, sir.']));
+    speak('Harvey is at your service. All systems online.');
   },400);
 
   // Load data in background
@@ -2435,12 +4164,21 @@ window.addEventListener('load',async()=>{
 
   setTimeout(()=>{
     if(ok){
-      harveyMsg(`What would you like to do, sir? I have <strong>${DB.resale.length.toLocaleString()}</strong> HDB resale transactions ready.`,[
+      // ── Time-aware greeting ──
+      const hr=new Date().getHours();
+      const timeOfDay=hr>=5&&hr<12?'morning':hr>=12&&hr<18?'afternoon':'evening';
+      const timeStr=new Date().toLocaleTimeString('en-SG',{hour:'numeric',minute:'2-digit',hour12:true});
+
+      // ── Market briefing line ──
+      const briefing=`Good ${timeOfDay}, sir. It is ${timeStr} local time. The Singapore property market remains active — HDB resale prices are generally well-supported, with affordability holding up reasonably across most towns. That said, prime locations and high-demand estates continue to command a premium, so expect stronger pricing in those pockets. I have <strong>${DB.resale.length.toLocaleString()}</strong> resale transactions ready for your review.`;
+
+      harveyMsg(briefing,[
         {label:'RESALE TRANSACTIONS',val:'search'},
         {label:'ESTIMATE VALUE',val:'estimate value'}
       ]);
+      speak(`Good ${timeOfDay}, sir. It is ${timeStr} local time. The Singapore property market remains active — HDB resale prices are generally well-supported, with affordability holding up across most towns. Prime locations and high-demand estates continue to command a premium. I have ${DB.resale.length.toLocaleString()} resale transactions ready for your review.`);
     } else {
-      harveyMsg('Data connection failed, sir. Please refresh the page.',[]);
+      harveyMsg('I appear to have encountered a data connection issue, sir. A quick refresh should set things right.',[]);
     }
     resetIdle();mode='menu';
   },2600);
