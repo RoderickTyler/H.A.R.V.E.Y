@@ -591,37 +591,44 @@ let harveyVoice  = null;
 
 function pickVoice(){
   const vv=window.speechSynthesis.getVoices();
-  if(!vv.length)return; // voices not loaded yet — will retry via onvoiceschanged
+  if(!vv.length)return;
 
-  // Priority order: best authoritative English male voices across platforms
-  // macOS/iOS: Daniel (en-GB), Alex (en-US)
-  // Windows: David (en-US), Mark (en-US), George (en-GB)
-  // Android: varies — we pick by lang+gender heuristic
-  const PREF=[
-    v=>/^daniel$/i.test(v.name),                          // macOS/iOS — best
-    v=>/^google uk english male$/i.test(v.name),          // Chrome Android/Desktop
-    v=>/^microsoft david/i.test(v.name),                  // Windows Edge/Chrome
-    v=>/^microsoft mark/i.test(v.name),                   // Windows
-    v=>/^microsoft george/i.test(v.name),                 // Windows
-    v=>/^alex$/i.test(v.name),                            // macOS fallback
-    v=>/daniel/i.test(v.name)&&/en/i.test(v.lang),
-    v=>/george/i.test(v.name)&&/en/i.test(v.lang),
-    v=>/arthur/i.test(v.name)&&/en/i.test(v.lang),
-    v=>/oliver/i.test(v.name)&&/en/i.test(v.lang),
-    v=>/david/i.test(v.name)&&/en/i.test(v.lang),
-    v=>/mark/i.test(v.name)&&/en/i.test(v.lang),
-    v=>/aaron/i.test(v.name)&&/en/i.test(v.lang),
-    v=>/fred/i.test(v.name)&&/en/i.test(v.lang),
-    // Explicitly exclude female names to avoid lady voice on Android
-    v=>!/female|samantha|victoria|karen|moira|fiona|tessa|veena|woman|girl/i.test(v.name)&&/en-GB/i.test(v.lang),
-    v=>!/female|samantha|victoria|karen|moira|fiona|tessa|veena|woman|girl/i.test(v.name)&&/en-US/i.test(v.lang),
-    v=>!/female|samantha|victoria|karen|moira|fiona|tessa|veena|woman|girl/i.test(v.name)&&/en/i.test(v.lang),
-    v=>/en/i.test(v.lang), // absolute last resort
-  ];
-  for(const fn of PREF){
-    const found=vv.find(fn);
-    if(found){harveyVoice=found;return;}
+  if(!IS_MOBILE){
+    // ── DESKTOP — original logic unchanged, sounds great as-is ──
+    harveyVoice=
+      vv.find(v=>/^daniel$/i.test(v.name))||
+      vv.find(v=>/daniel/i.test(v.name)&&/en/i.test(v.lang))||
+      vv.find(v=>/george/i.test(v.name)&&/en/i.test(v.lang))||
+      vv.find(v=>/arthur/i.test(v.name)&&/en/i.test(v.lang))||
+      vv.find(v=>/oliver/i.test(v.name)&&/en/i.test(v.lang))||
+      vv.find(v=>/aaron/i.test(v.name)&&/en/i.test(v.lang))||
+      vv.find(v=>/fred/i.test(v.name)&&/en/i.test(v.lang))||
+      vv.find(v=>/male/i.test(v.name)&&/en/i.test(v.lang))||
+      vv.find(v=>/en-GB/i.test(v.lang))||
+      vv.find(v=>/en/i.test(v.lang))||null;
+    return;
   }
+
+  // ── MOBILE (iOS / Android / Windows Phone) ──
+  // Same name priority but explicitly exclude female voices
+  const FEMALE=/samantha|victoria|karen|moira|fiona|tessa|veena|zira|hazel|susan|female|woman|girl/i;
+  harveyVoice=
+    vv.find(v=>/^daniel$/i.test(v.name))||
+    vv.find(v=>/^google uk english male$/i.test(v.name))||
+    vv.find(v=>/^microsoft david/i.test(v.name))||
+    vv.find(v=>/^microsoft mark/i.test(v.name))||
+    vv.find(v=>/^alex$/i.test(v.name))||
+    vv.find(v=>/daniel/i.test(v.name)&&/en/i.test(v.lang))||
+    vv.find(v=>/george/i.test(v.name)&&/en/i.test(v.lang))||
+    vv.find(v=>/arthur/i.test(v.name)&&/en/i.test(v.lang))||
+    vv.find(v=>/oliver/i.test(v.name)&&/en/i.test(v.lang))||
+    vv.find(v=>/david/i.test(v.name)&&/en/i.test(v.lang))||
+    vv.find(v=>/mark/i.test(v.name)&&/en/i.test(v.lang))||
+    vv.find(v=>/fred/i.test(v.name)&&/en/i.test(v.lang))||
+    vv.find(v=>!FEMALE.test(v.name)&&/en-GB/i.test(v.lang))||
+    vv.find(v=>!FEMALE.test(v.name)&&/en-US/i.test(v.lang))||
+    vv.find(v=>!FEMALE.test(v.name)&&/en/i.test(v.lang))||
+    vv.find(v=>/en/i.test(v.lang))||null;
 }
 pickVoice();
 if(window.speechSynthesis.onvoiceschanged!==undefined)
@@ -2909,10 +2916,12 @@ function harveyChitChat(raw, convCtx){
 
   // ── CONTEXT NUDGE — if Harvey has an active search context, remind user we're still on it ──
   // Build a subtle tail line so Harvey feels like a real assistant multitasking
-  const hasCtx=convCtx&&(convCtx.town||convCtx.street||convCtx.block||convCtx.flatType);
+  // Only show context nudge if Harvey is ACTIVELY mid-search (waiting for more details)
+  // NOT just because something was searched earlier in the conversation
+  const isMidSearch=convCtx&&(convCtx.town||convCtx.street||convCtx.block||convCtx.flatType)&&
+    (mode==='srch_waiting'||mode==='ev_waiting');
   function withCtx(response){
-    if(!hasCtx) return response;
-    // Build a short reminder of what's in memory
+    if(!isMidSearch) return response;
     const parts=[];
     if(convCtx.block) parts.push(`Blk ${convCtx.block}`);
     if(convCtx.street) parts.push(convCtx.street.split(' ').slice(0,3).join(' '));
