@@ -582,27 +582,46 @@ const SHEET_URLS = {
   townstreets:`https://docs.google.com/spreadsheets/d/${GOOGLE_SHEET_ID}/gviz/tq?tqx=out:csv&sheet=townstreets`
 };
 
-// ── TTS ENGINE — Browser native Daniel voice, no downloads, no crashes ──
+// ── TTS ENGINE — consistent authoritative male voice across all devices ──
 const IS_MOBILE = /iPhone|iPad|iPod|Android|Mobile/i.test(navigator.userAgent);
-const VOICE_SPEED = IS_MOBILE ? 1.05 : 1.15; // Jarvis: measured, not rushed
+const VOICE_SPEED = 1.1; // same on all devices — measured, Jarvis-like
 
 let currentAudio = null;
 let harveyVoice  = null;
 
-// Pick the best available voice — Daniel (macOS/iOS) is closest to Jarvis
 function pickVoice(){
   const vv=window.speechSynthesis.getVoices();
-  harveyVoice=
-    vv.find(v=>/^daniel$/i.test(v.name))||
-    vv.find(v=>/daniel/i.test(v.name)&&/en/i.test(v.lang))||
-    vv.find(v=>/george/i.test(v.name)&&/en/i.test(v.lang))||
-    vv.find(v=>/arthur/i.test(v.name)&&/en/i.test(v.lang))||
-    vv.find(v=>/oliver/i.test(v.name)&&/en/i.test(v.lang))||
-    vv.find(v=>/aaron/i.test(v.name)&&/en/i.test(v.lang))||
-    vv.find(v=>/fred/i.test(v.name)&&/en/i.test(v.lang))||
-    vv.find(v=>/male/i.test(v.name)&&/en/i.test(v.lang))||
-    vv.find(v=>/en-GB/i.test(v.lang))||
-    vv.find(v=>/en/i.test(v.lang))||null;
+  if(!vv.length)return; // voices not loaded yet — will retry via onvoiceschanged
+
+  // Priority order: best authoritative English male voices across platforms
+  // macOS/iOS: Daniel (en-GB), Alex (en-US)
+  // Windows: David (en-US), Mark (en-US), George (en-GB)
+  // Android: varies — we pick by lang+gender heuristic
+  const PREF=[
+    v=>/^daniel$/i.test(v.name),                          // macOS/iOS — best
+    v=>/^google uk english male$/i.test(v.name),          // Chrome Android/Desktop
+    v=>/^microsoft david/i.test(v.name),                  // Windows Edge/Chrome
+    v=>/^microsoft mark/i.test(v.name),                   // Windows
+    v=>/^microsoft george/i.test(v.name),                 // Windows
+    v=>/^alex$/i.test(v.name),                            // macOS fallback
+    v=>/daniel/i.test(v.name)&&/en/i.test(v.lang),
+    v=>/george/i.test(v.name)&&/en/i.test(v.lang),
+    v=>/arthur/i.test(v.name)&&/en/i.test(v.lang),
+    v=>/oliver/i.test(v.name)&&/en/i.test(v.lang),
+    v=>/david/i.test(v.name)&&/en/i.test(v.lang),
+    v=>/mark/i.test(v.name)&&/en/i.test(v.lang),
+    v=>/aaron/i.test(v.name)&&/en/i.test(v.lang),
+    v=>/fred/i.test(v.name)&&/en/i.test(v.lang),
+    // Explicitly exclude female names to avoid lady voice on Android
+    v=>!/female|samantha|victoria|karen|moira|fiona|tessa|veena|woman|girl/i.test(v.name)&&/en-GB/i.test(v.lang),
+    v=>!/female|samantha|victoria|karen|moira|fiona|tessa|veena|woman|girl/i.test(v.name)&&/en-US/i.test(v.lang),
+    v=>!/female|samantha|victoria|karen|moira|fiona|tessa|veena|woman|girl/i.test(v.name)&&/en/i.test(v.lang),
+    v=>/en/i.test(v.lang), // absolute last resort
+  ];
+  for(const fn of PREF){
+    const found=vv.find(fn);
+    if(found){harveyVoice=found;return;}
+  }
 }
 pickVoice();
 if(window.speechSynthesis.onvoiceschanged!==undefined)
@@ -2853,6 +2872,36 @@ function jarvisStuck(raw){
 // ══════════════════════════════════════════════════════════════════════
 function harveyChitChat(raw, convCtx){
   const q=raw.toLowerCase().replace(/[^a-z0-9\s']/g,' ');
+
+  // ── DB GUARD — if input contains ANY known HDB street, town, road, or
+  // block reference, return null immediately so the data engine handles it.
+  // This prevents "teban" / "clementi" / "tampines" triggering chitchat.
+  const DB_WORDS=new Set([
+    // All HDB towns
+    'tampines','clementi','bedok','bishan','jurong','yishun','woodlands',
+    'sengkang','punggol','hougang','queenstown','kallang','serangoon',
+    'bukit','geylang','whampoa','crawford','tiong bahru','marine parade',
+    'buona vista','dover','toa payoh','ang mo kio','pasir ris',
+    'sembawang','choa chu kang','bukit batok','bukit merah','bukit panjang',
+    'bukit timah','central area','lim chu kang','mandai','novena',
+    'pioneer','tengah','western water catchment','woodgrove',
+    // Common HDB street keywords — if these appear, it's a data query
+    'teban','lor','lorong','jalan','avenue','street','road','drive','close',
+    'crescent','lane','place','grove','heights','terrace','walk','link',
+    'rise','view','way','gardens','courts','market','park','central',
+    'blk','block','floor','level','storey','sqm','room','flat','hdb',
+    'resale','price','value','valuation','estimate','transaction','sale',
+    'sold','recent','cheapest','expensive','psf','lease',
+  ]);
+  // Also check against live DB towns if loaded
+  const liveTowns=Object.keys(DB&&DB.townStreets?DB.townStreets:{});
+  const allWords=q.split(/\s+/).filter(w=>w.length>2);
+  const bigrams=[];
+  for(let i=0;i<allWords.length-1;i++)bigrams.push(allWords[i]+' '+allWords[i+1]);
+  for(const t of[...allWords,...bigrams]){
+    if(DB_WORDS.has(t))return null; // let the data engine handle it
+    if(liveTowns.some(town=>town.toLowerCase()===t))return null;
+  }
 
   // ── HELPER ──
   const m=(...patterns)=>patterns.some(p=>p.test?p.test(q):q.includes(p));
