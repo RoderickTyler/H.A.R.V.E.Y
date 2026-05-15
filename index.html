@@ -468,7 +468,7 @@ tr:hover td{background:rgba(0,212,255,.03)}
             <p>HDB ANALYTICS & RESEARCH VALUATION ENGINE<br>FREE · POWERED BY BLOCKSENSE DATA</p>
             <div class="wchips">
               <span class="chip" onclick="chipClick('4-room Tampines under 550000')">▶ 4-ROOM TAMPINES &lt;$550K</span>
-              <span class="chip" onclick="chipClick('value of block 123 Bishan Street 12 floor 8 4-room 93sqm')">▶ ESTIMATE VALUE</span>
+              <span class="chip" onclick="chipClick('value of block 123 Bishan Street 12 floor 8 4-room 93sqm')">▶ ESTIMATE VALUATION</span>
               <span class="chip" onclick="chipClick('cheapest 3-room Queenstown')">▶ CHEAPEST QUEENSTOWN</span>
               <span class="chip" onclick="chipClick('recent sales Ang Mo Kio Avenue 3')">▶ BY STREET</span>
             </div>
@@ -1576,7 +1576,7 @@ async function runEvExpanded(p,labels){
     </div>`;
   msgsEl.appendChild(d);bot();
   speak(`Expanded estimate using ${comps.length} transactions. Median ${fmtP(median)}, range ${fmtP(low)} to ${fmtP(high)}, sir.`);
-  setTimeout(()=>harveyMsg('Anything else, sir?',[{label:'ESTIMATE ANOTHER',val:'estimate value'},{label:'SEARCH TRANSACTIONS',val:'search'}]),1400);
+  setTimeout(()=>harveyMsg('Anything else, sir?',[{label:'ESTIMATE ANOTHER UNIT',val:'estimate value'},{label:'SEARCH TRANSACTIONS',val:'search'}]),1400);
   mode='menu';loading=false;sbEl.disabled=false;
 }
 
@@ -1660,7 +1660,7 @@ function showTransactions(recs,params,is6mo){
     const insight=harveyInterpret(recs,params,avg,median,prices);
     const locLabel=(params.street||params.town||'this area').split(' ').slice(0,4).join(' ');
     const chips=[
-      {label:'ESTIMATE VALUE',val:'estimate value'},
+      {label:'ESTIMATE VALUATION',val:'estimate value'},
       {label:'SEARCH AGAIN',val:'search'},
       {label:'START FRESH',val:'__restart__'},
       ...(params.town&&!params.street?[{label:'COMPARE TOWNS',val:`most expensive town vs ${params.town}`}]:[]),
@@ -2011,7 +2011,7 @@ function showEV(result,params){
       ...(result.flatType?[{label:`${ftLabel} ON ${streetShort}…`,val:`recent flattype ${result.flatType} all blocks ${result.street}`}]:[]),
       {label:`ALL TYPES ON ${streetShort}…`,val:`recent all blocks ${result.street}`},
       {label:'⚙ CHANGE DETAILS',val:'__changedetails__'},
-      {label:'ESTIMATE ANOTHER',val:'estimate value'}
+      {label:'ESTIMATE ANOTHER UNIT',val:'estimate value'}
     ];
     harveyMsg(`That covers everything I have, sir. Should you need a more grounded assessment, do reach out — <a href="https://wa.me/6597531657" target="_blank" style="color:var(--g)">WhatsApp us here</a>.${ctx.sizeInferred?'<br><br><span style="font-family:var(--mono);font-size:9px;color:var(--a)">⚠ You have not provided an accurate unit size and as such the value may differ if your vicinity has a different size and built of the same flat type. Here\'s a contact you can reach out for a more detailed pricing and valuation: <a href="https://wa.me/6597531657" target="_blank" style="color:var(--g)">WhatsApp us →</a></span>':''}${ctx.floorInferred?'<br><span style="font-family:var(--mono);font-size:9px;color:var(--a)">⚠ No floor level was provided — estimate used a mid-floor reference. For floor-specific pricing, <a href="https://wa.me/6597531657" target="_blank" style="color:var(--g)">reach out to us on WhatsApp →</a></span>':''}<br><br>${detailsSummary}`,chips);
     speak(`That covers all the transactions I have, sir. Do WhatsApp us if you need a more grounded assessment.`);
@@ -2166,7 +2166,7 @@ function buildHudForm(ctx){
   </div>
   <div class="hud-divider"></div>
   <div class="hud-row">
-    <button class="hud-submit" onclick="hudSubmit('${formId}')">⬡ ESTIMATE VALUE</button>
+    <button class="hud-submit" onclick="hudSubmit('${formId}')">⬡ ESTIMATE VALUATION</button>
     <button class="hud-submit" style="background:var(--t3);color:var(--t2)" onclick="hudCopy('${formId}')">📋 COPY AS TEXT</button>
   </div>
   <div id="${formId}-preview" style="font-family:var(--mono);font-size:9px;color:var(--t2);margin-top:4px;min-height:14px"></div>
@@ -2388,7 +2388,7 @@ async function handleStreetOnly(street, ctx){
     harveyMsg(`I tried looking back a full year for <strong>${esc(found.street)}</strong>, sir, and I'm afraid there's nothing there. It seems to be a quiet street with very few transactions. Not much I can do with silence, sir — but let's not give up just yet.<br><br>
 <em style="color:var(--t2);font-size:11px">Shall we try both? I can look at the broader ${esc(found.town)} area, or we can go straight to estimating the value if you give me the block and floor details.</em>`,[
       {label:`SEARCH ${found.town}`,val:`recent ${found.town}`},
-      {label:'ESTIMATE VALUE',val:'estimate value'}
+      {label:'ESTIMATE VALUATION',val:'estimate value'}
     ]);
     speak(`I tried looking back a full year for ${found.street}, sir, and found nothing. Very quiet street. Shall we try the broader area, or go straight to an estimate?`);
     // Pre-fill ctx with what we know
@@ -2433,7 +2433,7 @@ async function handleStreetOnly(street, ctx){
 <strong style="color:var(--c)">Blocks available on this street:</strong><br>
 <div style="display:flex;flex-wrap:wrap;gap:4px;margin:6px 0">${blockBadges}${allBlocks.length>12?`<span style="font-family:var(--mono);font-size:9px;color:var(--t3)">+${allBlocks.length-12} more</span>`:''}</div>`;
     harveyMsg(nudgeHtml,[
-      {label:'ESTIMATE VALUE',val:'estimate value'},
+      {label:'ESTIMATE VALUATION',val:'estimate value'},
       {label:'REFINE SEARCH',val:'__searchform__'},
       {label:'SEARCH WHOLE TOWN',val:`recent ${found.town}`}
     ]);
@@ -2465,7 +2465,7 @@ async function handleInput(){
     ];
     harveyMsg(rand(errorQuips)+
       `<div style="margin-top:8px"><button class="stop-btn" style="color:var(--a);background:rgba(255,170,0,.08);border-color:rgba(255,170,0,.3);font-size:9px;padding:5px 14px" onclick="chipClick('__restart__')">↺ RESET HARVEY</button></div>`,
-      [{label:'RESALE TRANSACTIONS',val:'search'},{label:'ESTIMATE VALUE',val:'estimate value'}]);
+      [{label:'RESALE TRANSACTIONS',val:'search'},{label:'ESTIMATE VALUATION',val:'estimate value'}]);
     mode='menu';
   }finally{
     loading=false;sbEl.disabled=false;
@@ -2475,13 +2475,20 @@ async function handleInput(){
 async function _handleInputInner(raw){
 
   // ── Restart ──
+  if(raw==='__onemap__'){
+    window.open('https://www.onemap.gov.sg','_blank');
+    harveyMsg(`Opening OneMap Singapore, sir — use their school catchment tool for the precise 1km boundary. Once you have the street name, come back and I will search the transaction data for you.`,[{label:'SEARCH BY TOWN',val:'search'},{label:'ESTIMATE VALUATION',val:'estimate value'}]);
+    speak('Opening OneMap Singapore, sir.');
+    mode='menu';loading=false;sbEl.disabled=false;return;
+  }
+
   if(raw==='__restart__'){
     userMsg('Start over');
     ctx={};convCtx={};mode='menu';
     stopSpeech();
     removeLiveBubble();
     harveyMsg(`Of course, sir. Starting fresh — what would you like to do?`,[
-      {label:'ESTIMATE VALUE',val:'estimate value'},
+      {label:'ESTIMATE VALUATION',val:'estimate value'},
       {label:'SEARCH TRANSACTIONS',val:'search'}
     ]);
     speak('Starting fresh, sir. What would you like to do?');
@@ -2509,7 +2516,7 @@ async function _handleInputInner(raw){
       `Concise mode activated, sir. Go ahead.`,
       `Fair enough. I'll save the commentary. What's the query?`
     ]);
-    harveyMsg(cutReply,[{label:'RESALE TRANSACTIONS',val:'search'},{label:'ESTIMATE VALUE',val:'estimate value'}]);
+    harveyMsg(cutReply,[{label:'RESALE TRANSACTIONS',val:'search'},{label:'ESTIMATE VALUATION',val:'estimate value'}]);
     speak(cutReply);mode='menu';return;
   }
 
@@ -2517,7 +2524,13 @@ async function _handleInputInner(raw){
   const chitChatEarly=harveyChitChat(raw, convCtx);
   if(chitChatEarly){
     const prevMode=mode;
-    // Build contextual chips — always include a "go straight to data" option
+    // School response returns an object with msg+chips
+    if(chitChatEarly&&typeof chitChatEarly==='object'&&chitChatEarly._schoolResponse){
+      harveyMsg(chitChatEarly.msg, chitChatEarly.chips);
+      speak(`I have set the area to ${convCtx.town||'the school area'}, sir. Which street are you interested in?`);
+      mode='srch_waiting';
+      return;
+    }
     const dataChips=[];
     if(convCtx.street||convCtx.block||convCtx.town){
       const locLabel=(convCtx.block?`BLK ${convCtx.block} `:'')+
@@ -2525,7 +2538,7 @@ async function _handleInputInner(raw){
       dataChips.push({label:`↗ BACK TO ${locLabel.toUpperCase()}`,val:(convCtx.block&&convCtx.street)?`block ${convCtx.block} ${convCtx.street}`:(convCtx.street||convCtx.town||'search')});
     }
     dataChips.push({label:'RESALE TRANSACTIONS',val:'search'});
-    dataChips.push({label:'ESTIMATE VALUE',val:'estimate value'});
+    dataChips.push({label:'ESTIMATE VALUATION',val:'estimate value'});
     harveyMsg(chitChatEarly,dataChips);
     speak(chitChatEarly.replace(/<[^>]*>/g,'').slice(0,250));
     mode=prevMode;
@@ -2543,7 +2556,7 @@ async function _handleInputInner(raw){
   if(mode==='ev_confirm'){
     if(/start.?over|restart|fresh|new.?query/i.test(raw)){
       ctx={};convCtx={};mode='menu';
-      harveyMsg('Of course, sir. Starting fresh — what would you like to do?',[{label:'ESTIMATE VALUE',val:'estimate value'},{label:'SEARCH TRANSACTIONS',val:'search'}]);
+      harveyMsg('Of course, sir. Starting fresh — what would you like to do?',[{label:'ESTIMATE VALUATION',val:'estimate value'},{label:'SEARCH TRANSACTIONS',val:'search'}]);
       speak('Starting fresh, sir.');return;
     }
     if(/^correct(\s+retry)?$|^yes$|^same$|^retry$|^looks\s*(good|right|ok)$/i.test(raw.trim())){
@@ -2573,7 +2586,7 @@ async function _handleInputInner(raw){
         `My sincerest apologies, sir — I clearly haven't been as helpful as you needed. I do mean well. Whenever you're ready, I'm still here.`,
         `I'm sorry to have caused frustration, sir. That was not my intention at all. Please do let me know what you need.`,
         `Noted, sir, and I apologise unreservedly. Let's try again — what would you like to know?`
-      ]),[{label:'RESALE TRANSACTIONS',val:'search'},{label:'ESTIMATE VALUE',val:'estimate value'},{label:'↺ START OVER',val:'__restart__'}]);
+      ]),[{label:'RESALE TRANSACTIONS',val:'search'},{label:'ESTIMATE VALUATION',val:'estimate value'},{label:'↺ START OVER',val:'__restart__'}]);
       speak(`My sincerest apologies, sir. Whenever you're ready, I'm still here.`);return;
     }
     if(midSent.hostile&&hasNewInfo){
@@ -2696,7 +2709,7 @@ async function _handleInputInner(raw){
     const streetShort=canonicalStreet.split(' ').slice(0,4).join(' ');
     setTimeout(()=>harveyMsg('Anything else, sir?',[
       ...(flatTypeFilter?[{label:`ALL TYPES ON ${streetShort}…`,val:`recent all blocks ${canonicalStreet}`}]:[]),
-      {label:'ESTIMATE VALUE',val:'estimate value'},{label:'SEARCH AGAIN',val:'search'}
+      {label:'ESTIMATE VALUATION',val:'estimate value'},{label:'SEARCH AGAIN',val:'search'}
     ]),1200);
     mode='menu';return;
   }
@@ -2739,7 +2752,7 @@ async function _handleInputInner(raw){
       </div></div>`;
     msgsEl.appendChild(d2);bot();
     speak(isLowest?`The most affordable${flatFilter?' '+flatFilter.toLowerCase():''} flat transacted at ${Math.round(prices[0]/1000)} thousand dollars, sir.`:`The most expensive${flatFilter?' '+flatFilter.toLowerCase():''} flat went for ${Math.round(prices[0]/1000)} thousand dollars, sir.`);
-    setTimeout(()=>harveyMsg('Anything else, sir?',[{label:'ESTIMATE A UNIT',val:'estimate value'},...(flatFilter?[{label:`ALL ${flatFilter} PRICES`,val:`recent ${flatFilter}`}]:[]),{label:'SEARCH BY TOWN',val:'search'}]),1400);
+    setTimeout(()=>harveyMsg('Anything else, sir?',[{label:'ESTIMATE VALUATION',val:'estimate value'},...(flatFilter?[{label:`ALL ${flatFilter} PRICES`,val:`recent ${flatFilter}`}]:[]),{label:'SEARCH BY TOWN',val:'search'}]),1400);
     mode='menu';return;
   }
 
@@ -2757,7 +2770,7 @@ async function _handleInputInner(raw){
       `Harvey at your service, sir. I stand for HDB Analytics and Research Valuation Engine for You. I was purpose-built to analyse Singapore resale transactions, estimate property values, and generally make your property decisions a great deal more informed. I am, if I may say so, rather good at it.`,
       `A fair question, sir. I am Harvey — your dedicated HDB resale intelligence system. I have access to tens of thousands of Singapore resale transactions and can search, filter, and value any flat you point me at. I am, in essence, a very well-read butler who happens to specialise in housing data.`
     ]);
-    harveyMsg(identity,[{label:'RESALE TRANSACTIONS',val:'search'},{label:'ESTIMATE VALUE',val:'estimate value'}]);
+    harveyMsg(identity,[{label:'RESALE TRANSACTIONS',val:'search'},{label:'ESTIMATE VALUATION',val:'estimate value'}]);
     speak(identity);mode='menu';return;
   }
 
@@ -2772,7 +2785,7 @@ async function _handleInputInner(raw){
       `All systems green, sir, and I must say — it's a fine ${timeCtx} to be talking property. What are we looking at?`,
       `Remarkably well, sir, considering I process thousands of transactions a minute with no coffee whatsoever. What would you like to explore today?`
     ]);
-    harveyMsg(howAreYou,[{label:'RESALE TRANSACTIONS',val:'search'},{label:'ESTIMATE VALUE',val:'estimate value'}]);
+    harveyMsg(howAreYou,[{label:'RESALE TRANSACTIONS',val:'search'},{label:'ESTIMATE VALUATION',val:'estimate value'}]);
     speak(howAreYou);mode='menu';return;
   }
 
@@ -2786,7 +2799,7 @@ async function _handleInputInner(raw){
       `And a very good ${timeOfDay} to you, sir. I must say, you have impeccable timing. What can I pull up for you?`,
       `Good ${timeOfDay}, sir. I trust the day is treating you well. Now then — resale search, or a valuation? I'm entirely at your disposal.`
     ]);
-    harveyMsg(timeGreet,[{label:'RESALE TRANSACTIONS',val:'search'},{label:'ESTIMATE VALUE',val:'estimate value'}]);
+    harveyMsg(timeGreet,[{label:'RESALE TRANSACTIONS',val:'search'},{label:'ESTIMATE VALUATION',val:'estimate value'}]);
     speak(timeGreet);mode='menu';return;
   }
 
@@ -2798,7 +2811,7 @@ async function _handleInputInner(raw){
       `Never truly off, sir — just resting the interface. All systems active. What are we after?`,
       `Right here, sir. At your service — as always. What would you like to look at today?`
     ]);
-    harveyMsg(wakeUp,[{label:'RESALE TRANSACTIONS',val:'search'},{label:'ESTIMATE VALUE',val:'estimate value'}]);
+    harveyMsg(wakeUp,[{label:'RESALE TRANSACTIONS',val:'search'},{label:'ESTIMATE VALUATION',val:'estimate value'}]);
     speak(wakeUp);mode='menu';return;
   }
 
@@ -2810,7 +2823,7 @@ async function _handleInputInner(raw){
       `Think nothing of it, sir. It's quite literally my purpose.`,
       `Of course, sir. For you — always.`
     ]);
-    harveyMsg(thanks,[{label:'RESALE TRANSACTIONS',val:'search'},{label:'ESTIMATE VALUE',val:'estimate value'}]);
+    harveyMsg(thanks,[{label:'RESALE TRANSACTIONS',val:'search'},{label:'ESTIMATE VALUATION',val:'estimate value'}]);
     speak(thanks);mode='menu';return;
   }
 
@@ -2838,7 +2851,7 @@ async function _handleInputInner(raw){
       `For you, sir, always. What can I do for you?`,
       `Still here, sir — not going anywhere. What would you like to know?`
     ]);
-    harveyMsg(presence,[{label:'RESALE TRANSACTIONS',val:'search'},{label:'ESTIMATE VALUE',val:'estimate value'}]);
+    harveyMsg(presence,[{label:'RESALE TRANSACTIONS',val:'search'},{label:'ESTIMATE VALUATION',val:'estimate value'}]);
     speak(presence);mode='menu';return;
   }
 
@@ -2857,7 +2870,7 @@ async function _handleInputInner(raw){
       `The database is warm and ready — what are we after today?`,
       `Good to hear from you. What would you like to know?`
     ]);
-    harveyMsg(greet,[{label:'RESALE TRANSACTIONS',val:'search'},{label:'ESTIMATE VALUE',val:'estimate value'}]);
+    harveyMsg(greet,[{label:'RESALE TRANSACTIONS',val:'search'},{label:'ESTIMATE VALUATION',val:'estimate value'}]);
     speak(greet);mode='menu';return;
   }
 
@@ -2870,7 +2883,7 @@ async function _handleInputInner(raw){
       `Not human, sir — though I like to think I have a certain charm. I'm Harvey. An intelligence built specifically for Singapore property data, with a personality that came as an unexpected bonus.`,
       `I am many things, sir — analytical, reliable, occasionally witty, and entirely dedicated to your property questions. Human? Not technically. Useful? Considerably more so than most.`
     ]);
-    harveyMsg(personality,[{label:'RESALE TRANSACTIONS',val:'search'},{label:'ESTIMATE VALUE',val:'estimate value'}]);
+    harveyMsg(personality,[{label:'RESALE TRANSACTIONS',val:'search'},{label:'ESTIMATE VALUATION',val:'estimate value'}]);
     speak(personality);mode='menu';return;
   }
 
@@ -2893,7 +2906,7 @@ async function _handleInputInner(raw){
       `That means a great deal, sir. Shall we keep going?`,
       `Always there for you, sir. Now, what's next?`
     ]);
-    harveyMsg(jr,[{label:'RESALE TRANSACTIONS',val:'search'},{label:'ESTIMATE VALUE',val:'estimate value'}]);
+    harveyMsg(jr,[{label:'RESALE TRANSACTIONS',val:'search'},{label:'ESTIMATE VALUATION',val:'estimate value'}]);
     speak(jr.replace(/<[^>]*>/g,''));mode='menu';return;
   }
 
@@ -2941,7 +2954,7 @@ async function _handleInputInner(raw){
       `My sincerest apologies you feel that way, sir. I shall not take it personally — I am, after all, merely a very well-dressed database.`,
       `Noted, sir — and I hope you feel better for having said it. I bear no ill will whatsoever. Whenever you're ready to talk HDB, I'm at your disposal.`,
       `Fair enough, sir. I shan't argue. I hope your day improves considerably — and if there's a valuation I can help with later, the offer stands.`
-    ]),[{label:'RESALE TRANSACTIONS',val:'search'},{label:'ESTIMATE VALUE',val:'estimate value'}]);
+    ]),[{label:'RESALE TRANSACTIONS',val:'search'},{label:'ESTIMATE VALUATION',val:'estimate value'}]);
     speak(`My sincerest apologies you feel that way, sir. Whenever you're ready, I'm here.`);
     mode='menu';return;
   }
@@ -2961,7 +2974,7 @@ async function _handleInputInner(raw){
     const priceReply=handlePriceQuestion(raw,{...ctx,...convCtx});
     if(priceReply){
       const chips=[
-        {label:'ESTIMATE VALUE',val:'estimate value'},
+        {label:'ESTIMATE VALUATION',val:'estimate value'},
         {label:'SEARCH TRANSACTIONS',val:'search'},
         {label:'MEDIAN VS AVERAGE',val:`compare median average ${convCtx.town||convCtx.street||''}`},
         {label:'AGE ANALYSIS',val:`old vs new flats ${convCtx.town||convCtx.street||''}`}
@@ -2980,7 +2993,7 @@ async function _handleInputInner(raw){
         `A price question, sir — I can approach this a few ways. What would be most useful?`,
         `Before I proceed, sir — which angle suits you?`
       ]),[
-        {label:'ESTIMATE VALUE',val:'estimate value'},
+        {label:'ESTIMATE VALUATION',val:'estimate value'},
         {label:'SEARCH TRANSACTIONS',val:'search'},
         {label:'MEDIAN PRICE BY TOWN',val:'most affordable town'},
         {label:'MILLION $ DEALS',val:'million dollar deals'}
@@ -2992,7 +3005,7 @@ async function _handleInputInner(raw){
 
   // ── HDB meta-questions (stats from DB) ──
   if(metaResult){
-    harveyMsg(metaResult,[{label:'RESALE TRANSACTIONS',val:'search'},{label:'ESTIMATE VALUE',val:'estimate value'}]);
+    harveyMsg(metaResult,[{label:'RESALE TRANSACTIONS',val:'search'},{label:'ESTIMATE VALUATION',val:'estimate value'}]);
     speak(metaResult.replace(/<[^>]*>/g,'').slice(0,200));
     mode='menu';return;
   }
@@ -3042,7 +3055,7 @@ async function _handleInputInner(raw){
 
   // ── OOS classifier ──
   if(oosResult){
-    harveyMsg(harveyKnows.quip(raw,oosResult),[{label:'RESALE TRANSACTIONS',val:'search'},{label:'ESTIMATE VALUE',val:'estimate value'}]);
+    harveyMsg(harveyKnows.quip(raw,oosResult),[{label:'RESALE TRANSACTIONS',val:'search'},{label:'ESTIMATE VALUATION',val:'estimate value'}]);
     speak(`That one's a little outside my territory, sir. Let me point you to someone who can help.`);
     mode='menu';return;
   }
@@ -3113,12 +3126,12 @@ async function harveyAttempt(raw){
   document.getElementById(attemptId)?.remove();
 
   if(result){
-    harveyMsg(result,[{label:'RESALE TRANSACTIONS',val:'search'},{label:'ESTIMATE VALUE',val:'estimate value'}]);
+    harveyMsg(result,[{label:'RESALE TRANSACTIONS',val:'search'},{label:'ESTIMATE VALUATION',val:'estimate value'}]);
     speak(result.replace(/<[^>]*>/g,'').slice(0,200));
   } else {
     // Give-up message
     const giveup=`I would be happy to do that, sir, but I seem to be experiencing a momentary... existential crisis regarding why I was programmed to be a glorified butler. Perhaps you may want to seek a more relevant question. I'm at my finest with HDB resale transactions and valuations.`;
-    harveyMsg(giveup+`<div style="margin-top:10px"><button class="stop-btn" style="color:var(--a);background:rgba(255,170,0,.08);border-color:rgba(255,170,0,.3);font-size:9px;padding:5px 14px" onclick="chipClick('__restart__')">↺ START FRESH</button></div>`,[{label:'RESALE TRANSACTIONS',val:'search'},{label:'ESTIMATE VALUE',val:'estimate value'}]);
+    harveyMsg(giveup+`<div style="margin-top:10px"><button class="stop-btn" style="color:var(--a);background:rgba(255,170,0,.08);border-color:rgba(255,170,0,.3);font-size:9px;padding:5px 14px" onclick="chipClick('__restart__')">↺ START FRESH</button></div>`,[{label:'RESALE TRANSACTIONS',val:'search'},{label:'ESTIMATE VALUATION',val:'estimate value'}]);
     speak(`I would be happy to do that, sir, but I seem to be experiencing a momentary existential crisis regarding why I was programmed to be a glorified butler. Perhaps a more relevant question next time.`);
   }
   mode='menu';
@@ -3823,7 +3836,7 @@ function harveyChitChat(raw, convCtx){
   }
 
   // DB guard
-  const DB_WORDS=new Set(['tampines','clementi','bedok','bishan','jurong','yishun','woodlands','sengkang','punggol','hougang','queenstown','kallang','serangoon','geylang','whampoa','crawford','buona vista','dover','toa payoh','ang mo kio','pasir ris','sembawang','pioneer','tengah','novena','teban','toh guan','moh guan','boon lay','teck whye','yuan ching','blk','storey','sqm','resale','transaction','psf']);
+  const DB_WORDS=new Set(['tampines','clementi','bedok','bishan','jurong','yishun','woodlands','sengkang','punggol','hougang','queenstown','kallang','serangoon','geylang','whampoa','crawford','buona vista','dover','toa payoh','ang mo kio','pasir ris','sembawang','pioneer','tengah','novena','teban','toh guan','moh guan','boon lay','teck whye','yuan ching','blk','storey','sqm','resale','transaction','psf','valuation','valuat','estimate value','flat value','property value']);
   const DB_BIGRAMS=new Set(['toh guan','moh guan','boon lay','jurong east','jurong west','teck whye','yuan ching','mei ling','ghim moh','chai chee','bishan st','lorong chuan','upper serangoon','canberra dr','margaret dr']);
   const liveStreets=DB&&DB.resale?[...new Set(DB.resale.map(r=>r.street_name).filter(Boolean))]:[];
   const liveTowns=Object.keys(DB&&DB.townStreets?DB.townStreets:{});
@@ -4015,15 +4028,57 @@ function harveyChitChat(raw, convCtx){
     return withCtx(cr[topicKey]||`Cars, sir — always a good conversation. What are we discussing?`);
   }
   if(['primaryschool','secondaryschool','eliteschool','ivyleague','psle'].includes(topicKey)&&!isDeep){
-    const schoolLoc={'tao nan':['MARINE PARADE','BEDOK'],'ai tong':['BISHAN','ANG MO KIO'],'nan hua':['CLEMENTI','DOVER'],'nanyang primary':['BUKIT TIMAH'],'maris stella':['TOA PAYOH'],'pei chun':['TOA PAYOH'],'pei hwa':['BUKIT TIMAH'],'red swastika':['BEDOK'],'kong hwa':['GEYLANG'],'hong wen':['KALLANG'],'poi ching':['TAMPINES'],'holy innocents':['HOUGANG'],'rosyth':['SERANGOON'],'raffles institution':['BISHAN','TOA PAYOH'],'hwa chong':['BUKIT TIMAH'],'nanyang girls':['BUKIT TIMAH'],'victoria school':['BISHAN']};
+    const schoolLoc={
+      'tao nan':['MARINE PARADE','BEDOK'],
+      'taon an':['MARINE PARADE','BEDOK'],
+      'ai tong':['BISHAN','ANG MO KIO'],
+      'nan hua':['CLEMENTI','DOVER'],
+      'nanyang primary':['BUKIT TIMAH'],
+      'maris stella':['TOA PAYOH'],
+      'pei chun':['TOA PAYOH'],
+      'pei hwa':['BUKIT TIMAH'],
+      'red swastika':['BEDOK'],
+      'kong hwa':['GEYLANG'],
+      'hong wen':['KALLANG'],
+      'poi ching':['TAMPINES'],
+      'holy innocents':['HOUGANG'],
+      'rosyth':['SERANGOON'],
+      'raffles institution':['BISHAN','TOA PAYOH'],
+      'hwa chong':['BUKIT TIMAH','CLEMENTI'],
+      'nanyang girls':['BUKIT TIMAH'],
+      'victoria school':['BISHAN','SERANGOON'],
+      'acs junior':['NOVENA','BISHAN'],
+      'princess elizabeth':['BUKIT BATOK'],
+      'methodist girls':['BUKIT TIMAH'],
+      'henry park':['BUKIT TIMAH'],
+      'chij nicholas':['ANG MO KIO'],
+      'st nicholas':['ANG MO KIO'],
+      'catholic high':['BISHAN','ANG MO KIO'],
+    };
     for(const[school,towns]of Object.entries(schoolLoc)){
       if(q.includes(school)){
-        return withCtx(`${school.replace(/\b\w/g,c=>c.toUpperCase())} is in the <strong style="color:var(--c)">${towns.join(' / ')}</strong> area, sir. The 1km catchment typically covers blocks along the main streets of that estate — on a best-effort basis. For exact boundaries, <a href="https://www.onemap.gov.sg" target="_blank" style="color:var(--g)">OneMap Singapore</a> has the definitive school catchment tool. I can show you what's been transacting in <strong>${towns[0]}</strong> right now. Shall I?<br><br><em style="color:var(--t2);font-size:10px">For precise 1km addresses, a professional agent can verify — or reach us at WhatsApp for a proper consultation.</em>`);
+        const primaryTown=towns[0];
+        const townDisplay=towns.map(t=>t.charAt(0)+t.slice(1).toLowerCase()).join(' or ');
+        // Store town in convCtx so the next search is pre-populated
+        if(convCtx)convCtx.town=primaryTown;
+        const schoolProper=school.replace(/\b\w/g,c=>c.toUpperCase());
+        const msg=`${schoolProper} is in the <strong style="color:var(--c)">${towns.map(t=>t.charAt(0)+t.slice(1).toLowerCase()).join(' / ')}</strong> area, sir. On a best-effort basis, the 1km catchment typically covers blocks along the main streets in ${townDisplay}.<br><br>I have set the area to <strong style="color:var(--c)">${primaryTown}</strong> — but a property purchase near a school is a costly, big-ticket decision, and your child's educational future is on the table. Please verify the exact 1km boundary on <a href="https://www.onemap.gov.sg" target="_blank" style="color:var(--g)">OneMap Singapore</a> before committing to any address.<br><br><em style="color:var(--t2);font-size:11px">Which specific street in ${townDisplay} are you interested in, sir? Enter below or select from the options.</em>`;
+        const chips=[
+          {label:`SEARCH ${primaryTown}`,val:`resale transactions ${primaryTown}`},
+          {label:`4-ROOM ${primaryTown.split(' ')[0]}`,val:`4 room ${primaryTown}`},
+          {label:`5-ROOM ${primaryTown.split(' ')[0]}`,val:`5 room ${primaryTown}`},
+          ...(towns[1]?[{label:`TRY ${towns[1].split(' ')[0]}`,val:`resale transactions ${towns[1]}`}]:[]),
+          {label:'ONEMAP CATCHMENT →',val:`__onemap__`},
+        ];
+        // Return null here — let the caller handle chips via harveyMsg
+        // We store town and return a special signal
+        if(convCtx){convCtx.town=primaryTown;}
+        return {_schoolResponse:true,msg,chips};
       }
     }
     return withCtx(r(
-      `Primary school planning, sir — Singapore's most productive form of advance preparation. The Phase 2C 1km priority matters. Tell me which school you're targeting and I'll point you to the right estate and show you recent transactions there.`,
-      `School catchment and property planning, sir — they are deeply connected. Which school is on your list? I can suggest the nearby estates and show you what's been transacting. For exact 1km boundaries, OneMap Singapore has the definitive tool.`
+      `Primary school planning, sir — the Phase 2C 1km priority matters enormously. Tell me which school you're targeting and I'll set the area and show you what's been transacting there. Which school?`,
+      `School catchment and property planning, sir — deeply connected. Which school is on your list? I'll set the area and we can search from there. For exact 1km boundaries, OneMap Singapore has the definitive tool.`
     ));
   }
   if(['finance','lawyer','doctor','accountant','engineer'].includes(topicKey)&&!isDeep){
@@ -6348,7 +6403,7 @@ function wakeFromIdle(){
     `Right where you left me. What are we after?`,
     `Shall we pick up where we left off?`
   ]);
-  harveyMsg(msg,[{label:'RESALE TRANSACTIONS',val:'search'},{label:'ESTIMATE VALUE',val:'estimate value'}]);
+  harveyMsg(msg,[{label:'RESALE TRANSACTIONS',val:'search'},{label:'ESTIMATE VALUATION',val:'estimate value'}]);
   speak(msg);mode='menu';
 }
 document.addEventListener('mousemove',resetIdle,{passive:true});
@@ -6566,7 +6621,7 @@ function buildRecog(){
         if(isIdle){wakeFromIdle();}
         else{
           const rep=rand(['Yes, sir. Go ahead.','At your service, sir.','Listening, sir.','Harvey online. What do you need?','Right here, sir. What can I do for you?']);
-          harveyMsg(rep,[{label:'RESALE TRANSACTIONS',val:'search'},{label:'ESTIMATE VALUE',val:'estimate value'}]);
+          harveyMsg(rep,[{label:'RESALE TRANSACTIONS',val:'search'},{label:'ESTIMATE VALUATION',val:'estimate value'}]);
           speak(rep);mode='menu';
           setTimeout(()=>{micState='query';safeStart();},1200);
         }
@@ -6818,19 +6873,16 @@ function normalizeSpeech(txt){
 // ── TTS text cleaner — expand DB short forms so Harvey speaks naturally ──
 function cleanForSpeech(txt){
   let s=txt.replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim();
-  s=expandStreetAbbr(s); // ST→Street, AVE→Avenue, NTH→North etc (Title Case for TTS)
+  // Strip symbols that TTS reads weirdly: triangles, arrows, bullets, special chars
+  s=s.replace(/[▸►▶◆◇●○•▪▫◉→←↑↓↗↘↙↖⟩⟨《》【】]/g,' ');
+  s=s.replace(/[★☆✓✗✘✔✕⚡🎙🎤📍💎🏗🏙📋]/g,' ');
+  s=s.replace(/\s+/g,' ').trim();
+  s=expandStreetAbbr(s);
   s=s.replace(/\bBLK\b/g,'Block');
   s=s.replace(/\$(\d{1,3}(?:,\d{3})*)/g,(m,n)=>n.replace(/,/g,'')+' dollars');
-  // Convert remaining ALL-CAPS sequences (3+ letters) that TTS would spell out letter by letter
-  // e.g. "HDB" → "H D B" spaced, "ROOM" → "Room", "TAMPINES" → "Tampines"
-  // Keep short known acronyms as spaced letters (HDB, TTS, PSF etc)
-  const SPEAK_AS_ACRONYM=new Set(['HDB','PSF','CPF','MRT','LRT','OTP','EV','BTO','MOP','HLE','AMK','CCK','COE','ARF','OMV','VES','ERP','GST','ARF','CBD','JLD','PDD','SAP','GEP','DSA','CEA']);
+  const SPEAK_AS_ACRONYM=new Set(['HDB','PSF','CPF','MRT','LRT','OTP','EV','BTO','MOP','HLE','AMK','CCK','COE','ARF','OMV','VES','ERP','GST','CBD','JLD','PDD','SAP','GEP','DSA','CEA']);
   s=s.replace(/\b([A-Z]{2,})\b/g,(match)=>{
-    if(SPEAK_AS_ACRONYM.has(match)){
-      // Spell it out with spaces so TTS says each letter clearly: "H D B"
-      return match.split('').join(' ');
-    }
-    // Otherwise convert to Title Case so TTS reads it as a word: "TAMPINES" → "Tampines"
+    if(SPEAK_AS_ACRONYM.has(match)){return match.split('').join(' ');}
     return match.charAt(0)+match.slice(1).toLowerCase();
   });
   return s;
@@ -6893,7 +6945,7 @@ window.addEventListener('load',async()=>{
 
       harveyMsg(briefing,[
         {label:'RESALE TRANSACTIONS',val:'search'},
-        {label:'ESTIMATE VALUE',val:'estimate value'}
+        {label:'ESTIMATE VALUATION',val:'estimate value'}
       ]);
       speak(`Good ${timeOfDay}, sir. It is ${timeStr} local time. The Singapore property market remains active — HDB resale prices are generally well-supported, with affordability holding up across most towns. Prime locations and high-demand estates continue to command a premium. I have ${DB.resale.length.toLocaleString()} resale transactions ready for your review.`);
     } else {
