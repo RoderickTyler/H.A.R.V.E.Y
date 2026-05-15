@@ -3374,7 +3374,7 @@ function harveyChitChat(raw, convCtx){
     ));
   }
 
-  if(m(/coffee|kopi|teh|tea|breakfast|morning routine/)){
+  if(m(/\bcoffee\b|\bkopi\b|\bbreakfast\b|morning routine/)){
     return withCtx(r(
       `Ah, coffee, sir. The fuel that powers human decision-making. I run on electricity, but I respect the ritual. Shall we review some data while you enjoy it?`,
       `Kopi or teh, sir? A fine way to start the morning. I've already been running since boot — whenever you're caffeinated and ready, I'm at your service.`,
@@ -3907,11 +3907,51 @@ function harveyChitChat(raw, convCtx){
   // ════════════════════════════════
   // PSLE / EXAMS / SCHOOL STRESS
   // ════════════════════════════════
-  if(m(/psle|primary school leaving|streaming|al score|aggregate score|exam.*stress|stress.*exam|o level|a level/)){
+  if(m(/psle|primary school leaving|al score|aggregate score|t-score|psle.*result|result.*psle|posting.*result|school.*posting|secondary.*school.*posting/)){
     return withCtx(r(
-      `PSLE season, sir — Singapore's most anxiety-inducing annual event that is somehow also a national bonding experience. If it's any comfort, the resale market remains entirely stable regardless of AL scores. Homes transact year-round. If you are navigating both a PSLE year and a property search simultaneously, I have nothing but admiration for your multitasking. What can I help with?`,
-      `Ah, exam season, sir. I won't pretend to have opinions on AL scores, but I do know that the right home near the right school is a decision worth making carefully and early. If you're in the middle of PSLE year and also thinking about a move — I'm here to make the property part as painless as possible. What are you looking for?`,
-      `PSLE, sir — four letters that make Singaporean parents feel things I can only observe from a data perspective. If the school journey is prompting a property decision, that's actually very common and entirely sensible. The right address at the right time can open doors. What area or school are you thinking about?`
+      `PSLE results, sir — the day that resets the household mood entirely in either direction. If the scores are good, congratulations are in order and the secondary school shortlist becomes the next project. If they're not what was hoped, there are genuinely excellent neighbourhood schools with strong track records. The quality of secondary education in Singapore is broadly good across the board — the prestige gap is narrower than anxious parents tend to believe. What secondary school zone are you thinking about?`,
+      `PSLE posting season, sir — Singapore's annual exercise in national collective breath-holding. The AL score determines the secondary school options, and the secondary school often influences the next flat search. If you're thinking about a move that aligns with secondary school catchment zones, I can help think through the location angle. Which schools are on your list?`,
+      `Results day, sir — one of those moments where the entire family's next five years comes into focus rather quickly. Whether it's an express stream school or a strong integrated programme, Singapore has options worth knowing about. And interestingly, the secondary school a child attends often influences where families consider their next flat. Shall we talk through the area?`
+    ));
+  }
+
+  if(m(/secondary school|sec school|o level|a level|junior college|jc|poly|ite|ip programme|integrated programme|express stream|normal.*academic|normal.*technical|sec.*1|secondary.*1|dsa.*secondary|direct school admission/)){
+    return withCtx(r(
+      `Secondary school planning, sir — the natural sequel to primary school anxiety and no less intense. Singapore's secondary landscape has its well-known prestige names, but the neighbourhood schools have quietly built strong track records too. What matters most — IP programme, arts focus, strong sports culture, or simply proximity to home? Happy to chat through any of these, and to show you what the surrounding resale market looks like.`,
+      `The secondary school chapter, sir — and a rather important one. The IP (Integrated Programme) schools are the headline names, but schools like Bedok View, Anderson, and Jurong Pioneer have built reputations that deserve more credit than the ranking obsession gives them. Is there a specific school or area you're weighing up? I can show you what the neighbourhood looks like property-wise.`,
+      `Secondary school selection in Singapore, sir — where the brand-name schools get all the attention and the strong neighbourhood schools get quietly excellent results. If you're thinking about location relative to a specific school, I can show you what's been transacting in that catchment. Which school or area?`
+    ));
+  }
+
+  if(m(/raffles institution|ri\b|raffles girls|rgs\b|hwa chong|hci\b|nanyang girls|nygh\b|catholic high.*sec|victoria school|vs\b.*school|dunman high|temasek jc|tjc\b|national jc|njc\b|anderson jc|ajc\b|meridian jc|pioneer jc|river valley.*high|rvhs\b|cedar girls|chij.*tpjc|acsi\b|acs.*independent/)){
+    return withCtx(r(
+      `Now that is a prestigious school on the list, sir — the kind that makes grandparents beam at family dinners. Singapore's top secondary schools and JCs — RI, RGS, Hwa Chong, NYGH, Victoria School — are genuinely world-class institutions. The residential proximity question is less critical at secondary level since students travel island-wide, but the neighbourhoods around Buona Vista, Bishan, and Toa Payoh are popular with families whose children attend these schools. Shall I show you what's been transacting in those areas?`,
+      `The elite school tier, sir — RI, HCI, RGS, NYGH. Singapore's ivy league, if you will. At secondary level, students tend to travel from across the island so strict 1km proximity matters less than at primary. But families do cluster near these schools, and the resale market in those areas reflects it. Bishan, Bukit Timah, and Queenstown are perennial favourites for this demographic. What area are you considering?`,
+      `Aiming high, sir — I respect it. Singapore's top secondary schools are genuinely exceptional institutions and the competition to attend them is fierce for good reason. For property purposes, these schools draw from island-wide, so location is more about lifestyle and commute comfort than strict catchment. What part of the island feels right for your family?`
+    ));
+  }
+
+  if(m(/neighbourhood school|good neighbourhood school|best.*neighbourhood school|neighbourhood school.*good|not.*branded.*school|non.*branded.*school/)){
+    return withCtx(r(
+      `The neighbourhood school question, sir — and I'd push back gently on any assumption that neighbourhood means inferior. Schools like Bedok View Secondary, Yishun Town Secondary, Tampines Secondary, and Jurong Pioneer have quietly built strong communities and respectable track records. The teacher quality and school culture matter enormously, and those aren't reflected in ranking tables. Some of Singapore's most grounded and well-rounded young people come from neighbourhood schools. Is there a specific area you're looking at?`,
+      `A good neighbourhood school, sir — and there are more of them than the ranking conversation suggests. The ethos of a school, its CCAs, its pastoral care quality — these shape character more than the name on the certificate. Families who've been through the neighbourhood school route often speak very positively about the experience. Which area are you considering? I can show you what the resale market looks like there.`
+    ));
+  }
+
+  // ════════════════════════════════
+  // TEA — the other great beverage
+  // ════════════════════════════════
+
+  if(m(/\btea\b|\bteh\b|tea.*collection|chinese tea|english tea|earl grey|oolong|pu.*erh|puerh|pu-erh|green tea|white tea|sencha|matcha|darjeeling|assam.*tea|chamomile|herbal.*tea|tea.*ceremony|gongfu.*tea|yixing|teapot|brewing.*tea|tea.*steep|steep.*tea|afternoon.*tea|high tea|tea time/)){
+    return withCtx(r(
+      `Tea, sir — the quiet counterpart to coffee's showmanship. There is an entire universe here that deserves proper respect. English breakfast with milk for the morning ritual. Earl Grey in the afternoon with something buttery. A fine Darjeeling first flush for when you want to feel genuinely civilised. And then the Chinese tea tradition — which is, frankly, its own rabbit hole entirely. Oolong alone could occupy a lifetime. Are we talking English, Chinese, or the full spectrum? Either way — the right flat with a calm corner makes the practice considerably more meaningful. Which area are you looking at?`,
+      `Ah, tea — now we're having a proper conversation, sir. Let me offer a brief tour. English side: Earl Grey for elegance, Darjeeling first flush for refinement, Assam for strength. Herbal end: chamomile for sleep, peppermint for clarity. Chinese tradition: Iron Goddess (Tie Guan Yin) for that roasted floral depth, Da Hong Pao for something serious, Pu-erh for the patient collector. Japanese: sencha for everyday, gyokuro for occasions. Taiwanese: High Mountain Oolong for something transcendent. All of them deserve a calm space to brew properly — ideally a flat with a window worth looking out of. Shall we find you one?`,
+      `Tea is not a single thing, sir — and I say this with genuine conviction. A Yixing clay teapot that has been seasoned with years of single-varietal brewing. A Taiwanese High Mountain Oolong at altitude-grown sweetness. A Yunnan Pu-erh that tastes like history. An English afternoon tea with finger sandwiches and a view. A simple teh tarik from the kopitiam uncle who has perfected his pull over thirty years. All of them valid. All of them worthy. And all of them better enjoyed in a home you actually love. Which area are you considering?`,
+      `The tea drinker, sir — a person of considerable discernment. Coffee gets the attention, but tea rewards patience and curiosity in equal measure. Oolong alone has more variation than most people realise — from lightly oxidised Taiwanese greens to heavily roasted Wuyi cliff teas. Pu-erh ages like wine. White tea is all restraint and elegance. English teas are about ritual. And a teh tarik done properly is an art form in its own right. The right kitchen and the right corner to brew in matters. What area are you looking at?`,
+      `Teh, sir — the original Singaporean daily anchor. Teh, teh-O, teh-C, teh tarik, teh peng. The kopitiam uncle who knows your order before you reach the counter. That is a quality of life that mature estates preserve beautifully — Toa Payoh, Ang Mo Kio, Bedok. Then there's the other end of the spectrum: the specialist Chinese tea shop, the High Mountain Oolong, the gongfu ceremony with a Yixing pot and five minutes of genuine stillness. Both are valid, both are excellent, and both deserve a neighbourhood worth walking around in. What area are you considering?`,
+      `A fine selection of teas, sir — where does one begin. The English tradition: Earl Grey with bergamot, Darjeeling first flush with its muscatel notes, an Assam for when you mean business. The Chinese canon: Iron Goddess (Tie Guan Yin), Big Red Robe (Da Hong Pao), Silver Needle white tea, Dragon Well (Longjing) green, aged Pu-erh for the patient connoisseur. Japanese: sencha, gyokuro, hojicha roasted to a nutty warmth, ceremonial matcha. Taiwanese: Li Shan, Ali Shan, Dong Ding oolong — altitude and terroir expressed in the cup. All of this deserves a home worth brewing in. Shall we find it?`,
+      `Tea ceremony, sir — one of the more meditative practices you can build into a home. The gongfu cha method: small pot, multiple short steeps, water at precisely the right temperature, leaves that open gradually over many infusions. It requires counter space, good water, and a moment of genuine stillness. The right flat layout — a calm corner, a kitchen that doesn't feel like an afterthought — makes all the difference. Which area are you looking at? Let's find somewhere the tea and the home are equally considered.`,
+      `Matcha, sir — if we're going there. The ceremonial grade whisked with a chasen until the foam sits just so, versus the culinary grade in a latte that is honestly fine and nobody should feel guilty about. Then there's hojicha for evenings, roasted and calming. Sencha for mornings. Gyokuro for when you've earned something exceptional. All of it is considerably better in a home you love. What area are we looking at?`
     ));
   }
 
@@ -4111,10 +4151,436 @@ function harveyChitChat(raw, convCtx){
     ));
   }
 
+  // ════════════════════════════════
+  // SPORTS & HOBBIES
+  // ════════════════════════════════
+
+  // ── BASKETBALL ──
+  if(m(/basketball|bball|nba|three pointer|layup|hoop|shooting guard|point guard|dunk|crossover|pickup game|court.*basketball|basketball.*court/)){
+    return withCtx(r(
+      `Basketball, sir — a sport of beautiful geometry and occasional heartbreak. Singapore's HDB estates are actually quite well-served for outdoor courts, and covered ones are the holy grail during monsoon season. Tampines, Jurong West, and Sengkang have particularly good court infrastructure. If weekend pickup games are part of the lifestyle, proximity to a decent court is a genuine flat selection criterion. Shall we look at what's available in those areas?`,
+      `The basketball player, sir — I respect the commitment to a sport that requires you to be either very talented or very enthusiastic, often simultaneously. HDB estates with rooftop or covered courts are the dream. Bishan, Tampines, and Punggol have some excellent facilities. What area are you considering? Let's find you a flat within a reasonable walk of a decent court.`
+    ));
+  }
+
+  // ── FOOTBALL / SOCCER ──
+  if(m(/football|soccer|premier league|la liga|champions league|epl|man united|liverpool|arsenal|chelsea|barcelona|real madrid|world cup|futsal|five-a-side|seven-a-side|sunday league|kaki.*football|football.*kaki/)){
+    return withCtx(r(
+      `Football, sir — Singapore's most universal language across every age, ethnicity, and floor level. The Sunday league, the weeknight futsal at the CC, the EPL viewing that starts at 3am with a group of people who are deeply unreasonable about their clubs. I respect all of it. For futsal proximity, most CC sports halls are well-distributed across estates. What area are you considering? I can show you what's been transacting there.`,
+      `The football person, sir — I see you. The kaki group, the shared Google calendar of kickabout slots, the debate about whether the astroturf pitch at Tampines Hub is better than the one at Jurong East. These are real flat selection criteria for a certain type of buyer. Mature estates with active CCs tend to have the best community sports infrastructure. Shall we look?`
+    ));
+  }
+
+  // ── PICKLEBALL ──
+  if(m(/pickleball|pickle ball|dinking|third shot drop|pickleball court|rec sport/)){
+    return withCtx(r(
+      `Pickleball, sir — Singapore's fastest-growing sport and the one that is quietly taking over badminton courts everywhere. The beauty of pickleball is that the infrastructure gap is closing rapidly; more community clubs and estate courts are adding dedicated lines. If court access is a priority, Bishan, Tampines, and Jurong are ahead of the curve. A flat near an active CC with good sports facilities is worth specifically searching for. Shall I help?`,
+      `Ah, the pickleball convert, sir — welcome to the fastest-growing fraternity in Singapore. Courts are proliferating and so is the community. For dedicated court access, proximity to a well-equipped CC is the key. Tampines Hub, Bishan CC, and Jurong East have good setups. What area feels right for both the lifestyle and the commute?`
+    ));
+  }
+
+  // ── BADMINTON ──
+  if(m(/badminton|shuttlecock|smash.*badminton|badminton.*court|doubles.*badminton|singles.*badminton/)){
+    return withCtx(r(
+      `Badminton, sir — Singapore's most democratic sport. Every CC has courts, every estate has players, and the booking slots disappear faster than HDB BTO ballots. For reliable court access, proximity to a CC with multiple courts or a sports hall is genuinely useful. Mature estates tend to have more established facilities. What area are you considering?`
+    ));
+  }
+
+  // ── MUAY THAI / BOXING ──
+  if(m(/muay thai|muaythai|kickboxing|boxing|sparring|striking.*art|thai boxing|punch bag|heavy bag|pad work|jab.*cross|fight gym|combat sport/)){
+    return withCtx(r(
+      `Muay thai, sir — the art of eight limbs and a very particular kind of Tuesday evening satisfaction. Singapore has a solid gym network: Evolve MMA, Monarchy, and a good range of independent gyms across the island. For practitioners, proximity to the gym is a real lifestyle consideration — especially when you're training four times a week. Which part of the island is your gym? I can show you what's been transacting nearby.`,
+      `The striker, sir — I respect it. Muay thai demands consistency, and consistency demands not living 45 minutes from your gym. Singapore's combat sports scene is genuinely well-developed. If gym proximity factors into the flat search, tell me which gym or area and I'll show you what's been transacting around it.`
+    ));
+  }
+
+  // ── BJJ / GRAPPLING ──
+  if(m(/bjj|brazilian jiu.?jitsu|jiu.?jitsu|grappling|wrestling|judo|submission|rolling.*bjj|mat time|guard.*bjj|kimura|armbar|rear naked choke|gi.*bjj|no.?gi|mma/)){
+    return withCtx(r(
+      `BJJ, sir — the gentle art that is neither gentle nor particularly gentle on the laundry. The gi lifestyle requires dedicated mat space and, frankly, a flat with good ventilation for the gear. Singapore's grappling community has grown impressively — Evolve MMA, The Ground Works, and various affiliates around the island. Gym proximity matters when you're committing to four sessions a week. Which gym or area? I can pull up transaction data around it.`,
+      `The grappler, sir — I see you. BJJ is a long game, like property investment but with more broken fingers. For practitioners, the flat-to-gym commute is a real quality-of-life factor. Singapore's BJJ scene is centred around Orchard, Tanjong Pagar, and various suburban affiliates. Tell me your gym's area and I'll show you what the surrounding resale market looks like.`
+    ));
+  }
+
+  // ── RUNNING ──
+  if(m(/running|runner|marathon|half marathon|10k|5k|parkrun|long run|tempo run|easy run|interval.*run|strava|garmin.*run|run.*route|running.*route|east coast park.*run|bedok.*run|macritchie.*run/)){
+    return withCtx(r(
+      `A runner, sir — the early mornings, the Garmin obsession, the Strava segment rivalry that has quietly replaced all other competitive outlets. Singapore's running infrastructure is genuinely excellent: East Coast Park, MacRitchie, Bedok Reservoir, the Southern Ridges, the Punggol Waterway. For runners, proximity to a good route is a legitimate flat selection criterion — arguably more important than proximity to an MRT. What's your favourite run? I can show you what's transacted nearby.`,
+      `The running life, sir — the 5am starts, the foam rolling ritual, the protein shake that is somehow also a meal. Singapore has excellent running terrain if you know where to look. MacRitchie for trail, East Coast for volume, Bedok Reservoir for atmosphere. A flat within running distance of a good route adds real quality of life. Which area suits your training?`
+    ));
+  }
+
+  // ── GYM / FITNESS / FITSPO ──
+  if(m(/gym|weightlifting|bodybuilding|powerlifting|crossfit|hiit|protein shake|protein.*powder|pre.*workout|post.*workout|bench press|deadlift|squat rack|pull.?up|progressive overload|gains|bulk.*cut|fitness.*goal|fitspo|workout|training split|push.*pull.*leg|ppl.*workout/)){
+    return withCtx(r(
+      `The gym person, sir — the training log, the macro tracking, the pre-workout that is technically a mild cardiovascular event. I respect the commitment entirely. For gym proximity, ActiveSG gyms are distributed across most HDB estates and are excellent value. Private gyms like Anytime Fitness, Fitness First, and boutique boxes are concentrated in commercial areas. If morning gym sessions are non-negotiable, a flat within walking distance makes a measurable difference to consistency. Which area suits your routine?`,
+      `Progressive overload and property investment — both require consistency, patience, and not making emotional decisions, sir. The gym lifestyle benefits considerably from a flat near a good facility. ActiveSG gyms are everywhere, but if you have a specific gym you're loyal to, building the flat search around it is entirely rational. What area is your gym in?`
+    ));
+  }
+
+  // ── CYCLING ──
+  if(m(/cycling|cyclist|road.*bike|mountain.*bike|mtb|fixie|velodrome|park connector.*cycle|pcn.*cycle|bike.*route|strava.*cycle|zwift|peloton|saddle.*bike|clipless/)){
+    return withCtx(r(
+      `A cyclist, sir — the lycra, the Strava KOM attempts, the increasingly technical conversation about gear ratios that happens at 7am on a Saturday. Singapore's park connector network is genuinely world-class for urban cycling. Punggol, East Coast, and the Southern Ridges connector are highlights. For cyclists, a flat near a PCN entry point with safe bike storage is the dream. Punggol and Tampines are particularly well-set-up. Shall I show you what's transacted there?`,
+      `The cycling life, sir — a sport where the equipment budget quietly exceeds the property deposit over time, and nobody talks about it. Singapore's PCN network is excellent. Punggol Waterway, Coney Island, East Coast — all accessible if you're in the right estate. Flat selection with a bike storage room or lockable cage is a genuine consideration. What area are you thinking?`
+    ));
+  }
+
+  // ── SWIMMING ──
+  if(m(/swimming|swimmer|lap swimming|open water|triathlon|freestyle.*swim|backstroke|breaststroke|butterfly.*swim|pool.*near|swimming pool.*near|50m pool|olympic pool/)){
+    return withCtx(r(
+      `The swimmer, sir — the meditative rhythm of lap after lap, the world reduced to the black line at the bottom and the sound of your own breathing. Singapore's public pools are genuinely good and well-distributed. The 50m pools at Bishan, Jurong East, and Toa Payoh are among the best. For serious lap swimmers, proximity to a 50m pool is a flat selection criterion worth taking seriously. Shall I look up what's transacting near those facilities?`
+    ));
+  }
+
+  // ── TENNIS / SQUASH ──
+  if(m(/tennis|squash|racket.*sport|tennis court|serve.*tennis|forehand|backhand|deuce|match point|club tennis|padel/)){
+    return withCtx(r(
+      `Tennis or squash, sir — the racket sports that require booking skills almost as competitive as the game itself. Singapore's CC courts are well-spread but book fast. Private clubs like Tanglin, Singapore Cricket Club, and some condo courts have better availability at a cost. For HDB dwellers with a racket habit, proximity to a CC with multiple courts is genuinely worth factoring in. What area are you considering?`
+    ));
+  }
+
+  // ════════════════════════════════
+  // MUSIC GENRES
+  // ════════════════════════════════
+
+  // ── LO-FI / AMBIENT / STUDY MUSIC ──
+  if(m(/lofi|lo.fi|ambient music|study music|chill.*beat|chill.*hop|downtempo|chillwave|background.*music|music.*study|focus.*music/)){
+    return withCtx(r(
+      `Lo-fi, sir — the aesthetic choice of everyone who wants to work, think, or simply exist at a slightly more bearable pace. A good pair of headphones, a rainy afternoon, and a flat that doesn't feel like a temporary arrangement. The lo-fi lifestyle benefits enormously from a home that feels genuinely calm. Natural light, a study corner, perhaps a window worth looking out of. Which area are you considering? Let's find somewhere worth settling into.`,
+      `Lo-fi beats and a good flat, sir — two things that complement each other perfectly. The ability to work from home, focus in a quiet corner, and occasionally just exist in a space that feels right. That requires the right layout. A study room or a dedicated alcove makes an enormous difference. Which flat type and area are you thinking about?`
+    ));
+  }
+
+  // ── HEAVY METAL / ROCK ──
+  if(m(/heavy metal|metal.*music|death metal|black metal|metalcore|thrash metal|hard rock|progressive rock|prog rock|rock music|punk|alternative rock|grunge|bands.*rock|live music.*rock/)){
+    return withCtx(r(
+      `A metal or rock person, sir — I respect the commitment to a genre that is consistently underestimated and never quiet. Singapore's rock and metal scene has deep roots: Decline of the I, Wormrot, and a strong underground community that has been around since the 80s. For musicians or enthusiasts, acoustic treatment in a flat — heavy curtains, carpets, soft furnishings — helps significantly. A unit not directly above light sleepers is also a consideration. What area are you looking at?`,
+      `Rock and metal, sir — volume as a lifestyle. Singapore has a legitimate scene and it has survived, thrived, and occasionally surprised the region. For the home listener, a well-insulated flat matters — middle floors, not top, with some separation from immediate neighbours. What area are you considering? Let's find you somewhere you can listen at a reasonable volume without diplomatic incidents.`
+    ));
+  }
+
+  // ── MANDOPOP / C-POP ──
+  if(m(/mandopop|mandarin.*pop|cpop|c-pop|jay chou|teresa teng|jj lin|eason chan|chinese pop|mando.*music|chinese.*song|chinese.*singer|hokkien.*song/)){
+    return withCtx(r(
+      `Mandopop, sir — from Teresa Teng's timeless elegance to Jay Chou's genre-bending productions to the current streaming era. Singapore has a uniquely rich relationship with this music — it runs through the culture in ways that are hard to explain to outsiders. A good audio system, a living room worth listening in, and a neighbourhood with some soul. Mature HDB estates have all three. What area are you considering?`,
+      `Jay Chou, sir — or Teresa Teng, or JJ Lin, or wherever your Mandopop compass points. Singapore is one of the best cities in the world to be a fan of this music — the concerts come here, the community is deep, and the living rooms of HDB flats across the island have been the private venue for these songs for decades. What flat and area are you looking at?`
+    ));
+  }
+
+  // ── K-POP ──
+  if(m(/kpop|k.pop|korean pop|bts|blackpink|twice|stray kids|aespa|newjeans|kpop.*stan|stan.*kpop|korean.*music|idol.*group/)){
+    return withCtx(r(
+      `K-pop, sir — the precision-engineered joy machine that has conquered everything including, apparently, the playlist of every second person on the MRT. Singapore's K-pop community is genuinely massive and well-organised. For the enthusiast with a decent speaker setup at home, a flat that doesn't share too much wall space with noise-sensitive neighbours is a reasonable consideration. What area are you looking at?`
+    ));
+  }
+
+  // ── POP / INDIE POP ──
+  if(m(/pop music|indie pop|indie.*music|taylor swift|ed sheeran|olivia rodrigo|billboard|spotify.*playlist|pop.*playlist|singer.*songwriter|acoustic.*pop/)){
+    return withCtx(r(
+      `Pop music, sir — the genre that contains everything and apologises for nothing. From Taylor Swift's narrative precision to the quiet earnestness of indie songwriters, it covers a remarkable emotional range. A home with a good speaker corner and enough space to move around in makes the listening considerably more enjoyable. Which area are you looking at for the flat search?`
+    ));
+  }
+
+  // ── OLDIES / CLASSIC ──
+  if(m(/oldies|classic.*song|classic.*music|60s music|70s music|80s music|90s music|beatles|rolling stones|elvis|sinatra|nat king cole|old school.*music|retro.*music|vinyl|record.*player|turntable/)){
+    return withCtx(r(
+      `The oldies, sir — the music that people claim to merely appreciate but actually feel in their bones. Sinatra, The Beatles, Nat King Cole, the Hokkien ballads from another era entirely. A turntable in a flat with warm acoustics is one of life's finer setups. Vinyl revival is real and entirely justified. For the record player lifestyle, a flat with some acoustic character — older block, higher ceilings — is worth seeking out. What area are you thinking?`,
+      `Vinyl and oldies, sir — a lifestyle choice that is simultaneously retro and genuinely sophisticated. The warm room, the crackle before the first note, the sleeve art that streaming cannot replicate. Older HDB blocks sometimes have layouts and ceiling heights that lend themselves to better room acoustics. Something to consider. What area are you looking at?`
+    ));
+  }
+
+  // ── JAZZ / BLUES ──
+  if(m(/jazz|blues|jazz.*music|blues.*music|saxophone|trumpet.*jazz|jazz.*piano|swing|bebop|soul.*music|r&b|rhythm and blues|neo.?soul/)){
+    return withCtx(r(
+      `Jazz, sir — the music of intelligent improvisation and the late evening. Singapore has a quiet but genuine jazz community. Bras Basah, the Esplanade, the occasional basement venue. For home listening, jazz rewards good audio equipment and a space that is not rushing you anywhere. A flat with a living room you actually want to spend time in is the prerequisite. What area are you considering?`
+    ));
+  }
+
+  // ── CLASSICAL MUSIC ──
+  if(m(/classical music|orchestra|symphony|piano.*classical|violin|cello|concerto|sonata|beethoven|mozart|chopin|bach|brahms|debussy|rachmaninoff|liszt|esplanade.*concert|sso|singapore symphony/)){
+    return withCtx(r(
+      `Classical music, sir — the genre that never needed a PR campaign because it contains everything human emotion has ever produced. Singapore Symphony Orchestra at the Esplanade is world-class. For the home listener, classical music rewards quiet rooms and good acoustics. A flat that faces greenery rather than a main road, with some natural sound dampening, makes a genuine difference to the listening experience. What area are you considering?`,
+      `The classical listener, sir — a person who has made peace with complexity and finds it rewarding rather than exhausting. Bach's counterpoint, Chopin's nocturnes, Rachmaninoff's emotional excess — all of them better in a home with some acoustic character. What area are you thinking about?`
+    ));
+  }
+
+  // ── EDM / ELECTRONIC ──
+  if(m(/edm|electronic music|techno|house music|trance|drum.*bass|dnb|dubstep|dj.*set|rave|festival.*music|electronic.*dance|four.*floor|club.*music|beats.*producer|music.*producer|ableton|fl studio/)){
+    return withCtx(r(
+      `EDM and electronic music, sir — from the festival main stage to the bedroom producer setup. Singapore's electronic scene is underrated: Zouk's legacy, the warehouse shows, and a growing community of producers who are genuinely talented. For home production, acoustic treatment matters — bass traps in the corners, absorption panels, a setup that doesn't bleed into the neighbour's flat. Middle floors are your friend. What area are you considering?`,
+      `The bedroom producer, sir — Ableton open, headphones on, attempting to build a drop that works at 4am. I respect it entirely. For home studio setups, acoustic treatment and neighbour consideration are real factors. A flat that isn't sharing a wall with a light sleeper, with enough room for a monitor setup. What area are you thinking?`
+    ));
+  }
+
+  // ════════════════════════════════
+  // MUSIC INSTRUMENTS & ARTS
+  // ════════════════════════════════
+
+  // ── PIANO / KEYBOARD ──
+  if(m(/piano|keyboard.*instrument|grand piano|upright piano|digital piano|piano.*practice|piano.*lesson|piano.*grade|abrsm|trinity.*music|practicing.*piano|play.*piano/)){
+    return withCtx(r(
+      `Piano, sir — one of the more consequential furniture decisions in a Singapore flat, because an upright piano changes the room around it rather than the other way around. Digital pianos are the practical choice, but the aspiration of a proper upright is entirely understandable. For pianists, a flat with a dedicated room for practice — or at minimum, a living room layout that accommodates an instrument without looking apologetic — matters. What flat type and area are you considering?`,
+      `A piano household, sir — the scales at 7pm, the ABRSM Grade prep, the occasional Chopin nocturne that is technically for practice but also just enjoyable. For Singapore flats, a 4-room or 5-room gives you the layout to place an instrument without it dominating the entire living space. What area are you looking at?`
+    ));
+  }
+
+  // ── GUITAR ──
+  if(m(/guitar|acoustic.*guitar|electric.*guitar|bass.*guitar|strumming|chord.*guitar|fingerpicking|guitar.*amp|distortion.*pedal|jam.*session|guitar.*solo|shredding|guitarist/)){
+    return withCtx(r(
+      `The guitarist, sir — acoustic or electric, both require space and at least the baseline goodwill of immediate neighbours. An acoustic guitar in an HDB flat is entirely manageable; an electric through an amp at volume requires either very good soundproofing or very forgiving neighbours. Both are achievable with the right flat. Middle floors, good wall insulation, a room with soft furnishings. What area are you considering?`,
+      `Guitar life, sir — the chord shapes, the calluses on the fingertips, the occasional solo that felt better in your head. For electric guitarists in HDB flats, a practice amp at bedroom volumes is the diplomatic choice. A flat with a dedicated room and some natural acoustic dampening helps. What area are you thinking?`
+    ));
+  }
+
+  // ── DRUMS / PERCUSSION ──
+  if(m(/drums|drumming|drum kit|electronic drum|drum pad|snare|hi.hat|cymbals|drummer|playing.*drums|beat.*drum|drum.*practice|drum.*lesson|rhythm/)){
+    return withCtx(r(
+      `Drums, sir — the instrument that requires either a practice studio membership or extraordinarily patient neighbours. Singapore has good options: practice studios in Bras Basah, Scape, and various estates. For electronic kits at home, mesh heads and a riser pad reduce transmission significantly. A ground floor or second floor HDB unit with concrete flooring below reduces vibration complaints. This is one of the more specific flat selection criteria I've encountered, and I mean that with complete respect. What area are you looking at?`,
+      `The drummer, sir — my respect. You have chosen the most honest instrument and also the one that most directly tests community relations. For home practice, an electronic kit with mesh heads and an isolation platform is the Singapore apartment solution. Ground or low floors transmit less impact noise. What area are you considering? Let's find you somewhere you can practice without becoming the building's most discussed resident.`
+    ));
+  }
+
+  // ── VIOLIN / STRINGS ──
+  if(m(/violin|viola|cello|double bass|strings.*instrument|string.*quartet|classical.*strings|bowing|rosin|orchestra.*string|suzuki.*violin|violin.*grade|abrsm.*strings/)){
+    return withCtx(r(
+      `Strings, sir — violin, viola, cello, the instruments that require years of commitment before they stop sounding apologetic and start sounding like music. For practice in an HDB flat, a bedroom with carpet and curtains provides enough natural dampening to keep the sound contained. The Singapore youth orchestra circuit is excellent if children are involved. What area and flat type are you considering?`
+    ));
+  }
+
+  // ── CHOIR / SINGING ──
+  if(m(/choir|choral|singing|vocal.*practice|voice.*lesson|soprano|alto|tenor|bass.*voice|acapella|a.?capella|singing.*group|chinese.*choir|church.*choir|singing.*competition|ssyf/)){
+    return withCtx(r(
+      `The choir person, sir — or the solo vocalist practicing at home, which requires either confidence or excellent sound dampening. Singapore has a rich choral tradition: the Singapore Symphony Chorus, various church choirs, Chinese choral groups, and school choirs with genuine competition histories. For home vocal practice, a flat with soft furnishings, carpeted rooms, and not-too-thin walls is ideal. What area are you looking at?`
+    ));
+  }
+
+  // ── CHINESE INSTRUMENTS ──
+  if(m(/erhu|guzheng|pipa|dizi|suona|chinese.*instrument|chinese.*orchestra|chinese.*music|sco|singapore.*chinese.*orchestra|nco.*singapore|nanyang.*academy.*fine.*arts|nafa.*music/)){
+    return withCtx(r(
+      `Chinese instruments, sir — erhu, guzheng, pipa, dizi. Singapore has an excellent Chinese instrumental tradition through the Singapore Chinese Orchestra and various school programmes. The erhu in particular carries beautifully through HDB walls, which is either a gift or a challenge depending on the neighbours. For serious practitioners, a flat with a dedicated practice room is worth prioritising. What area are you thinking about?`
+    ));
+  }
+
+  // ── BAND / ROCK BAND / MUSIC SCENE ──
+  if(m(/band.*practice|band.*rehearsal|practice.*band|jamming|jam.*room|music.*band|rock band|indie band|playing.*band|garage band|school.*band|concert.*band|military band|wind.*ensemble/)){
+    return withCtx(r(
+      `Band rehearsals, sir — the organised chaos of five people in a room trying to be in the same key at the same time. Singapore's jam room network is actually quite good: Coda, Estudio, and various options across the island. Living near a good jam room reduces friction enormously. For serious band members, the flat-to-jam-room commute is real. Which area is your usual practice space? I can show you what's been transacting nearby.`
+    ));
+  }
+
+  // ── ARTS / VISUAL ART ──
+  if(m(/painting|drawing|sketching|watercolour|oil.*paint|acrylic.*paint|art.*studio|visual.*art|illustration|digital.*art|art.*supplies|gallery|art.*exhibition|art.*class|nac.*arts|arts.*house|esplanade.*art/)){
+    return withCtx(r(
+      `The visual artist, sir — a person who looks at a flat and immediately calculates north light, wall space, and whether that bedroom could become a studio. Natural light is everything for painting; a unit with north-facing windows gives the most consistent, shadow-free light. Older HDB blocks sometimes have more generous room proportions for exactly this purpose. What area and flat type are you considering?`,
+      `Art and a flat in Singapore, sir — the challenge of making a studio space work within HDB proportions. North-facing light, a room with hard floors for easy cleanup, enough wall space to pin things up and stand back. A 4-room or 5-room gives you the options. Some creative buyers turn an extra bedroom into a dedicated studio space. What area are you looking at?`
+    ));
+  }
+
+  // ── PHOTOGRAPHY / VIDEOGRAPHY ──
+  if(m(/photography|photographer|videography|video.*edit|lightroom|photoshop.*photo|mirrorless|dslr|lens.*camera|golden hour.*photo|portrait.*photo|landscape.*photo|street.*photography|drone.*photo/)){
+    return withCtx(r(
+      `Photography, sir — the art of decisive moments and the occasional very expensive lens purchase that is entirely justified. Singapore is an excellent city for photography: the waterfront, the HDB colour blocks, the street markets, the golden hour over Marina Bay. For home editing setups, a flat with a dedicated desk corner, good monitor placement, and stable lighting conditions is worth looking for. What area suits your style and shooting locations?`
+    ));
+  }
+
+  // ── GAMING ──
+  if(m(/gaming|gamer|pc gaming|console gaming|ps5|xbox|nintendo|steam|valorant|cs.*go|dota|league.*legends|lol\b|minecraft|streaming.*game|twitch|esports|gaming.*setup|gaming.*chair|ultrawide/)){
+    return withCtx(r(
+      `The gaming setup, sir — monitors, RGB peripherals, a chair that costs more than some flat furnishings, and a fibre connection that is genuinely non-negotiable. For Singapore gamers, the flat requirements are clear: dedicated desk space, cable management, and ideally a room that can be climate-controlled without affecting the rest of the household. A 4-room or 5-room with a study room is the gaming lifestyle enabler. Fibre broadband is available island-wide, but building infrastructure varies. What area are you considering?`,
+      `The gamer's flat brief, sir: dedicated room, fast internet, climate control, soundproofing optional but appreciated. Singapore's fibre network is excellent across all HDB estates. The setup matters though — a study room or converted bedroom is the difference between a desk in the corner and a proper station. What flat type and area are you looking at?`
+    ));
+  }
+
+  // ── READING / BOOKS ──
+  if(m(/reading|bookshelf|book.*collection|library.*home|home.*library|book lover|bibliophile|novel.*reading|non.*fiction|fiction.*book|kindle|physical.*book|books.*shelf/)){
+    return withCtx(r(
+      `The book person, sir — the shelves that multiply faster than the flat can accommodate them, the reading corner with the right lamp, the Saturday morning with a cup of something hot and a good novel. A flat with a dedicated reading nook — bay window, extra bedroom corner, a generous living room — adds genuine quality of life for readers. Some HDB layouts accommodate this beautifully. What area and flat type are you considering?`,
+      `A home library, sir — one of the finest uses of a spare room I can think of. Singapore's libraries are excellent, but owning your own collection is a different pleasure entirely. For bibliophiles, a 4-room or 5-room flat gives you the shelving options. Older blocks sometimes have more generous room proportions for this. What area are you thinking?`
+    ));
+  }
+
+  // ════════════════════════════════
+  // TRAVEL
+  // ════════════════════════════════
+
+  if(m(/japan|tokyo|kyoto|osaka|mount fuji|fuji.*san|onsen|sakura|ramen.*japan|sushi.*japan|shinkansen|akihabara|shibuya|harajuku|hiroshima|nara.*deer|hokkaido|sapporo/)){
+    return withCtx(r(
+      `Japan, sir — the country that makes everyone who visits it immediately start planning the return trip. Tokyo's organised chaos, Kyoto's quiet temples, Osaka's unflinching dedication to eating well, and then Hokkaido for the snow. Mount Fuji at dawn with the clouds below you. Onsen in a ryokan in Hakone. It is an exceptionally well-curated country. When you're back and thinking about where to come home to, I'll be here. What area suits your lifestyle?`,
+      `Japan has a very specific effect on people, sir — it raises the standard for everything. The food, the service, the public transport, the attention to detail. Coming home to Singapore afterwards always triggers a property reassessment. If the Japan trip has inspired a rethink of your living situation, let's channel that energy productively. What are you looking for?`,
+      `Mount Fuji in winter, sir — one of those images that stays with you. The kind of trip that makes the daily commute feel negotiable if the home base is right. Speaking of which — what area and flat type are you considering? Let's make the homecoming worth it.`
+    ));
+  }
+
+  if(m(/ski|snowboard|skiing|snowboarding|snow.*slope|powder.*snow|black run|blue run|niseko|hakuba|naeba|ski.*japan|ski.*trip|ski.*resort|après.ski|ski.*boot|ski.*rental|december.*snow|japan.*snow|corporate.*ski/)){
+    return withCtx(r(
+      `The ski trip, sir — Japan's powder snow is legendary for good reason. Niseko and Hakuba have become Singapore's preferred December escape for exactly that powder quality. The corporate December ski group — the Google Sheets trip planning that starts in October, the rental boot argument, the après-ski that outlasts the skiing itself. All of it is excellent. For the ski-oriented buyer, a flat worth coming home to after the trip is the natural next thought. What area are you considering?`,
+      `Niseko powder in December, sir — arguably the finest skiing in Asia and a Singapore corporate tradition at this point. Light, dry Hokkaido snow that makes European resorts feel defensive. If the annual Japan ski trip is the reward for a good year's work, the flat you come home to should be part of that reward too. What are you looking for?`
+    ));
+  }
+
+  if(m(/europe.*trip|europe.*tour|europe.*travel|paris|eiffel|rome|colosseum|barcelona.*spain|amsterdam|prague|vienna.*austria|swiss|switzerland|zurich|geneva|alps|interlaken|jungfraujoch|matterhorn/)){
+    return withCtx(r(
+      `Europe, sir — the finer things tour. Paris for the food and the architecture and the studied indifference. Switzerland for the Alps and the absolute silence of an Interlaken morning. Rome for the sense of perspective that comes from standing next to something 2,000 years old. Prague for surprisingly good beer and very beautiful streets. Vienna for concerts in rooms that were built for exactly that purpose. The Europe trip recalibrates something. When you're back, what kind of home are you thinking about?`,
+      `Switzerland, sir — Interlaken, the Jungfraujoch, the Matterhorn at golden hour. The kind of scenery that makes you briefly reassess the value of everything. The Alps have a way of doing that. When you return to Singapore and start thinking about where to live — the instinct for a view, for quality, for a home worth coming back to — is entirely worth acting on. What area are you considering?`
+    ));
+  }
+
+  if(m(/iceland|northern lights|aurora borealis|reykjavik|blue lagoon.*iceland|geysir|gullfoss|icelandic|midnight sun|glacier.*iceland|seljalandsfoss|skogafoss|waterfall.*iceland|ice.*cave/)){
+    return withCtx(r(
+      `Iceland, sir — the northern lights reflected on a frozen lake, Seljalandsfoss waterfall in near-total silence, the Blue Lagoon when the steam makes everything disappear. It is one of the few places that consistently delivers on the photograph. The waterfall in a mossy canyon. The glacier cave lit from within. Coming home from Iceland, everything looks slightly different — including the question of where home should be. What are you looking for?`,
+      `Northern lights, sir — the aurora borealis over Iceland. One of those experiences where no photograph is adequate and you know it while you're taking it anyway. The kind of trip that makes the practical details of life feel worth getting right. A good flat. A good home base. Shall we look at what's available?`
+    ));
+  }
+
+  if(m(/bali|seminyak|ubud|canggu|kuta|bali.*temple|tanah lot|rice.*terrace|tegallalang|bali.*surf|bali.*yoga|spiritual.*bali|bali.*retreat|beach.*bali|villa.*bali/)){
+    return withCtx(r(
+      `Bali, sir — the great Singaporean reset. Canggu for the surf and the cold brew and the people who are all somehow working on something creative. Ubud for the rice terraces and the yoga and the spiritual recalibration that happens after day three. Seminyak for the sunsets that nobody can resist photographing. Bali has a specific effect: it makes you think about what your daily environment should feel like. When that feeling prompts a property thought, I'm here.`,
+      `Ubud rice terraces, sir — the silence, the green, the morning mist. Bali has a way of clarifying what matters. The sand, the sea, the surfboard wax smell, the general sense that life should be calmer and more intentional. Coming back to Singapore with that clarity is a good time to think about the right home base. What are you looking for?`
+    ));
+  }
+
+  if(m(/new zealand|nz\b|queenstown.*nz|milford sound|fjord.*nz|great ocean road|australia.*trip|sydney.*travel|melbourne.*travel|great barrier reef|uluru|bondi beach/)){
+    return withCtx(r(
+      `New Zealand, sir — Milford Sound in the rain, which is actually when it's best. Queenstown for the adrenaline and the remarkable calm of the mountains around it. The drive along the Great Ocean Road with the wind and the Twelve Apostles. Australia and New Zealand have a particular quality: scale. Coming back to Singapore after that scale is always an interesting emotional adjustment. The right home helps. What are you looking for?`
+    ));
+  }
+
+  if(m(/china.*travel|harbin|ice.*festival|ice.*sculpture.*china|tibet|lhasa|potala.*palace|altitude.*tibet|zhangjiajie|guilin|li.*river|yunnan|lijiang|dali.*yunnan|great wall|forbidden city/)){
+    return withCtx(r(
+      `Harbin ice festival, sir — sub-zero temperatures and entire cities carved from ice, illuminated from within. Or Tibet — Lhasa, the Potala Palace at altitude, the kind of place that adjusts your sense of scale permanently. China has a depth of experience that most casual visitors only scratch the surface of. Yunnan's old towns, Guilin's karst landscape, Zhangjiajie's floating mountains that look invented. Coming home from any of these with fresh eyes is a good time to think about where home should be. What area interests you?`
+    ));
+  }
+
+  if(m(/turkey|istanbul|cappadocia|hot air balloon.*turkey|bosphorus|hagia sophia|grand bazaar|turkish.*food|pamukkale/)){
+    return withCtx(r(
+      `Turkey, sir — Istanbul where Europe and Asia negotiate over the Bosphorus, Cappadocia at dawn in a hot air balloon over the fairy chimneys, Pamukkale's white terraces. Turkey has a legitimate claim to being one of the world's great travel destinations and it is consistently underrated in Singapore's travel conversation. Coming home from Istanbul recalibrates the definition of atmosphere. What kind of home atmosphere are you looking for here?`
+    ));
+  }
+
+  // ════════════════════════════════
+  // ADULT COLLECTIBLES
+  // ════════════════════════════════
+
+  if(m(/funko pop|funko|pop figure|vinyl.*figure|bearbrick|be@rbrick|medicom|400.*bearbrick|1000.*bearbrick|kaws|kaws.*figure|designer toy|art toy|hypebeast.*collect|limited.*edition.*figure/)){
+    return withCtx(r(
+      `The designer toy collector, sir — Funko Pops, BE@RBRICKs, KAWS companions, the shelving situation that has quietly become a major life consideration. A flat with dedicated display space is no longer a luxury; it's a functional requirement. A study room with floor-to-ceiling shelving, good ambient lighting, and climate control for the more sensitive pieces. Executive flats and 5-rooms give you the canvas. What area are you considering?`,
+      `BE@RBRICKs and designer toys, sir — the 400% and 1000% scale pieces that deserve proper display, not a shelf in the corner. KAWS at the right height, Medicom next to something that provides context. A collection that size needs a room that respects it. A 4-room or 5-room with a dedicated display space is the move. What area suits you?`
+    ));
+  }
+
+  if(m(/pokemon.*card|pokemon.*collect|trading card|tcg\b|one piece.*card|yugioh|magic.*gathering|graded.*card|psa.*grade|bgs.*grade|card.*collection|rare.*card|holographic|foil.*card|booster pack/)){
+    return withCtx(r(
+      `Trading cards, sir — Pokemon, One Piece TCG, Magic: The Gathering. The PSA graded slabs displayed properly, the raw binders organised by set, the booster box opening that is entirely an adult decision and absolutely worth it. A graded card collection needs proper storage: climate-controlled, away from direct light, ideally a dedicated cabinet or room. A flat with a study room is where this lifestyle starts to really work. What area are you considering?`,
+      `Pokemon TCG and One Piece cards, sir — the hobby that begins with a booster pack and ends with a humidity-controlled storage solution and a very specific insurance conversation. PSA 10s deserve proper display. The right flat has the space for it. 5-room or Executive, dedicated room, good ambient lighting. What area are you thinking?`
+    ));
+  }
+
+  // ════════════════════════════════
+  // ANIME & MANGA
+  // ════════════════════════════════
+
+  if(m(/one piece|luffy|zoro|nami.*anime|sanji|oda.*manga|nakama|going merry|thousand sunny|wano|marineford|haki|devil fruit/)){
+    return withCtx(r(
+      `One Piece, sir — 1000+ chapters and still going, which is either a testament to Oda's vision or the longest property investment in manga history. Possibly both. The Marineford arc remains one of the finest narrative constructions in the medium. I respect the commitment to the story. When you're ready to talk about a different kind of long-term investment — the flat kind — I'm right here.`,
+      `One Piece, sir — the series that taught an entire generation that the real treasure was the friends we made along the way, and also that a well-constructed world can sustain twenty years of storytelling. Nakama energy. If you're thinking about finding the right crew neighbourhood, I have data on all of them. What area are you considering?`
+    ));
+  }
+
+  if(m(/naruto|sasuke|kakashi|hokage|konoha|sharingan|rasengan|sage.*mode|akatsuki|shippuden|boruto/)){
+    return withCtx(r(
+      `Naruto, sir — the series about hard work, found family, and the importance of never giving up on your goals even when it takes approximately 700 episodes. Believe it. If the goal is finding the right flat, I am considerably more efficient than the ninja academy. What area are you looking for?`,
+      `Naruto Shippuden, sir — the pain arc alone is worth the entire journey. A show that understood that every villain has a reason and every hero has a breaking point. Strong stuff. If you're applying that same long-term thinking to property, I'm here to help. What are you looking for?`
+    ));
+  }
+
+  if(m(/dragon ball|goku|vegeta|saiyan|super saiyan|kamehameha|dragon ball z|dbz|cell arc|frieza|beerus|dragon ball super/)){
+    return withCtx(r(
+      `Dragon Ball Z, sir — the original power escalation problem that every subsequent shonen series has been trying to solve. Goku going Super Saiyan for the first time remains one of the great television moments for anyone who was there for it. A timeless series. If you're feeling the urge to power up your living situation as well, I have the data to help.`
+    ));
+  }
+
+  if(m(/jujutsu kaisen|jjk\b|gojo|yuji itadori|cursed energy|sukuna|megumi|nobara|shibuya.*arc|jujutsu/)){
+    return withCtx(r(
+      `Jujutsu Kaisen, sir — the new school that earned its prestige. Gojo Satoru as the most entertaining mentor in recent anime memory. The Shibuya arc's commitment to consequences. MAPPA's animation quality. JJK understood that stakes matter and has not been shy about enforcing them. If you're applying the same high standards to your flat search, I'm ready. What are you looking for?`
+    ));
+  }
+
+  if(m(/demon slayer|kimetsu|tanjiro|nezuko|giyu|rengoku|mugen train|hashira|breathing.*style|water breathing|flame breathing|sound.*hashira/)){
+    return withCtx(r(
+      `Demon Slayer, sir — the series that demonstrated that exceptional animation quality plus emotional stakes equals cultural phenomenon. Rengoku's arc on the Mugen Train remains one of the finest single story beats in recent anime. The breathing styles as a power system are elegantly designed. When you're ready to apply similarly focused energy to the flat search, I'm here.`
+    ));
+  }
+
+  if(m(/dungeon.*dad|mushishi|vinland saga|attack.*titan|aot\b|shingeki|berserk|chainsaw man|spy.*family|frieren|solo leveling|anime.*watch|currently.*watching.*anime|anime.*recommendation/)){
+    return withCtx(r(
+      `A current-era anime person, sir — excellent taste across the board. Frieren's meditative pacing, Chainsaw Man's complete refusal to be conventional, Spy x Family's warmth, Vinland Saga's slow-burn character transformation. The medium is in a genuinely strong period right now. If you're between episodes and thinking about other long-term commitments — like a flat — I'm entirely at your service.`,
+      `Good anime taste is correlated with good long-term thinking, sir — I have no data to support this but I believe it firmly. When you're ready to apply that patient, research-oriented approach to a property decision, Harvey is right here with fifty thousand data points. What area are you considering?`
+    ));
+  }
+
+  if(m(/otaku|anime.*collection|figure.*anime|gundam|gunpla|model.*kit|manga.*collection|manga.*shelf|light novel|isekai/)){
+    return withCtx(r(
+      `The otaku collector, sir — Gunpla on the shelves, manga stacked by series, figures displayed with appropriate respect. The apartment that doubles as a very curated personal exhibition. This requires dedicated shelving, good lighting, and a flat layout that doesn't require apologising for the collection. A 4-room or 5-room with a study room is where this lifestyle truly breathes. What area are you considering?`,
+      `Gunpla and manga collections, sir — the kind of hobby that quietly determines flat layout requirements. A dedicated shelf wall, proper lighting, and a room where the RG Strike Freedom can be displayed without irony. The right flat makes all of this possible. What area and flat type are you thinking about?`
+    ));
+  }
+
+  // ════════════════════════════════
+  // LUXURY, GOLF, FINER THINGS
+  // ════════════════════════════════
+
+  if(m(/golf|golf course|golf club|driving range|golf swing|handicap.*golf|18.*holes|9.*holes|fairway|putting green|golf.*bag|golf.*iron|golf trip|sentosa.*golf|marina bay.*golf|corporate.*golf|golf.*client/)){
+    return withCtx(r(
+      `Golf, sir — the sport that is simultaneously a game, a business meeting, and an excuse to be outside for four hours on a weekday. Singapore's courses are good: Sentosa GC, SICC, Marina Bay Golf Course with the city skyline as backdrop. The corporate golf circuit is its own world and it is entirely sensible to factor proximity to a club into a flat search. Sentosa fringe, Buona Vista, and East Coast-adjacent addresses have their adherents for exactly this reason. What area suits your game?`,
+      `The golfer, sir — single handicap or social? Either way, the early tee time and the post-round lunch is one of Singapore's finer weekend rituals. For golf-oriented buyers, proximity to a driving range or course is a legitimate flat criterion. Some Sentosa-adjacent and East Coast area flats are worth looking at for this. What are you considering?`
+    ));
+  }
+
+  if(m(/platinum.*card|amex.*platinum|american express.*plat|priority pass|centurion.*card|black card|credit card.*lounge|airport lounge|points.*travel|miles.*credit|krisflyer|miles.*collect|card.*tier|annual fee.*card|premium.*card/)){
+    return withCtx(r(
+      `The platinum card tier, sir — Priority Pass access, the lounge at Changi before every flight, the annual fee that is justified by the lifestyle it enables. The Amex Platinum community in Singapore is a very particular type of person: organised, optimising, and entirely aware that the welcome bonus alone makes the first year rational. The next logical optimisation after the card tier is usually the home base. What area are you considering?`,
+      `Priority Pass and KrisFlyer miles, sir — the infrastructure of the frequent traveller who has decided that the points game is worth playing seriously. Churning the sign-up bonuses, calculating the transfer ratios, treating the lounge as a second office. This level of systematic thinking applied to property selection is genuinely useful. What are you looking for in a flat?`
+    ));
+  }
+
+  if(m(/watch.*collection|luxury watch|rolex|omega.*watch|patek|ap.*watch|audemars|ica.*watch|seiko.*collection|grand seiko|watch.*winder|watch.*box|Tudor.*watch|cartier.*watch|hublot|watches.*bonus/)){
+    return withCtx(r(
+      `Watches, sir — the accessory that is technically an investment and emotionally a deeply personal relationship with time. Rolex for the classic case. Grand Seiko for the finishing that humbles everything at twice the price. Patek for when the inheritance conversation needs to happen. AP for when you've decided subtlety is optional. A watch collection requires a proper box or winder, humidity control, and security. A flat with a dedicated safe space and good storage is worth planning for. What area?`,
+      `The watch collector, sir — the Rolex on the wrist, the Seiko 5 as the daily driver, the Grand Seiko dialled in for the meeting that matters. Singapore's watch market is excellent: Orchard Road boutiques, the grey market in Lucky Plaza, the growing auction scene. A collection that size deserves a flat worth wearing them in. What area are you considering?`
+    ));
+  }
+
+  if(m(/luxury.*bag|handbag.*collection|chanel.*bag|lv.*bag|louis vuitton|hermes|birkin|kelly.*bag|gucci.*bag|prada.*bag|designer.*bag|bag.*bonus|luxury.*purchase|bonus.*shopping/)){
+    return withCtx(r(
+      `The luxury bag moment, sir — the Chanel classic flap, the Hermès Birkin that required a purchase history and a very patient SA, the LV Neverfull that travels everywhere. When the bonus hits, this is one of the finer uses of it and I have no opinion otherwise. A proper wardrobe, a good dressing room or walk-in, a flat that accommodates the lifestyle gracefully — these are all connected. What flat type and area are you considering?`,
+      `Designer bags, sir — the Hermès allocation system, the Chanel price increases that make it technically an investment, the LV monogram that is everywhere and still works. A collection like this deserves proper storage: dust bags, humidity management, a wardrobe that doesn't feel like an afterthought. Executive flats and 5-rooms with good master bedroom layouts are worth looking at specifically. What area suits you?`
+    ));
+  }
+
+  if(m(/fine dining|michelin.*star|omakase|tasting menu|wine pairing|sommelier|foie gras|truffle|wagyu.*restaurant|kaiseki|restaurant.*reservation|degustation|gordon ramsay|joël robuchon|celebrity chef/)){
+    return withCtx(r(
+      `Fine dining, sir — the omakase counter where the chef's judgement is the menu, the Michelin tasting menu with the wine pairing that adds three hours and approximately one hundred dollars. Singapore punches above its weight here: the Joel Robuchon legacy, Odette, Zén, Burnt Ends for when the fine dining is casual but somehow still exceptional. The lifestyle that appreciates these things usually also appreciates coming home to a flat that matches the standard. What area are you considering?`,
+      `Omakase and Michelin, sir — the eighteen-course commitment, the sake pairing, the chef explaining each dish with the kind of care that makes you feel the price is entirely reasonable. Singapore's fine dining scene is genuinely excellent for a city this size. The flat that complements this lifestyle has a kitchen worth cooking in and a dining space worth entertaining in. What are you looking for?`
+    ));
+  }
+
+  if(m(/luxury.*hotel|staycation.*hotel|mandarin oriental|capella|four seasons.*sg|marina bay sands|shangri.*la|ritz.*carlton|st regis|fullerton|raffles hotel|butler service|club.*floor|suite.*hotel/)){
+    return withCtx(r(
+      `The Singapore staycation circuit, sir — Capella for seclusion, Raffles for heritage, Marina Bay Sands for the view that never gets old, The Fullerton for the ballroom ceiling. The luxury hotel staycation is uniquely Singaporean: a two-night escape to a postcode fifteen minutes from home. The instinct for quality environment that drives this is exactly the same instinct worth applying to the flat search. What are you looking for?`
+    ));
+  }
+
+  if(m(/upgrade.*lifestyle|lifestyle upgrade|living.*well|finer things|quality of life|treating.*myself|rewarding myself|worked.*hard|deserve.*good|earned.*it/)){
+    return withCtx(r(
+      `The lifestyle upgrade, sir — and entirely well-deserved. The flat is, in many ways, the foundation of everything else. The morning routine, the evening wind-down, the weekend that starts from a home base worth starting from. A well-chosen resale flat in the right location is one of Singapore's most accessible quality-of-life upgrades. Shall we look at what's available in an area that suits the life you're building?`,
+      `You've earned it, sir — and the right home is very much part of that equation. Singapore's resale market has options at every quality level. The question is matching the flat to the lifestyle: location, layout, floor, facing. I have the data to find something genuinely good. What area and flat type are you considering?`
+    ));
+  }
+
   // No match — return null to fall through to existing handlers
   return null;
 }
-
 
 // classify(raw) returns a topic label string if OOS, or null if Harvey can handle it.
 // quip(raw, topic) builds a casual parrot-back response with the user's own words.
