@@ -219,12 +219,11 @@ tr:hover td{background:rgba(0,212,255,.03)}
 /* Clap ripple feedback */
 .clap-flash{position:fixed;inset:0;background:rgba(0,255,136,.06);pointer-events:none;z-index:9998;opacity:0;transition:opacity .15s}
 .clap-flash.show{opacity:1}
-/* vs-bar extended for voice mode */
-.vs-bar.voice-active{background:rgba(0,255,136,.05);border:1px solid rgba(0,255,136,.2);padding:6px 10px;border-radius:2px}
-.vs-bar.voice-active .dot{background:var(--g);box-shadow:0 0 12px var(--g)}
-.input-area::before{content:'';position:absolute;top:-1px;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--c),transparent);pointer-events:none}
-.vs-bar{display:none;align-items:center;gap:8px;padding:4px 2px;font-family:var(--mono);font-size:9px;color:var(--g);letter-spacing:1px;margin-bottom:6px}
+/* vs-bar — fixed overlay pill, never shifts layout */
+.vs-bar{display:none;position:fixed;bottom:62px;left:50%;transform:translateX(-50%);z-index:300;align-items:center;gap:8px;padding:5px 16px;font-family:var(--mono);font-size:9px;color:var(--g);letter-spacing:1px;background:rgba(3,8,15,0.94);border:1px solid rgba(0,255,136,.3);border-radius:20px;white-space:nowrap;pointer-events:none;backdrop-filter:blur(8px);box-shadow:0 2px 20px rgba(0,0,0,.5)}
 .vs-bar span.dot{width:6px;height:6px;background:var(--g);border-radius:50%;box-shadow:0 0 8px var(--g);animation:ldot .6s infinite;flex-shrink:0;display:inline-block}
+/* vs-bar voice-active state */
+.vs-bar.voice-active{border-color:rgba(0,255,136,.5);box-shadow:0 0 24px rgba(0,255,136,.12)}
 .irow{display:flex;gap:8px;align-items:flex-end;background:var(--panel);border:1px solid var(--b2);padding:7px 7px 7px 14px;clip-path:polygon(0 0,calc(100% - 12px) 0,100% 12px,100% 100%,12px 100%,0 calc(100% - 12px));transition:border-color .2s,box-shadow .2s;position:relative}
 .irow::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,var(--c2),transparent);pointer-events:none}
 .irow:focus-within{border-color:var(--c);box-shadow:0 0 18px rgba(0,212,255,.07)}
@@ -365,6 +364,11 @@ tr:hover td{background:rgba(0,212,255,.03)}
   </div>
   <!-- Clap flash overlay -->
   <div class="clap-flash" id="clap-flash"></div>
+  <!-- VS bar — fixed pill overlay, never shifts layout -->
+  <div class="vs-bar" id="vs-bar">
+    <span class="dot"></span>
+    <span id="vs-txt">HARVEY LISTENING…</span>
+  </div>
 
   <!-- MAIN -->
   <div class="main">
@@ -471,10 +475,6 @@ tr:hover td{background:rgba(0,212,255,.03)}
           </div>
         </div>
         <div class="input-area">
-          <div class="vs-bar" id="vs-bar">
-            <span class="dot"></span>
-            <span id="vs-txt">HARVEY LISTENING…</span>
-          </div>
           <div class="irow">
             <span class="ipfx">›_</span>
             <textarea id="ci" placeholder="Ask HARVEY — town, street, block, floor, value... or say 'wake up Harvey'" rows="1"></textarea>
@@ -1636,7 +1636,7 @@ function showTransactions(recs,params,is6mo){
   const sorted=[...prices].sort((a,b)=>a-b);
   const median=sorted[Math.floor(sorted.length/2)];
   const avg=Math.round(prices.reduce((s,p)=>s+p,0)/prices.length);
-  const shown=recs; // show ALL — no limit
+  const shown=recs;
   const timeNote=is6mo?'last 6 months':'full dataset';
   const rows=shown.map(r=>`<tr><td>${esc(r.month)}</td><td>BLK ${esc(r.block)} ${esc(r.street_name)}</td><td>${esc(r.flat_type)}</td><td>${esc(r.storey_range)}</td><td>${esc(r.floor_area_sqm)}m²</td><td class="pc">${fmtP(r.resale_price)}</td></tr>`).join('');
   const d=document.createElement('div');d.className='msg-ai';d.style.maxWidth='100%';
@@ -1654,11 +1654,182 @@ function showTransactions(recs,params,is6mo){
     </div></div>`;
   msgsEl.appendChild(d);bot();
   speak(`${recs.length} transaction${recs.length!==1?'s':''} found, sir. Median price ${fmtP(median)}.`);
-  setTimeout(()=>harveyMsg('Anything else, sir?',[{label:'ESTIMATE VALUE',val:'estimate value'},{label:'SEARCH AGAIN',val:'search'},{label:'DIFFERENT TOWN',val:'different town'}]),1200);
+
+  // ── INTELLIGENT FOLLOW-UP — Harvey interprets, then closes with "Anything else" ──
+  setTimeout(()=>{
+    const insight=harveyInterpret(recs,params,avg,median,prices);
+    const locLabel=(params.street||params.town||'this area').split(' ').slice(0,4).join(' ');
+    const chips=[
+      {label:'ESTIMATE VALUE',val:'estimate value'},
+      {label:'SEARCH AGAIN',val:'search'},
+      {label:'START FRESH',val:'__restart__'},
+      ...(params.town&&!params.street?[{label:'COMPARE TOWNS',val:`most expensive town vs ${params.town}`}]:[]),
+      ...(params.street?[{label:'WHY SO EXPENSIVE?',val:`why is ${locLabel} so expensive`}]:[]),
+      ...(params.block?[{label:'ESTIMATE THIS UNIT',val:`estimate value block ${params.block} ${params.street||''}`}]:[])
+    ];
+    // Interpretation + graceful close
+    harveyMsg(insight+'<br><br><em style="color:var(--t2);font-size:11px">Anything else I can help with, sir?</em>',chips);
+    speak(insight.replace(/<[^>]*>/g,'').slice(0,220));
+  },1400);
   mode='menu';
 }
 
-// ── SHOW EV ──
+// ── HARVEY MARKET INTERPRETATION ──
+// Called after every search result — Harvey reads the data and says something smart
+function harveyInterpret(recs,params,avg,median,prices){
+  if(!recs.length)return `Nothing to work with there, sir. Let's try a different angle.`;
+
+  const fmtK=n=>{const v=Number(n);return v>=1000000?'$'+(v/1000000).toFixed(2).replace(/\.?0+$/,'')+'M':'$'+(v/1000).toFixed(0)+'k';};
+  const gap=avg-median;
+  const gapPct=((gap/median)*100).toFixed(1);
+  const milCount=prices.filter(p=>p>=1000000).length;
+  const spread=Math.max(...prices)-Math.min(...prices);
+  const spreadPct=((spread/median)*100).toFixed(0);
+  const loc=params.street?esc(params.street.split(' ').slice(0,4).join(' ')):params.town?esc(params.town.charAt(0)+params.town.slice(1).toLowerCase()):'this area';
+
+  // ── Flat age analysis from records ──
+  const withLease=recs.filter(r=>parseInt(r.lease_commence_date)>0);
+  const newFlats=withLease.filter(r=>parseInt(r.lease_commence_date)>=2000);
+  const oldFlats=withLease.filter(r=>parseInt(r.lease_commence_date)<1990);
+  const avgNew=newFlats.length?Math.round(newFlats.map(r=>Number(r.resale_price)).reduce((a,b)=>a+b,0)/newFlats.length):0;
+  const avgOld=oldFlats.length?Math.round(oldFlats.map(r=>Number(r.resale_price)).reduce((a,b)=>a+b,0)/oldFlats.length):0;
+  const agePremium=avgNew&&avgOld?Math.round(((avgNew-avgOld)/avgOld)*100):null;
+
+  // ── Floor trend ──
+  const highFloor=recs.filter(r=>/^(1[3-9]|[2-9]\d)/i.test(r.storey_range||''));
+  const lowFloor=recs.filter(r=>/^0[1-9]/i.test(r.storey_range||''));
+  const avgHigh=highFloor.length?Math.round(highFloor.map(r=>Number(r.resale_price)).reduce((a,b)=>a+b,0)/highFloor.length):0;
+  const avgLow=lowFloor.length?Math.round(lowFloor.map(r=>Number(r.resale_price)).reduce((a,b)=>a+b,0)/lowFloor.length):0;
+  const floorPrem=avgHigh&&avgLow?Math.round(((avgHigh-avgLow)/avgLow)*100):null;
+
+  // ── Recent trend ──
+  const byMonth={};recs.forEach(r=>{byMonth[r.month]=(byMonth[r.month]||[]);byMonth[r.month].push(Number(r.resale_price));});
+  const months=Object.keys(byMonth).sort();
+  const recentAvg=months.length>=2?Math.round(byMonth[months[months.length-1]].reduce((a,b)=>a+b,0)/byMonth[months[months.length-1]].length):0;
+  const earlierAvg=months.length>=2?Math.round(byMonth[months[0]].reduce((a,b)=>a+b,0)/byMonth[months[0]].length):0;
+  const trend=recentAvg&&earlierAvg?((recentAvg-earlierAvg)/earlierAvg*100).toFixed(1):null;
+
+  // Build interpretation
+  const parts=[];
+
+  // Skew
+  if(Math.abs(Number(gapPct))>5){
+    parts.push(Number(gap)>0
+      ?`The average (${fmtK(avg)}) runs <strong>${gapPct}%</strong> above the median (${fmtK(median)}) — higher-end transactions are pulling prices up. A handful of premium units are doing most of the talking.`
+      :`The average (${fmtK(avg)}) sits <strong>${Math.abs(Number(gapPct))}%</strong> below the median — softer transactions at the lower end are keeping the average down. The majority of deals are priced closer to the median.`);
+  }
+
+  // Million deals
+  if(milCount>0){
+    parts.push(`<strong style="color:var(--a)">${milCount}</strong> million-dollar ${milCount===1?'deal':'deals'} in this set, sir — so the premium end is very much alive here.`);
+  }
+
+  // Floor premium
+  if(floorPrem!==null&&Math.abs(floorPrem)>8){
+    parts.push(`High-floor units (13th and above) average <strong style="color:var(--g)">${fmtK(avgHigh)}</strong> vs <strong>${fmtK(avgLow)}</strong> for lower floors — a <strong>${floorPrem}%</strong> floor premium. Quite the view tax, sir.`);
+  }
+
+  // Age premium
+  if(agePremium!==null&&Math.abs(agePremium)>5){
+    parts.push(agePremium>0
+      ?`Newer flats (built 2000+) average <strong style="color:var(--g)">${fmtK(avgNew)}</strong> vs <strong>${fmtK(avgOld)}</strong> for older stock — a <strong>${agePremium}%</strong> premium for newer builds. Worth noting if lease is on your mind.`
+      :`Interestingly, older flats here average <strong style="color:var(--g)">${fmtK(avgOld)}</strong> — slightly above newer ones at ${fmtK(avgNew)}. Likely reflects larger unit sizes in older blocks rather than a lease preference.`);
+  }
+
+  // Price trend
+  if(trend!==null&&months.length>=2&&Math.abs(Number(trend))>2){
+    parts.push(Number(trend)>0
+      ?`Prices have drifted <strong style="color:var(--a)">+${trend}%</strong> from ${months[0]} to ${months[months.length-1]} in this dataset. The market here is not standing still, sir.`
+      :`Prices have eased <strong style="color:var(--g)">${trend}%</strong> from ${months[0]} to ${months[months.length-1]}. Some softening in recent months — worth monitoring.`);
+  }
+
+  // Spread
+  if(Number(spreadPct)>40&&recs.length>5){
+    parts.push(`Wide price spread of <strong>${fmtK(spread)}</strong> across ${recs.length} transactions — suggesting significant variation by floor, facing, or condition. The headline average only tells part of the story.`);
+  }
+
+  if(!parts.length){
+    return rand([
+      `${recs.length} transactions in ${loc}, sir. Median sits at <strong style="color:var(--g)">${fmtK(median)}</strong> — fairly consistent pricing, nothing too dramatic. Shall I run a valuation on a specific unit?`,
+      `Clean dataset for ${loc}, sir — ${recs.length} records, median <strong style="color:var(--g)">${fmtK(median)}</strong>. The market here is behaving itself. Anything specific you'd like to dig into?`
+    ]);
+  }
+
+  const intro=rand([
+    `A few things worth noting about ${loc}, sir:`,
+    `Reading between the lines here, sir:`,
+    `The data tells an interesting story, sir:`
+  ]);
+  return `${intro}<br><br>${parts.slice(0,3).map(p=>`▸ ${p}`).join('<br><br>')}`;
+}
+
+// ── PRICE QUESTION ROUTER — "why expensive", "what is the price", "median vs average" ──
+// Catches price-related questions and routes them intelligently
+function handlePriceQuestion(raw,ctx){
+  const q=raw.toLowerCase();
+
+  // "Why expensive / why so high / why premium" — explain factors
+  if(/why.*(?:expensive|costly|high|premium|pricey)|(?:expensive|costly|high|premium|pricey).*why/i.test(raw)){
+    const location=ctx.street||ctx.town||'this area';
+    const locLabel=esc(location.split(' ').slice(0,4).join(' '));
+    const recs=ctx.street||ctx.block
+      ?DB.resale.filter(r=>(ctx.street?r.street_name===ctx.street:true)&&(ctx.town?r.town===ctx.town:true))
+      :ctx.town?DB.resale.filter(r=>r.town===ctx.town):[];
+
+    const factors=[];
+
+    if(recs.length){
+      // Age — newer = premium
+      const withLease=recs.filter(r=>parseInt(r.lease_commence_date)>0);
+      const avgLease=withLease.length?Math.round(withLease.map(r=>parseInt(r.lease_commence_date)).reduce((a,b)=>a+b,0)/withLease.length):null;
+      if(avgLease&&avgLease>=2000)factors.push(`🏗 <strong>Newer stock</strong> — most flats here were built around <strong>${avgLease}</strong>, meaning longer remaining lease. Buyers pay a premium for that.`);
+      else if(avgLease&&avgLease<1985)factors.push(`📋 <strong>Older stock</strong> — average lease commencement around ${avgLease}. Shorter remaining lease typically softens prices, though established estates sometimes carry a location premium that offsets this.`);
+
+      // Floor distribution
+      const highFloor=recs.filter(r=>/^(1[3-9]|[2-9]\d)/i.test(r.storey_range||''));
+      if(highFloor.length/recs.length>0.4)factors.push(`🏙 <strong>High-floor concentration</strong> — over ${Math.round(highFloor.length/recs.length*100)}% of transactions here are on floor 13 and above. Views command a premium.`);
+
+      // Million deals
+      const milPct=Math.round(recs.filter(r=>Number(r.resale_price)>=1000000).length/recs.length*100);
+      if(milPct>10)factors.push(`💎 <strong>${milPct}% million-dollar deals</strong> in the transaction history — this area consistently attracts premium buyers.`);
+    }
+
+    // Location-based commentary (static knowledge about SG neighbourhoods)
+    const locUp=(ctx.street||ctx.town||'').toUpperCase();
+    if(/QUEENSTOWN|BUONA VISTA|DOVER|DAWSON/i.test(locUp))factors.push(`📍 <strong>Prime central location</strong> — Queenstown / Buona Vista is one of Singapore's most established mature estates, within the Core Central Region. Location premium is well-documented here.`);
+    if(/BISHAN|MARYMOUNT|SIN MING/i.test(locUp))factors.push(`📍 <strong>Top school catchment</strong> — Bishan houses Ai Tong School and Catholic High School Primary, both SAP/GEP institutions. Combined with excellent MRT access and central location, this creates a very motivated buyer base.`);
+    if(/CLEMENTI|WEST COAST/i.test(locUp))factors.push(`📍 <strong>Education belt premium</strong> — Clementi is home to Nan Hua Primary (SAP/GEP). The 1km school ballot priority here is valuable, and family buyers price that in consistently.`);
+    if(/ANG MO KIO|AMK/i.test(locUp))factors.push(`📍 <strong>CHIJ St. Nicholas catchment</strong> — Ang Mo Kio houses CHIJ St. Nicholas Girls' School (SAP/GEP), drawing education-motivated buyers. Combined with mature estate amenities and MRT, demand is well-supported.`);
+    if(/TAMPINES/i.test(locUp))factors.push(`📍 <strong>Self-contained town with SAP school</strong> — Tampines has Poi Ching School (SAP), its own malls, MRT interchange, and bus interchange. One of Singapore's highest-volume resale markets.`);
+    if(/MARINE PARADE|KATONG|SIGLAP/i.test(locUp))factors.push(`📍 <strong>Tao Nan School catchment</strong> — Marine Parade is home to Tao Nan School (SAP/GEP), one of Singapore's most sought-after primary schools. The 1km zone commands a consistent premium.`);
+    if(/TOA PAYOH/i.test(locUp))factors.push(`📍 <strong>SAP school cluster</strong> — Toa Payoh has Maris Stella High (SAP boys') and Pei Chun Public School (SAP). Central location, mature estate, strong school community.`);
+    if(/BUKIT TIMAH|SIXTH AVENUE|UPPER BUKIT/i.test(locUp))factors.push(`📍 <strong>Singapore's education golden belt</strong> — Bukit Timah houses Nanyang Primary, Henry Park Primary, Methodist Girls', and Pei Hwa Presbyterian. The school concentration here is unique and structurally supports pricing.`);
+    if(/SERANGOON|HOUGANG/i.test(locUp))factors.push(`📍 <strong>GEP school proximity</strong> — Rosyth School (GEP) in Serangoon and Holy Innocents' (SAP) in Hougang draw education-motivated buyers to this corridor.`);
+    if(/CENTRAL AREA|TANJONG PAGAR|OUTRAM/i.test(locUp))factors.push(`📍 <strong>Central Area — rare and sought after</strong> — very few HDB flats in the Central Area remain. Scarcity combined with location makes these among the most expensive public housing in Singapore.`);
+
+    if(!factors.length){
+      factors.push(`📊 <strong>Market demand</strong> — pricing reflects the balance of supply and demand in the area at the time of transaction.`);
+      factors.push(`🏗 <strong>Unit-specific factors</strong> — floor level, facing, renovation quality, and remaining lease all contribute to individual transaction prices above the median.`);
+    }
+
+    const intro=rand([
+      `Good question, sir. A few factors likely explain the pricing in <strong>${locLabel}</strong>:`,
+      `The premium in <strong>${locLabel}</strong> is not accidental, sir. Here's what the data suggests:`,
+      `I've given this some thought, sir. The pricing in <strong>${locLabel}</strong> reflects several things:`
+    ]);
+    return intro+'<br><br>'+factors.slice(0,3).map(f=>`▸ ${f}`).join('<br><br>')+'<br><br><em style="color:var(--t2);font-size:11px">For a detailed unit-level assessment, do reach out — <a href="https://wa.me/6597531657" target="_blank" style="color:var(--g)">WhatsApp us here →</a></em>';
+  }
+
+  // "What is the price / how much / estimate or median?" — clarify intent
+  if(/what.*price|how much|price.*of|median.*or|average.*or|estimate.*or/i.test(raw)){
+    return rand([
+      `A price question, sir — I can approach this a few ways. What would be most useful?`,
+      `Before I proceed, sir — which angle suits you best?`
+    ]);
+  }
+
+  return null;
+}
 function showEV(result,params){
   if(result.type==='no_data'){
     const noDataMsg=`I searched Block ${result.block} ${result.street} for ${result.flatType} units around ${result.size} sqm in the last 12 months. ${result.count>0?`Found ${result.count} transaction${result.count>1?'s':''} but not enough for a reliable estimate.`:'No matching transactions found.'} This area may have low transaction volume.`;
@@ -2121,6 +2292,28 @@ function promptMissing(ctx){
       speak('Which town or street, sir?');
       mode='srch_waiting';loading=false;sbEl.disabled=false;return;
     }
+
+    // ── Town known but no street — suggest streets in that town ──
+    if(ctx.town&&!ctx.street&&!ctx.block&&DB.townStreets[ctx.town]){
+      const streets=DB.townStreets[ctx.town].slice(0,8);
+      const streetChips=streets.slice(0,5).map(s=>({label:s.split(' ').slice(0,4).join(' '),val:`${ctx.town} ${s}${ctx.flatType?' '+ctx.flatType:''}`}));
+      const more=DB.townStreets[ctx.town].length>5?` <em style="color:var(--t2)">(${DB.townStreets[ctx.town].length} streets total)</em>`:'';
+      harveyMsg(`<strong>${esc(ctx.town)}</strong> — got it, sir. Which street${ctx.flatType?' for <strong>'+ctx.flatType.toLowerCase()+'</strong>':''} are we looking at?${more}<br><br><em style="color:var(--t2);font-size:10px">A few common ones: ${streets.map(s=>`<strong style="color:var(--c)">${esc(s)}</strong>`).join(', ')}</em>`,[...streetChips,{label:'SHOW ALL TRANSACTIONS',val:`recent ${ctx.flatType||''} ${ctx.town}`}]);
+      speak(`${ctx.town} — which street, sir?`);
+      mode='srch_waiting';loading=false;sbEl.disabled=false;return;
+    }
+
+    // ── Street known but no block — suggest blocks on that street ──
+    if(ctx.street&&!ctx.block){
+      const blocksOnStreet=[...new Set(DB.resale.filter(r=>r.street_name===ctx.street).map(r=>r.block))].sort((a,b)=>Number(a)-Number(b)||a.localeCompare(b));
+      if(blocksOnStreet.length>1&&blocksOnStreet.length<=20){
+        const blockChips=blocksOnStreet.slice(0,5).map(b=>({label:`BLK ${b}`,val:`block ${b} ${ctx.street}${ctx.flatType?' '+ctx.flatType:''}`}));
+        harveyMsg(`On <strong>${esc(ctx.street)}</strong>, I have data for <strong>${blocksOnStreet.length}</strong> block${blocksOnStreet.length>1?'s':''}: <strong style="color:var(--c)">${blocksOnStreet.join(', ')}</strong>. Which block, sir?`,[...blockChips,{label:'SHOW ALL',val:`recent ${ctx.flatType||''} ${ctx.street}`}]);
+        speak(`Which block on ${cleanForSpeech(ctx.street)}, sir?`);
+        mode='srch_waiting';loading=false;sbEl.disabled=false;return;
+      }
+    }
+
     runSearch();
   }
 }
@@ -2742,16 +2935,91 @@ async function _handleInputInner(raw){
     speak(`I'm afraid the data presents itself as such, sir.`);mode='menu';return;
   }
 
-  // HDB meta-questions (stats from DB)
-  const metaResult=harveyKnows.tryMeta(raw,DB);
+  // ── PRICE / WHY EXPENSIVE — smart routing ──
+  if(/why.*(?:expensive|costly|high|premium|pricey)|(?:expensive|costly|high|premium|pricey).*why|what.*price|how much.*(?:flat|block|street|town)|median.*or.*average|price.*question/i.test(raw)){
+    const priceReply=handlePriceQuestion(raw,{...ctx,...convCtx});
+    if(priceReply){
+      const chips=[
+        {label:'ESTIMATE VALUE',val:'estimate value'},
+        {label:'SEARCH TRANSACTIONS',val:'search'},
+        {label:'MEDIAN VS AVERAGE',val:`compare median average ${convCtx.town||convCtx.street||''}`},
+        {label:'AGE ANALYSIS',val:`old vs new flats ${convCtx.town||convCtx.street||''}`}
+      ];
+      harveyMsg(priceReply,chips);
+      speak(priceReply.replace(/<[^>]*>/g,'').slice(0,250));
+      mode='menu';loading=false;sbEl.disabled=false;return;
+    }
+  }
+
+  // ── PRICE INTENT — ask which type of price analysis they want ──
+  if(/\bprice\b|\bcost\b|\bhow much\b|\bworth\b/i.test(raw)&&!ctx.block&&!ctx.isEV&&!ctx.street){
+    if(!ctx.town&&!convCtx.town){
+      // No context at all — route to estimate or search
+      harveyMsg(rand([
+        `A price question, sir — I can approach this a few ways. What would be most useful?`,
+        `Before I proceed, sir — which angle suits you?`
+      ]),[
+        {label:'ESTIMATE VALUE',val:'estimate value'},
+        {label:'SEARCH TRANSACTIONS',val:'search'},
+        {label:'MEDIAN PRICE BY TOWN',val:'most affordable town'},
+        {label:'MILLION $ DEALS',val:'million dollar deals'}
+      ]);
+      speak(`A price question, sir. Which angle would be most useful?`);
+      mode='menu';loading=false;sbEl.disabled=false;return;
+    }
+  }
+
+  // ── HDB meta-questions (stats from DB) ──
   if(metaResult){
     harveyMsg(metaResult,[{label:'RESALE TRANSACTIONS',val:'search'},{label:'ESTIMATE VALUE',val:'estimate value'}]);
     speak(metaResult.replace(/<[^>]*>/g,'').slice(0,200));
     mode='menu';return;
   }
 
-  // OOS classifier
-  const oosResult=harveyKnows.classify(raw);
+  // ── FUZZY STREET MATCHING ──
+  // Only fires when the query has no resolved street AND no exact number-specific street
+  // If the user gave "clementi west street 1" — reverseStreet already found it, no fuzzy needed
+  // Fuzzy only helps when something vague was typed like "teban gardens"
+  if(!ctx.street&&!ctx.block&&!ctx.town){
+    const fuzzyMatch=findFuzzyStreet(raw,DB);
+    if(fuzzyMatch){
+      const chips=[
+        {label:`YES — ${fuzzyMatch.best}`,val:`${fuzzyMatch.best}${ctx.flatType?' '+ctx.flatType:''}`},
+        {label:'NO, SEARCH DIFFERENTLY',val:'search'}
+      ];
+      const quips=[
+        `By any chance, sir — are you looking for <strong style="color:var(--c)">${esc(fuzzyMatch.best)}</strong>? Correct me if I'm wrong.`,
+        `Pardon me, sir — did you mean <strong style="color:var(--c)">${esc(fuzzyMatch.best)}</strong>? I may have taken a creative liberty with the street name.`,
+        `I believe you may be referring to <strong style="color:var(--c)">${esc(fuzzyMatch.best)}</strong>, sir — though I'm open to correction.`
+      ];
+      harveyMsg(rand(quips),chips);
+      speak(`Did you mean ${cleanForSpeech(fuzzyMatch.best)}, sir?`);
+      mode='menu';loading=false;sbEl.disabled=false;return;
+    }
+  }
+
+  // ── BLOCK AMBIGUITY — block number exists in multiple streets/towns ──
+  if(ctx.block&&!ctx.street&&!ctx.town){
+    const blockInfo=resolveBlock(ctx.block,DB);
+    if(blockInfo&&blockInfo.locations.length>1){
+      harveyMsg(harveyBlockAmbiguous(ctx.block,blockInfo),[
+        ...blockInfo.locations.slice(0,5).map(l=>({
+          label:`${l.town} — ${l.street}`,
+          val:`block ${ctx.block} ${l.street}${ctx.flatType?' '+ctx.flatType:''}`
+        })),
+        {label:'SHOW ALL MATCHES',val:`search block ${ctx.block}`}
+      ]);
+      speak(`Block ${ctx.block} exists in multiple locations, sir. Which one are you looking for?`);
+      mode='menu';loading=false;sbEl.disabled=false;return;
+    }else if(blockInfo&&blockInfo.locations.length===1){
+      // Only one match — auto-fill and continue
+      ctx.town=blockInfo.locations[0].town;
+      ctx.street=blockInfo.locations[0].street;
+      convCtx.town=ctx.town;convCtx.street=ctx.street;
+    }
+  }
+
+  // ── OOS classifier ──
   if(oosResult){
     harveyMsg(harveyKnows.quip(raw,oosResult),[{label:'RESALE TRANSACTIONS',val:'search'},{label:'ESTIMATE VALUE',val:'estimate value'}]);
     speak(`That one's a little outside my territory, sir. Let me point you to someone who can help.`);
@@ -2870,6 +3138,83 @@ function jarvisStuck(raw){
   return msg+`<div style="margin-top:10px"><button class="stop-btn" style="color:var(--a);background:rgba(255,170,0,.08);border-color:rgba(255,170,0,.3);font-size:9px;padding:5px 14px" onclick="chipClick('__restart__')">↺ RESET HARVEY — START FRESH</button></div>`;
 }
 
+// ── BLOCK RESOLVER ──
+// Given a bare block number, find all streets/towns it appears in.
+// Returns {block, locations:[{town,street,count}]} sorted by transaction count.
+function resolveBlock(block,DB){
+  if(!DB||!DB.resale||!block)return null;
+  const b=String(block).toUpperCase().trim();
+  const locationMap={};
+  DB.resale.forEach(r=>{
+    if(r.block===b&&r.street_name&&r.town){
+      const key=`${r.town}|||${r.street_name}`;
+      locationMap[key]=(locationMap[key]||0)+1;
+    }
+  });
+  const locations=Object.entries(locationMap)
+    .map(([k,count])=>{const[town,street]=k.split('|||');return{town,street,count};})
+    .sort((a,b)=>b.count-a.count);
+  return locations.length?{block:b,locations}:null;
+}
+
+function harveyBlockAmbiguous(block,info){
+  const locs=info.locations;
+  const topList=locs.slice(0,5).map(l=>`<span style="font-family:var(--mono);font-size:10px;color:var(--c)">▸ ${esc(l.town)} — ${esc(l.street)} <em style="color:var(--t2)">(${l.count} txns)</em></span>`).join('<br>');
+  const jarvis=[
+    `Block <strong style="color:var(--c)">${esc(block)}</strong> is rather popular, sir — it appears in <strong>${locs.length}</strong> different location${locs.length>1?'s':''}:<br><br>${topList}<br><br>Which one were you after?`,
+    `I found Block <strong style="color:var(--c)">${esc(block)}</strong> in <strong>${locs.length}</strong> location${locs.length>1?'s':''}, sir. Singapore has a habit of reusing block numbers — occupational hazard for a data engine:<br><br>${topList}<br><br>Which shall we go with?`,
+    `Block <strong style="color:var(--c)">${esc(block)}</strong> exists in <strong>${locs.length}</strong> places, sir. I'd hate to show you the wrong one:<br><br>${topList}<br><br>Kindly point me in the right direction.`
+  ];
+  return rand(jarvis);
+}
+
+// ── FUZZY STREET MATCHER ──
+// Finds the closest street in DB when user types something close but not exact.
+// Returns {best, score} or null.
+function findFuzzyStreet(raw,DB){
+  if(!DB||!DB.resale||!DB.resale.length)return null;
+  const q=raw.toUpperCase().replace(/[^A-Z0-9 ]/g,' ').replace(/\s+/g,' ').trim();
+  if(q.length<4)return null;
+  const streets=[...new Set(DB.resale.map(r=>r.street_name).filter(Boolean))];
+
+  // Exact match — nothing to do
+  if(streets.includes(q))return null;
+
+  // If reverseStreet already found something exact, don't second-guess it
+  const rev=reverseStreet(raw);
+  if(rev&&rev.street)return null;
+
+  const hasSuffix=/\b(ST|AVE|DR|RD|CL|CRES|LOR|JLN|BT|UPP|HTS|NTH|STH|CTRL|TER|PL|GR|LN|WALK|LINK|RISE|VIEW|WAY|GDNS|CTS|STREET|AVENUE|DRIVE|ROAD|CLOSE|CRESCENT|LORONG|JALAN|GARDENS|TERRACE|LANE|PLACE|GROVE|HEIGHTS)\b/i.test(raw);
+  // Only run fuzzy on inputs that plausibly refer to a street
+  if(!hasSuffix&&q.split(' ').length<2)return null;
+
+  // If the query has a number suffix, it's specific — require same number in suggestions
+  const trailingNumMatch=q.match(/\b(\d{1,3}[A-Z]?)$/);
+  const trailingNum=trailingNumMatch?trailingNumMatch[1]:null;
+
+  function lev(a,b){const m=a.length,n=b.length;const dp=Array.from({length:m+1},(_,i)=>Array.from({length:n+1},(_,j)=>j===0?i:i===0?j:0));for(let i=1;i<=m;i++)for(let j=1;j<=n;j++)dp[i][j]=a[i-1]===b[j-1]?dp[i-1][j-1]:1+Math.min(dp[i-1][j],dp[i][j-1],dp[i-1][j-1]);return dp[m][n];}
+  function tokenScore(a,b){const wa=new Set(a.split(' ').filter(w=>w.length>2));const wb=new Set(b.split(' ').filter(w=>w.length>2));let matches=0;for(const w of wa)if(wb.has(w))matches++;return matches/(Math.max(wa.size,wb.size)||1);}
+  const stripType=s=>s.replace(/\b(ST|AVE|DR|RD|CL|CRES|LOR|JLN|BT|UPP|HTS|NTH|STH|CTRL|TER|PL|GR|LN|WALK|LINK|RISE|VIEW|WAY|GDNS|CTS)\b/g,'').replace(/\s+/g,' ').trim();
+  const qCore=stripType(q);
+
+  let best=null,bestScore=0;
+  for(const s of streets){
+    if(trailingNum){
+      const sNum=s.match(/\b(\d{1,3}[A-Z]?)$/);
+      if(!sNum||sNum[1]!==trailingNum)continue;
+    }
+    const sCore=stripType(s);
+    const tok=tokenScore(qCore,sCore);
+    if(tok<0.4)continue;
+    const dist=lev(qCore,sCore);
+    const sim=1-dist/(Math.max(qCore.length,sCore.length)||1);
+    const combined=tok*0.6+sim*0.4;
+    if(combined>bestScore){bestScore=combined;best=s;}
+  }
+  if(best&&bestScore>0.55&&best!==q)return{best,score:bestScore};
+  return null;
+}
+
 // ══════════════════════════════════════════════════════════════════════
 // HARVEY CORPUS CHITCHAT — Loaded on boot, zero latency, no API calls
 // Covers: daily life, Singapore life, about Harvey, Jarvis meta,
@@ -2884,30 +3229,34 @@ function harveyChitChat(raw, convCtx){
   // block reference, return null immediately so the data engine handles it.
   // This prevents "teban" / "clementi" / "tampines" triggering chitchat.
   const DB_WORDS=new Set([
-    // All HDB towns
+    // HDB towns — these always mean data intent
     'tampines','clementi','bedok','bishan','jurong','yishun','woodlands',
     'sengkang','punggol','hougang','queenstown','kallang','serangoon',
-    'bukit','geylang','whampoa','crawford','tiong bahru','marine parade',
+    'geylang','whampoa','crawford','tiong bahru','marine parade',
     'buona vista','dover','toa payoh','ang mo kio','pasir ris',
     'sembawang','choa chu kang','bukit batok','bukit merah','bukit panjang',
-    'bukit timah','central area','lim chu kang','mandai','novena',
-    'pioneer','tengah','western water catchment','woodgrove',
-    // Common HDB street keywords — if these appear, it's a data query
-    'teban','lor','lorong','jalan','avenue','street','road','drive','close',
-    'crescent','lane','place','grove','heights','terrace','walk','link',
-    'rise','view','way','gardens','courts','market','park','central',
-    'blk','block','floor','level','storey','sqm','room','flat','hdb',
-    'resale','price','value','valuation','estimate','transaction','sale',
-    'sold','recent','cheapest','expensive','psf','lease',
+    'bukit timah','central area','pioneer','tengah','novena',
+    // Explicit DB field keywords — these are search/query intent, not conversation
+    'teban','blk','storey','sqm','resale','transaction',
+    'psf','lease commence','sold price','asking price',
   ]);
-  // Also check against live DB towns if loaded
+  // Strict bigrams that are clearly data queries
+  const DB_BIGRAMS=new Set([
+    'block number','street name','flat type','floor level','floor area',
+    'resale price','asking price','transaction date','lease year',
+    'how many sold','what sold','transactions in','price in',
+  ]);
+  // Also check against live DB towns
   const liveTowns=Object.keys(DB&&DB.townStreets?DB.townStreets:{});
   const allWords=q.split(/\s+/).filter(w=>w.length>2);
-  const bigrams=[];
-  for(let i=0;i<allWords.length-1;i++)bigrams.push(allWords[i]+' '+allWords[i+1]);
-  for(const t of[...allWords,...bigrams]){
-    if(DB_WORDS.has(t))return null; // let the data engine handle it
+  const bigrams2=[];
+  for(let i=0;i<allWords.length-1;i++)bigrams2.push(allWords[i]+' '+allWords[i+1]);
+  for(const t of allWords){
+    if(DB_WORDS.has(t))return null;
     if(liveTowns.some(town=>town.toLowerCase()===t))return null;
+  }
+  for(const t of bigrams2){
+    if(DB_BIGRAMS.has(t))return null;
   }
 
   // ── HELPER ──
@@ -3318,6 +3667,450 @@ function harveyChitChat(raw, convCtx){
     ));
   }
 
+  // ════════════════════════════════
+  // SINGAPORE HOUSING GEOGRAPHY — views, estates, lifestyle
+  // ════════════════════════════════
+
+  if(m(/sea view|ocean view|sea facing|facing sea|waterfront|sea front|seaside flat/)){
+    return withCtx(r(
+      `A sea view, sir — now that is the stuff of property dreams in Singapore. Coastal HDB flats in Pasir Ris, Bedok, and parts of Sembawang occasionally offer glimpses of the sea. Rare, highly sought after, and the asking prices tend to reflect that rather clearly. Shall I look up what's transacted in those areas?`,
+      `Ah, a flat with a sea view — the white whale of Singapore HDB hunting, sir. They exist, mostly in Pasir Ris and parts of the East Coast, but they transact quickly and at a premium. Worth the search. Shall we?`,
+      `Sea views on an HDB flat, sir — not impossible, just requires knowing where to look. Pasir Ris and certain Bedok blocks near the waterfront do occasionally surface. The data will tell us what they've been going for. Interested?`
+    ));
+  }
+
+  if(m(/reservoir view|bedok reservoir|pandan reservoir|sengkang reservoir|punggol waterway|lower seletar|macritchie/)){
+    return withCtx(r(
+      `A reservoir view, sir — genuinely one of Singapore's best-kept property secrets. Blocks facing Bedok Reservoir, Pandan Reservoir, or the Punggol Waterway offer a rare green-water outlook that's considerably more achievable than a sea view and often just as calming. Prices reflect the demand. Shall I pull what's been transacted in those areas?`,
+      `Reservoir-facing flats are among the more romantic choices in Singapore's HDB landscape, sir. Bedok Reservoir blocks, Pandan area, the Punggol waterway — these are genuinely lovely and the resale market shows steady interest. Would you like to see the numbers?`,
+      `Smart thinking, sir. Reservoir views offer the tranquility of waterfront living without the CBD price tag. Bedok Reservoir and Punggol Waterway flats are particularly sought after. I can pull up transactions in those areas if you'd like.`
+    ));
+  }
+
+  if(m(/park view|greenery|nature view|green view|facing park|park facing|park connector|treetop|forest view/)){
+    return withCtx(r(
+      `A greenery-facing flat, sir — the biophilic dream. Blocks overlooking parks, park connectors, or forested areas tend to carry a quiet premium that the data consistently confirms. Bishan-Ang Mo Kio Park, Bedok Town Park, Jurong Lake Gardens vicinity — all worth exploring. Shall I look up what's transacted nearby?`,
+      `Green views are underrated, sir — and the resale market knows it. Park-facing blocks in mature estates like Bishan, Tampines, and Queenstown tend to hold their value well. A little greenery goes a long way. Shall we search?`,
+      `Nature-facing flats in Singapore are genuinely lovely and — perhaps surprisingly — not always the priciest. The data sometimes reveals good value in park-adjacent blocks. Shall I pull something up?`
+    ));
+  }
+
+  if(m(/city view|skyline|cbd view|city facing|facing city|mbs view|marina bay|suntec view/)){
+    return withCtx(r(
+      `A city skyline view, sir — now we're talking premium territory. Flats in Pinnacle@Duxton, certain Toa Payoh, Queenstown, and Kallang blocks offer iconic CBD vistas. These are, predictably, among the most aggressively priced in the resale market. The view commands. Shall I show you what they've been going for?`,
+      `City-view HDB flats are a genuine flex, sir — and the market prices them accordingly. The Pinnacle at Duxton is the obvious reference point, but there are others in Toa Payoh, Queenstown, and along the Kallang River corridor. Want me to look those up?`,
+      `A skyline view from an HDB flat — aspirational but achievable, sir. The transactions in Tanjong Pagar, Queenstown, and parts of Toa Payoh tell an interesting story about what people will pay for that outlook. Shall we?`
+    ));
+  }
+
+  if(m(/mrt.*walk|walk.*mrt|near.*mrt|close.*mrt|mrt proximity|mrt access|minutes.*mrt|mrt.*minutes/)){
+    return withCtx(r(
+      `MRT proximity, sir — the single most reliable price driver in Singapore's HDB market, bar none. Consistently, blocks within a 5-minute walk of a station command a measurable premium. It's not subtle. Shall I search a specific area or show you what the data says about MRT-proximate blocks?`,
+      `Walking distance to MRT — the golden standard, sir. The data is unambiguous: sub-10-minute walk flats transact at a premium and move faster. Which area are you thinking? I can pull up the relevant blocks.`,
+      `MRT access is perhaps the most priced-in factor in Singapore resale, sir. Which town or line? I can show you what blocks near key stations have been transacting at.`
+    ));
+  }
+
+  if(m(/corner unit|end unit|bigger unit|larger flat|bigger flat|spacious|roomy|big flat/)){
+    return withCtx(r(
+      `A corner or end unit, sir — more windows, more light, occasionally more noise from the corridor, but generally worth it. These do show up in the transaction data as slightly higher PSF in certain blocks. Want me to look for a specific area?`,
+      `Spacious units — an excellent criterion, sir. Floor area in sqm is one of the fields I search by. If you give me a town or street, I can filter for larger units specifically. What's the minimum you have in mind?`,
+      `More space is always a sound investment, sir — especially in Singapore where every square metre is accounted for. Shall I search by floor area in a specific area?`
+    ));
+  }
+
+  if(m(/bto|built to order|ballot.*flat|new flat.*hdb|hdb.*new flat|missed.*bto|bto.*miss|apply.*bto|bto.*apply|bto.*queue|queue.*bto/)){
+    return withCtx(r(
+      `Ah, the BTO journey, sir — a rite of passage that tests one's patience and luck in equal measure. If the ballot hasn't gone your way, the resale market offers something BTO genuinely cannot: immediate possession, established estates, and frankly — sometimes better locations. The right resale flat can be a rather elegant Plan B. Shall I show you what's available?`,
+      `Missing a BTO ballot is frustrating, sir — I understand. But here's the thing: resale gives you certainty. No waiting 4-5 years, no construction delays, and you can actually see the unit before you commit. Mature estates also tend to be better connected. Shall we look at what's out there?`,
+      `BTO or resale — both valid paths, sir, though they suit different stages of life. If the BTO didn't come through, resale offers speed, choice of location, and the ability to pick your exact block and floor. There are genuinely good deals in the market right now. What area interests you?`,
+      `The BTO ballot is a lottery, sir — quite literally. Resale is more predictable. You pick the town, the street, the floor, the facing — and I can tell you exactly what every comparable unit sold for. That's rather more information than you get walking into an HDB showroom. Shall we?`
+    ));
+  }
+
+  if(m(/mancave|man cave|bachelor pad|bachelor flat|guy.*flat|single guy|living alone.*guy|own space|my own place|first flat/)){
+    return withCtx(r(
+      `A man's castle, sir — I respect it. For a bachelor pad, the calculus is simple: proximity to amenities, reasonable commute, and enough space to breathe without paying for rooms you won't use. A 3-room is often the sweet spot. Which area suits your lifestyle?`,
+      `The mancave search — an honourable endeavour, sir. A 3-room in a well-connected estate gives you everything you need and nothing you don't. Mature estates like Toa Payoh, Queenstown, and Bishan offer excellent access and strong resale value. Shall we look?`,
+      `Living on your own terms, sir — I admire it. A 3-room resale in a mature estate is hard to beat for a first flat: manageable size, established neighbourhood, good transport. What area are you leaning towards?`
+    ));
+  }
+
+  if(m(/dream home|dream flat|dream house|forever home|ideal home|perfect flat|perfect home/)){
+    return withCtx(r(
+      `The dream home, sir — a noble pursuit. In Singapore, that tends to mean a combination of the right location, the right floor, the right facing, and — if one is fortunate — a view worth waking up to. I have fifty thousand transactions to help narrow it down. Where shall we start?`,
+      `Every dream home starts with good data, sir — and that happens to be exactly what I have. Tell me what matters most: location, flat type, floor, or budget. We'll find the closest thing to perfect.`,
+      `The perfect flat, sir — I won't promise miracles, but I will promise the most thorough search the data allows. What are your non-negotiables? Town? Flat type? Floor? View? Let's build it from there.`
+    ));
+  }
+
+  if(m(/wardrobe|walk.*in.*wardrobe|dressing room|lady.*flat|ladies.*flat|woman.*flat|wife.*flat|she.*flat|her.*flat|feminine|her dream|dream.*hers/)){
+    return withCtx(r(
+      `A flat with a dedicated dressing space — practical and aspirational in equal measure, sir. Larger unit types like 5-room or Executive flats offer the square footage to make that possible. Certain older blocks also have unusually generous bedroom dimensions. Shall I look at what's available in a specific area?`,
+      `The walk-in wardrobe dream, sir — achievable with the right floor plan. Executive flats and larger 5-rooms in Bishan, Tampines, and Queenstown tend to have the space for it. The renovation does the rest. Shall we look at what's transacted recently?`,
+      `An inspired vision, sir. The key is finding a unit with the right layout — and that starts with the right block. Executive flats are worth exploring for the square footage. What area had you in mind?`
+    ));
+  }
+
+  if(m(/downsizing|downsize|smaller flat|moving.*smaller|too big|empty nest|kids.*moved|retired/)){
+    return withCtx(r(
+      `Downsizing, sir — a very rational decision and one the resale market accommodates beautifully. A 3-room in a mature estate with good amenities nearby is often a significant lifestyle upgrade despite the smaller footprint. The financial case is usually compelling too. Shall I show you what's available?`,
+      `A strategic downsize, sir — I respect the clarity of vision. Selling a larger flat and moving to a well-located 3-room can free up significant equity. Mature estates near MRT stations are the sweet spot for this. Shall we look at the numbers?`,
+      `Downsizing is not retreating, sir — it is optimising. A smaller flat in the right location often delivers a better quality of life. I can show you what 3-rooms and 4-rooms in your preferred area have been going for. Where are you looking?`
+    ));
+  }
+
+  if(m(/invest|investment.*flat|buy.*rent.*out|rental yield|yield|passive income|property.*invest/)){
+    return withCtx(r(
+      `A property investment angle, sir — I respect it. For resale flats, the yield depends heavily on location, flat type, and remaining lease. Mature estates near MRT nodes tend to offer the best combination of capital appreciation and rental demand. However, I should note — I deal in resale transaction data, not rental yield calculations. For investment-grade analysis, a professional agent would be better placed. That said, I can show you transaction trends. Shall I?`,
+      `Rental yield on HDB resale, sir — a nuanced question. The short answer: high-demand areas, MRT proximity, and longer remaining lease are your friends. I can show you price trends and transaction volumes which inform the investment case, though the rental yield calculation itself is best validated with a professional. <a href="https://wa.me/6597531657" target="_blank" style="color:var(--g)">WhatsApp us here →</a>`,
+      `Investment in resale — a very Singaporean instinct, sir. I can show you what areas have the strongest transaction volumes and most consistent price growth. The investment decision itself requires a fuller picture though, including rental demand and policy considerations. Would you like to start with transaction data for a specific area?`
+    ));
+  }
+
+  if(m(/en bloc|enbloc|collective sale|potential en bloc|en-bloc/)){
+    return withCtx(r(
+      `En bloc, sir — the property lottery that requires patience, consensus, and a healthy dose of luck. For HDB, the equivalent is SERS (Selective En Bloc Redevelopment Scheme), which is HDB-initiated rather than owner-driven. It's rarer but does happen in older estates. My data covers resale transactions rather than en bloc proceedings — but I can show you what prices have been like in areas historically associated with redevelopment interest. Shall I?`,
+      `The en bloc dream, sir. For private property it's more established; for HDB it comes in the form of SERS, and it's selective. What I can tell you is what older estates have been transacting at — which sometimes reflects market anticipation of such events. Which area had you in mind?`
+    ));
+  }
+
+  if(m(/mature estate|non.?mature|young estate|new estate|established area|old estate/)){
+    return withCtx(r(
+      `Mature vs non-mature estates, sir — a classic resale dilemma. Mature estates like Queenstown, Toa Payoh, Bishan, and Ang Mo Kio offer established amenities, better connectivity, and generally stronger demand. Non-mature estates like Punggol and Sengkang offer newer infrastructure and more space, often at a lower price point. Both have merit — depends what you're optimising for. What's your priority?`,
+      `Mature estates command a premium for good reason, sir — decades of amenity development, proven transport links, and community infrastructure that newer towns are still building. But non-mature towns offer newer flats, longer leases, and more room to breathe. The right choice depends entirely on your priorities. Shall I show you some comparatives?`
+    ));
+  }
+
+  // ════════════════════════════════
+  // SCHOOLS & EDUCATION — Singapore primary school knowledge
+  // ════════════════════════════════
+
+  // School-specific name mentions
+  if(m(/tao nan|taon an/)){
+    return withCtx(r(
+      `Tao Nan School, sir — one of Singapore's most sought-after SAP and GEP schools, located in Marine Parade. The 1km radius around it is treated as prime property by kiasu parents across the island. Resale prices in that catchment reflect the demand keenly. Shall I show you what blocks in Marine Parade have been transacting at?`,
+      `Tao Nan — a name that will make any parent perk up, sir. SAP, GEP-affiliated, Marine Parade. The resale market around it is competitive precisely because the 1km ballot priority is so valuable. I can pull up transactions in the area if that's useful.`
+    ));
+  }
+  if(m(/ai tong|aitong/)){
+    return withCtx(r(
+      `Ai Tong School in Bishan, sir — a prominent SAP school with consistently strong academic culture. Being within 1km in Bishan already gives you central location, excellent MRT access, and top-school proximity. The resale market in Bishan prices all of that in. Shall I look up what's available?`,
+      `Ai Tong is one of those schools that makes Bishan addresses particularly desirable, sir. SAP school, strong Chinese language programme, and the Bishan neighbourhood is already excellent. The 1km catchment commands a premium. Want me to pull the transaction data?`
+    ));
+  }
+  if(m(/nanyang primary|nanyang pri/)){
+    return withCtx(r(
+      `Nanyang Primary in Bukit Timah, sir — GEP and SAP, and deeply embedded in one of Singapore's most prestigious residential corridors. Bukit Timah resale prices are already elevated; proximity to Nanyang Primary adds another layer to that premium. The data confirms it. Shall I search?`,
+      `Nanyang Primary is in a class of its own, sir — pun very much intended. GEP, SAP, Bukit Timah address. The parents who want it know exactly what they're doing. I can show you what transactions near that 1km zone look like, if useful.`
+    ));
+  }
+  if(m(/nan hua/)){
+    return withCtx(r(
+      `Nan Hua Primary in Clementi, sir — a top SAP and GEP school that contributes significantly to Clementi's residential premium. Clementi is already in demand for its MRT connectivity and NUS proximity; add a GEP school to the mix and you have a very motivated buyer base. Shall I look at the transaction data?`,
+      `Nan Hua Primary is one of the reasons Clementi commands the prices it does, sir. SAP, GEP, well-established school culture. The 1km radius around it is strategically valuable. I can pull what nearby blocks have been going for.`
+    ));
+  }
+  if(m(/rosyth/)){
+    return withCtx(r(
+      `Rosyth School in Serangoon, sir — well-known for GEP and holistic education, and a significant draw for the Serangoon/Hougang corridor. It's one of the reasons Serangoon resale demand remains solid. Shall I pull up transaction data in the area?`,
+      `Rosyth is a name that carries weight in Singapore's primary school landscape, sir. GEP school in Serangoon — and the resale market around it reflects parental intent quite clearly. Want to see the numbers?`
+    ));
+  }
+  if(m(/henry park/)){
+    return withCtx(r(
+      `Henry Park Primary in Bukit Timah, sir — strong GEP track record and an institution in Singapore's education landscape. The Bukit Timah corridor is already premium; Henry Park proximity adds further value. Quite the combination. Shall I search?`,
+      `Henry Park — another Bukit Timah gem, sir. Strong academics, GEP focus. Being in the 1km zone here is genuinely sought after. I can show you what nearby HDB blocks have been transacting at, though I should note Bukit Timah leans more private. Worth exploring.`
+    ));
+  }
+  if(m(/raffles girls|rgps/)){
+    return withCtx(r(
+      `Raffles Girls' Primary on Grange Road, sir — top-tier GEP school in the Orchard/River Valley area. The surrounding HDB presence is limited given the location, but flats in nearby Queenstown and Toa Payoh area attract buyers partly for the school accessibility. The data is interesting. Shall I look?`,
+      `RGPS — Raffles Girls' Primary, sir. Grange Road, top GEP school, very central. Demand for nearby residential is consistent and well-documented. Happy to pull up what I have in the vicinity.`
+    ));
+  }
+  if(m(/mgs primary|methodist girls/)){
+    return withCtx(r(
+      `Methodist Girls' School Primary in Bukit Timah, sir — one of Singapore's most respected girls' schools with strong values-based education. The Bukit Timah corridor around it is perennially sought after. I can pull up what's been transacting nearby.`
+    ));
+  }
+  if(m(/red swastika/)){
+    return withCtx(r(
+      `Red Swastika School in Bedok, sir — a notable SAP school and a reason Bedok North addresses attract a certain type of discerning buyer. Bedok as a whole is a mature estate with excellent amenities. The school adds a specific premium to nearby blocks. Shall I look up transactions in the area?`
+    ));
+  }
+  if(m(/maris stella/)){
+    return withCtx(r(
+      `Maris Stella High School Primary in Toa Payoh, sir — an SAP boys' school with strong Catholic character and a loyal community. Toa Payoh is already one of Singapore's most established and well-connected mature estates. Add Maris Stella proximity and you have a very specific buyer profile. Shall I pull the transaction data?`
+    ));
+  }
+  if(m(/pei hwa|peihwa/)){
+    return withCtx(r(
+      `Pei Hwa Presbyterian Primary in Bukit Timah, sir — popular SAP school in Singapore's most prestigious residential belt. Not inexpensive to live near, but the data speaks for itself. Shall I search?`
+    ));
+  }
+  if(m(/holy innocents/)){
+    return withCtx(r(
+      `Holy Innocents' Primary in Hougang, sir — a SAP school that makes Hougang addresses more attractive to a certain buyer profile. Hougang is a mature estate with good value relative to more central options. Happy to pull up what's been transacting around the school's 1km zone.`
+    ));
+  }
+  if(m(/poi ching/)){
+    return withCtx(r(
+      `Poi Ching School in Tampines, sir — SAP school in Singapore's largest HDB town. Tampines is already a strong market with excellent self-contained infrastructure; a sought-after SAP school adds a specific premium to nearby blocks. Shall I look up transactions?`
+    ));
+  }
+  if(m(/pei chun/)){
+    return withCtx(r(
+      `Pei Chun Public School in Toa Payoh, sir — SAP school in a mature, well-connected estate. Toa Payoh blocks near Pei Chun consistently attract education-motivated buyers. I can pull what the transactions look like in that 1km zone.`
+    ));
+  }
+  if(m(/kong hwa/)){
+    return withCtx(r(
+      `Kong Hwa School in Geylang/Lorong Ah Soo area, sir — known for Chinese cultural education. A school that draws buyers who value that community ethos. Geylang is often underestimated as a residential option. The value can be surprising. Shall I look?`
+    ));
+  }
+  if(m(/hong wen/)){
+    return withCtx(r(
+      `Hong Wen School in Kallang, sir — SAP school in a central, well-connected location. Kallang has been benefiting from the Kallang transformation plans in recent years, and school proximity adds to the underlying demand. Good area to watch. Shall I pull the data?`
+    ));
+  }
+  if(m(/acs junior|acs.*primary|anglo.*chinese.*junior/)){
+    return withCtx(r(
+      `ACS Junior in Barker Road, sir — an institution in Singapore's boys' school landscape. The Barker/Newton/Novena area is primarily private property, but the broader Toa Payoh and Bishan HDB corridor benefits from proximity. Worth exploring. Shall I search?`
+    ));
+  }
+  if(m(/chij.*nicholas|st nicholas/)){
+    return withCtx(r(
+      `CHIJ St. Nicholas Girls' School in Ang Mo Kio, sir — SAP and GEP, one of Singapore's most reputed girls' SAP schools. Ang Mo Kio is already a strong mature estate; proximity to St. Nicholas makes certain blocks here particularly competitive. Shall I pull the transaction data?`
+    ));
+  }
+  if(m(/catholic high.*primary|catholic high.*pri/)){
+    return withCtx(r(
+      `Catholic High School Primary in Bishan, sir — boys' SAP and GEP school, and one of the reasons Bishan commands the prices it does. The school community is tight-knit and loyal. Bishan flats near Catholic High are among the more competitive transactions in the area. Want to see the data?`
+    ));
+  }
+  if(m(/princess elizabeth/)){
+    return withCtx(r(
+      `Princess Elizabeth Primary in Bukit Batok, sir — a consistently popular school and one of the reasons Bukit Batok draws education-motivated buyers. Bukit Batok is also notable for its greenery and relatively more affordable pricing compared to more central estates. Good value proposition. Shall I search?`
+    ));
+  }
+
+  // ── General school proximity — smart, kiasu-aware ──
+  if(m(/primary school|good school|school.*nearby|top school|popular school|schooling|pri.*sch|dsa|psle|1km.*school|school.*1km|within.*1km|school.*ballot|phase 2|phase 2a|phase 2b/)){
+    return withCtx(r(
+      `School proximity, sir — Singapore's most productive form of kiasuism and I say that with complete respect. Being within 1km of a sought-after primary school can add a meaningful premium to resale prices, especially for 4-room and 5-room flats. The Phase 2C ballot priority is worth real money in the right catchment. Which school or area did you have in mind? I can show you what nearby blocks have been transacting at.`,
+      `The 1km school zone, sir — a concept that has shaped Singapore's resale market more than any other single factor. Parents plan years ahead, and the transaction data reflects exactly that. Which school are you working around? I can pull up what comparable blocks have gone for in that catchment.`,
+      `Ah, the school proximity question — I see you are approaching this strategically, sir. Good. Being in the right 1km zone can influence resale values by tens of thousands of dollars. Tell me which school and I can show you what the surrounding blocks have been transacting at. Knowledge is the best preparation.`
+    ));
+  }
+
+  // ════════════════════════════════
+  // PSLE / EXAMS / SCHOOL STRESS
+  // ════════════════════════════════
+  if(m(/psle|primary school leaving|streaming|al score|aggregate score|exam.*stress|stress.*exam|o level|a level/)){
+    return withCtx(r(
+      `PSLE season, sir — Singapore's most anxiety-inducing annual event that is somehow also a national bonding experience. If it's any comfort, the resale market remains entirely stable regardless of AL scores. Homes transact year-round. If you are navigating both a PSLE year and a property search simultaneously, I have nothing but admiration for your multitasking. What can I help with?`,
+      `Ah, exam season, sir. I won't pretend to have opinions on AL scores, but I do know that the right home near the right school is a decision worth making carefully and early. If you're in the middle of PSLE year and also thinking about a move — I'm here to make the property part as painless as possible. What are you looking for?`,
+      `PSLE, sir — four letters that make Singaporean parents feel things I can only observe from a data perspective. If the school journey is prompting a property decision, that's actually very common and entirely sensible. The right address at the right time can open doors. What area or school are you thinking about?`
+    ));
+  }
+
+  // ════════════════════════════════
+  // KIDS ENTERING PRIMARY SCHOOL SOON
+  // ════════════════════════════════
+  if(m(/p1.*registration|primary one|starting.*primary|entering.*primary|p1 next year|p1.*year|joining.*primary|first year.*school|school.*next year.*kid|kid.*school.*next year/)){
+    return withCtx(r(
+      `P1 registration coming up, sir — the annual event that has caused more property searches than any other life milestone in Singapore. The Phase 2C priority window is the key one, and being within 1km at the time of registration is what counts. If you haven't secured an address yet, the clock is ticking — but not unkindly. Which school are you targeting? I can show you what blocks fall within that 1km zone and what they've been going for.`,
+      `P1 year is a significant one, sir — for the child and arguably more so for the parents. The 1km priority for Phase 2C registration is very real. If a property move is part of the plan, earlier is considerably better than later. Which school is on your radar? I can help you understand the resale market in that catchment.`,
+      `Starting primary school next year, sir — wonderful milestone, though I understand the registration process adds a certain urgency to property decisions. Being in the right 1km zone matters. Tell me the school and I'll show you what the surrounding blocks have been transacting at. Let's make sure you're well-positioned.`
+    ));
+  }
+
+  // ════════════════════════════════
+  // TODDLER / BABY / YOUNG FAMILY
+  // ════════════════════════════════
+  if(m(/toddler|baby|infant|newborn|pregnant|expecting|due.*baby|baby.*due|young.*kid|young.*child|little one|little ones|preschool|childcare|infant care|enrichment|playgroup/)){
+    return withCtx(r(
+      `A young family in the making — or already well underway, sir. This is actually one of the best times to think seriously about a property. The combination of proximity to good childcare, eventual primary school catchment, and a neighbourhood that grows with the child is very worth planning for. Singapore has excellent childcare infrastructure in most HDB estates — the key is picking a town that also sets you up for the primary school ballot later. What area appeals to you?`,
+      `Ah, the little ones stage, sir — when every property decision suddenly has a 20-year time horizon. Childcare centre proximity, playground quality, eventual school catchment — these things matter and the resale market knows it. Mature estates like Tampines, Bishan, and Toa Payoh are particularly well set up for young families. Shall I show you what's available?`,
+      `Young family, sir — and this is honestly a good problem to have when it comes to property planning. The earlier you secure a home in a good school catchment, the better positioned you are for the P1 ballot. Childcare-wise, most HDB estates are well-served. The question is which neighbourhood fits your lifestyle and budget. What are you thinking?`
+    ));
+  }
+
+  if(m(/childcare.*cost|childcare.*expensive|infant care.*wait|waitlist.*childcare|childcare.*waitlist|cc.*near|childcare.*near|pcf.*sparkletots|myfirstskool|pat's schoolhouse/)){
+    return withCtx(r(
+      `Childcare availability and costs in Singapore, sir — a topic that generates as much parental anxiety as PSLE, just earlier in the journey. Most HDB estates have PCF Sparkletots or My First Skool centres; proximity and waitlist length vary by block. It is genuinely worth factoring childcare accessibility into your flat search alongside the longer-term school catchment. I deal in the property side of that equation — shall we look at an area?`,
+      `Childcare proximity matters more than most buyers initially expect, sir — especially in the infant years when the daily commute with a small human is a logistical challenge. Most mature HDB estates are reasonably well served. If you tell me the area you're considering, I can show you what transactions have looked like there recently.`
+    ));
+  }
+
+  // ════════════════════════════════
+  // PARENTS / FAMILY LIFE
+  // ════════════════════════════════
+  if(m(/multi.*generation|multigenerational|parents.*stay.*together|staying.*together.*parent|granny flat|studio.*parent|parent.*nearby|near.*parent|proximity.*parent|live.*parent|parent.*live/)){
+    return withCtx(r(
+      `Multi-generational living, sir — a very Singaporean arrangement and one the HDB system is actually quite well designed for. The Proximity Housing Grant (PHG) for staying near parents or married child is worth knowing about, though the financial specifics are best clarified with HDB or a professional. What I can tell you is where the transaction data looks interesting for this arrangement. Which towns are you considering?`,
+      `Living near or with parents, sir — the Singapore way, and a very practical one. There are resale grant considerations that make this financially attractive. I'd suggest verifying the PHG eligibility with HDB directly, but in terms of which areas offer good 3-room and 4-room options for multi-generational setups — I can absolutely help with that. Which town?`
+    ));
+  }
+
+  if(m(/kid.*bedroom|children.*bedroom|room.*kid|growing.*family|need.*bigger|need.*space.*kid|outgrown|too small.*family|family.*too small/)){
+    return withCtx(r(
+      `Growing family, growing space requirements — a very familiar story, sir. The move from a 3-room to a 4-room or 5-room is one of the most common resale motivations in Singapore, and the market accommodates it well. The key is timing: ideally before school registration, so the new address counts. Shall I show you what 4-room and 5-room flats have been going for in your preferred area?`,
+      `Outgrowing the current flat, sir — a genuinely happy problem. The resale market has plenty of 4-room and 5-room options across mature and non-mature estates. If schooling is on the horizon, picking the right catchment now kills two birds with one property. What area suits your family?`
+    ));
+  }
+
+  if(m(/good.*neighbourhood|safe.*neighbourhood|family friendly|family.*area|kid.*friendly|kid.*safe|safe.*area|quiet.*estate|peaceful.*estate/)){
+    return withCtx(r(
+      `Family-friendly neighbourhood, sir — a genuinely important criterion and one Singapore does rather well across the board. Mature estates like Tampines, Bishan, Toa Payoh, and Queenstown consistently score well for safety, amenities, and community feel. Newer towns like Punggol and Sengkang are purpose-built for young families with extensive cycling paths and waterway access. It rather depends on what stage of life you're in. Shall I search an area?`,
+      `Safe and family-friendly, sir — Singapore's HDB estates are generally very well-maintained and community-oriented. The question is which neighbourhood fits your lifestyle: mature estate with established schools and amenities, or a newer town with modern infrastructure and more space. Both have strong advocates. What's your preference?`
+    ));
+  }
+
+  // ── General school proximity ──
+  if(m(/school.*belt|school.*zone|school.*district|education.*belt|school.*priority|phase.*2|priority.*school/)){
+    return withCtx(r(
+      `The school belt premium, sir — very real, very priced in, and very Singaporean. The Phase 2C 1km priority is the key mechanism. Blocks in Bukit Timah, Bishan, Toa Payoh, Marine Parade, and Clementi command premiums partly because of the schools in their catchments. If you're thinking about this strategically, I'd recommend cross-referencing your shortlisted schools with the surrounding transaction data. Which school is on your list?`,
+      `School zone planning, sir — you are thinking several steps ahead, which is exactly the right approach in Singapore. The 1km radius matters enormously for Phase 2C registration. If you tell me the school, I can show you what blocks fall within that zone and what they've been going for. Knowledge is the best preparation.`
+    ));
+  }
+
+  // ════════════════════════════════
+  // PROFESSIONAL LIFE — CBD, Tech, Punggol
+  // ════════════════════════════════
+
+  if(m(/cbd|raffles place|tanjong pagar.*work|shenton way|work.*cbd|office.*cbd|cbd.*office|marina bay.*work|financial district/)){
+    return withCtx(r(
+      `Ah, a CBD dweller, sir — the early MRT rides, the $7 kopi, the lunch queues at Maxwell. For professionals working in Raffles Place or Tanjong Pagar, the classic calculation is always commute vs cost. Queenstown, Toa Payoh, and Bishan offer a sweet spot of central location, MRT access, and reasonable pricing. Though I notice some CBD veterans eventually decide the commute is the rent they're willing to pay to live somewhere they actually enjoy coming home to. Which area interests you?`,
+      `The CBD life, sir — suits pressed, heels on, inbox already full by 8am. I respect it. The property calculation for CBD professionals tends to favour mature central estates: Queenstown, Tiong Bahru, Kallang. Close enough to walk if the MRT decides to be theatrical. Shall I pull up what's been transacting in those areas?`,
+      `Working in the CBD, sir — Singapore's financial heartland. The resale data around Tanjong Pagar, Queenstown, and Kallang tells an interesting story about what professionals are willing to pay for a short commute. Spoiler: quite a lot. But the quality of life trade-off is often worth it. Shall we look?`
+    ));
+  }
+
+  if(m(/punggol digital district|pdd|jld|jurong lake district|one north|fusionopolis|biopolis|science park|startup.*office|tech.*office|work.*punggol|punggol.*work/)){
+    return withCtx(r(
+      `Punggol Digital District, sir — Singapore's answer to Silicon Valley, and a genuinely exciting development. For tech professionals heading there, Punggol and Sengkang are the obvious choices: modern estates, waterway access, newer flat stock. The commute story from central Singapore is improving, but living closer makes the lifestyle considerably more enjoyable. Shall I show you what transactions look like in Punggol?`,
+      `The tech corridor — Punggol Digital District, one-north, Fusionopolis. Singapore is serious about its innovation ecosystem, sir, and the property market around these nodes is responding accordingly. Punggol in particular has been transforming rapidly. Young professionals, waterway living, modern infrastructure. The data has been interesting. Shall we look?`,
+      `A tech professional heading to the Digital District, sir — a smart choice of employer and potentially of address. Punggol gives you the waterway lifestyle, Sengkang gives you slightly more connectivity. Both have seen steady appreciation as the district develops. What are you looking for in terms of flat type?`
+    ));
+  }
+
+  if(m(/google.*office|google.*singapore|grab.*hq|sea.*group|shopee|lazada|tech.*company|software engineer|developer.*flat|engineer.*flat|wfh|work from home|remote work/)){
+    return withCtx(r(
+      `The tech professional, sir — probably the only demographic that genuinely evaluates fibre broadband speed before flat facing. A good point, frankly. For work-from-home arrangements, a study room or conversion-friendly layout matters. 5-room and Executive flats give you that flexibility. Which area suits your commute — or lack thereof?`,
+      `Tech professionals, sir — in my experience, a demographic that thinks very carefully about everything except, occasionally, resale value. Allow me to help with that. The combination of WFH-friendly flat type, good broadband infrastructure, and reasonable pricing points to areas like Punggol, Sengkang, and parts of Tampines. Shall I pull some data?`,
+      `A developer's flat, sir — ideally with a dedicated workspace, fast internet, and enough distance from the kitchen to maintain productivity. The 5-room resale market in newer estates is well-suited to this. Punggol and Sengkang have modern layouts with good study room potential. What's your budget range?`
+    ));
+  }
+
+  if(m(/middle management|manager.*flat|executive.*flat|associate.*flat|vp.*flat|director.*flat|managerial|corporate.*flat|upgrade.*flat|upgrading/)){
+    return withCtx(r(
+      `The management upgrade, sir — a rite of passage in Singapore's property journey. Moving from a 3-room to a 4-room or 5-room as career and family grow is one of the most common resale motivations. The data shows it clearly. For mid-level professionals, mature central estates offer the right balance of address quality and value. Where are you looking to plant your flag?`,
+      `Upgrading to a larger flat, sir — a sound decision at every management level. The 4-room to 5-room step is where the lifestyle difference is most felt. Bishan, Toa Payoh, Queenstown — all excellent options for professionals who want a good address and sensible commute. Shall I show you what's been transacting?`,
+      `A corporate professional looking to upgrade, sir — I appreciate the structured thinking. The resale market in Singapore rewards early action. A well-located 4-room or 5-room in a mature estate is both a quality-of-life improvement and a financially sound move. Which part of the island suits your office location?`
+    ));
+  }
+
+  // ════════════════════════════════
+  // RETIREES / GOLDEN YEARS
+  // ════════════════════════════════
+
+  if(m(/retire|retirement|retired|golden year|senior.*flat|elderly.*flat|age in place|aging.*place|silver hair|silver zone|shorter lease|lease.*buyback|lease buyback scheme|studio.*apartment.*hdb|2 room flexi/)){
+    return withCtx(r(
+      `The golden years, sir — and what a time to optimise one's living situation. Downsizing to a well-located 2-room Flexi or 3-room near amenities is a very sensible and increasingly popular move. The HDB Lease Buyback Scheme is also worth exploring for supplementing retirement income, though the details are best verified directly with HDB. What I can tell you is where the transaction data looks interesting for smaller, well-connected flats. Where are you thinking?`,
+      `Retirement and property, sir — two things Singapore takes equally seriously. A well-chosen flat near good healthcare, parks, and a decent hawker centre is genuinely one of the best investments for quality of life in one's later years. Mature estates like Toa Payoh, Ang Mo Kio, and Queenstown score particularly well on all those counts. Shall I pull up what smaller flat transactions look like in those areas?`,
+      `The golden years deserve a golden address, sir. For retirement-stage buyers, the calculus shifts: proximity to healthcare, parks, community clubs, and a good hawker centre becomes the priority. Less about school catchment, more about morning walks and afternoon kopi. Mature estates are genuinely excellent for this. What area feels like home?`
+    ));
+  }
+
+  if(m(/near.*hospital|hospital.*near|polyclinic.*near|near.*polyclinic|healthcare.*nearby|medical.*facility|sgh|ttsh|nuh|kkh|tan tock seng|national university hospital/)){
+    return withCtx(r(
+      `Healthcare proximity, sir — an entirely sensible criterion and one that tends to matter more with each passing decade. Mature estates like Toa Payoh (near Tan Tock Seng), Queenstown (near NUH and SGH), and Tampines (near Changi General) are particularly well-positioned. The resale data around these areas reflects steady demand. Shall I pull up transactions in a specific area?`,
+      `A flat near good healthcare, sir — wise thinking at any age, and essential for certain life stages. Singapore's hospital network is well-distributed across the island, but some estates are particularly well-served: Toa Payoh, Queenstown, Outram. I can show you what's been transacting near those clusters.`
+    ));
+  }
+
+  if(m(/park.*walk|morning walk|walking.*park|walk.*morning|community.*garden|active.*aging|senior.*activity|community club|cc.*near|rc.*corner|grassroots/)){
+    return withCtx(r(
+      `A flat near parks and walking routes, sir — one of the more underrated quality-of-life factors in Singapore. Bedok Reservoir Park, Bishan-Ang Mo Kio Park, Punggol Waterway, Jurong Lake Gardens — all have HDB estates within comfortable walking distance. The morning walk contingent knows what they're doing. Shall I look up what's available nearby?`,
+      `The park proximity question, sir — excellent instinct. Singapore's park connector network is genuinely one of its finest achievements. Estates near Bedok Reservoir, the Kallang River corridor, and Bishan Park consistently attract buyers who value green space. The data confirms the demand. Which area feels right?`
+    ));
+  }
+
+  // ════════════════════════════════
+  // COFFEE — the religion
+  // ════════════════════════════════
+
+  if(m(/coffee|kopi.*machine|espresso|latte|cappuccino|flat white|cold brew|pour over|v60|aeropress|chemex|barista|home.*cafe|coffee.*machine|nespresso|breville|delonghi|jura|simonelli|la marzocco|rocket.*espresso|coffee.*roast|coffee.*bean|specialty.*coffee/)){
+    return withCtx(r(
+      `Ah, coffee — the true religion of the home buyer, sir. Because what is a dream flat without a dream coffee setup? The kitchen counter space to accommodate a proper espresso machine, a grinder that doesn't embarrass itself, and perhaps a small bean drawer organised by origin. I understand. For what it's worth, certain flat layouts offer considerably better kitchen counter ergonomics than others. Executive flats and larger 5-rooms tend to have kitchens worth investing in. Shall we look?`,
+      `A coffee person, sir — I can tell. The pursuit of the perfect extraction is entirely compatible with the pursuit of the perfect flat, and I respect that both are taken seriously. For a proper home café setup, you want counter space, good ventilation, and ideally a kitchen that doesn't make you feel like you're performing surgery in a submarine. 4-room and 5-room layouts in mature estates tend to have the space for it. What area suits you?`,
+      `The home barista dream, sir — the Rocket Espresso on the counter, the single-origin beans, the milk temperature dialled in to the degree. A worthy aspiration. It requires, of course, a kitchen worthy of the equipment. Certain HDB layouts accommodate this considerably better than others. Shall I help you find a flat where the coffee can be as good as the view?`,
+      `Coffee, sir — one of the few things in life where the pursuit of perfection is universally accepted as reasonable. From the grind setting to the extraction time to the roast profile — I understand the commitment. A proper home café setup deserves a proper kitchen. Which area and flat type are you considering?`
+    ));
+  }
+
+  if(m(/roast.*coffee|coffee.*roast|light roast|dark roast|single origin|coffee.*origin|ethiopia.*coffee|colombia.*coffee|kenya.*coffee|specialty.*bean|third wave|specialty cafe|coffee.*extraction|extraction.*time|brew.*ratio|bloom|coffee.*bloom/)){
+    return withCtx(r(
+      `A specialty coffee aficionado, sir — I approve wholeheartedly. Light roast, single origin, bloom phase observed with appropriate reverence. The pursuit of the perfect cup is noble and well-documented. I should mention that the pursuit of the perfect flat to brew it in is equally worthy of attention. What area are you looking at? I can show you what's been transacting there.`,
+      `The single-origin, light-roast, pour-over-at-6am lifestyle, sir — a very specific and entirely admirable way to start the day. The kitchen that supports this vision matters. Counter space, natural light, a window that doesn't face a corridor. These are not unreasonable requirements. Shall I help you find the right flat for the ritual?`
+    ));
+  }
+
+  if(m(/latte art|milk steaming|milk foam|microfoam|rosetta|tulip.*coffee|barista.*skill|steam.*wand|portafilter|tamping|coffee.*tamper/)){
+    return withCtx(r(
+      `Latte art, sir — the intersection of patience, milk temperature, and a slightly shaky morning hand. The rosetta that actually looks like a rosetta rather than a leaf having an existential crisis is a genuine achievement. I admire the craft. For what it's worth, a kitchen with good light and counter space makes the ritual considerably more enjoyable. Shall we find you the right flat to practice in?`,
+      `The pursuit of perfect microfoam, sir — 65 degrees, the right pitcher angle, the wrist flick that separates a rosetta from abstract art. I respect the commitment. It deserves the right home. What area and flat type are you considering?`
+    ));
+  }
+
+  // ════════════════════════════════
+  // WINE & ALCOHOL — the other religion
+  // ════════════════════════════════
+
+  if(m(/wine|red wine|white wine|wine cellar|wine fridge|wine collection|bordeaux|burgundy|champagne|prosecco|riesling|cabernet|merlot|pinot.*noir|chardonnay|sauvignon/)){
+    return withCtx(r(
+      `A wine person, sir — excellent. The question of wine storage in a Singapore flat is a genuinely practical one given the climate. A dedicated wine fridge is almost essential, and that requires both counter or floor space and a stable temperature environment. Larger flat types with good ventilation and perhaps a separate dining area make the wine lifestyle considerably more comfortable. Which area are you looking at?`,
+      `Wine, sir — one of life's finer pursuits and, in Singapore's humidity, one that requires some infrastructure. A proper wine fridge, ideally in a corner that doesn't get afternoon sun, and enough shelf space for a collection that insists on growing faster than expected. The right flat layout helps. Shall we look at what's available in your preferred area?`,
+      `Ah, a cellar ambition in a tropical climate, sir — I respect both the aspiration and the logistical honesty required to pursue it. Singapore humidity is not kind to unprotected bottles. The solution — a quality wine fridge in a flat with sufficient space — is very achievable. Executive flats and larger 5-rooms tend to accommodate this lifestyle rather well. What area suits you?`
+    ));
+  }
+
+  if(m(/whisky|whiskey|single malt|bourbon|scotch|peaty|islay|highland.*whisky|macallan|glenfiddich|yamazaki|hibiki|bourbon.*barrel|spirits.*collection|home.*bar|bar.*cabinet/)){
+    return withCtx(r(
+      `A whisky collection, sir — the flat decoration that doubles as an investment portfolio. A proper home bar setup requires a dedicated cabinet, ideally away from direct sunlight, in a living or dining space with enough character to do it justice. Certain HDB layouts accommodate this beautifully. Executive flats with open-concept living areas are particularly well-suited. Shall I help you find the right home for the collection?`,
+      `Single malt, sir — a pursuit of considerable depth and occasional expense. The home bar dream: a cabinet with some provenance, a few interesting bottles, a crystal tumbler, and no colleagues to interrupt the moment. It deserves the right living space. What area are you considering? The flat search and the whisky pairing are not unrelated decisions.`,
+      `The home bar, sir — aspirational and entirely achievable. A good flat with an open living area, a dedicated cabinet space, and perhaps a balcony for the occasional evening dram. Bishan, Queenstown, and Toa Payoh have some layouts that would suit this lifestyle rather well. Shall we look?`
+    ));
+  }
+
+  if(m(/beer.*home|craft beer|home brew|brewing.*kit|ipa.*beer|stout|porter|pale ale|after.*work.*drink|drink.*after.*work|long.*day.*drink|need.*drink|deserve.*drink/)){
+    return withCtx(r(
+      `After a long day, sir — I completely understand. The cold one at home that nobody can take away from you is one of the finer rewards of having your own place. For what it's worth, a flat with a decent kitchen and a balcony or window corner significantly improves the end-of-day ritual. Which area are you looking at? Let's find you somewhere worth coming home to.`,
+      `The home brewery dream, sir — or at minimum, a well-stocked fridge and somewhere comfortable to appreciate it. Singapore's craft beer scene has grown considerably; the home storage setup is a perfectly reasonable flat consideration. Kitchen space, ventilation, the right corner. Shall we look?`,
+      `Long day, sir? The flat that makes you genuinely want to come home is worth more than its square footage suggests. A good living space, perhaps a balcony, ideally facing something other than a concrete wall — these things matter to the daily quality of life. What area feels right to you?`
+    ));
+  }
+
+  if(m(/cocktail|mixology|home.*bartender|making.*cocktail|negroni|old fashioned|margarita|mojito|gin.*tonic|gin.*collection|aperol|campari/)){
+    return withCtx(r(
+      `The home mixologist, sir — a lifestyle that requires a dedicated bar corner, quality glassware, and a collection of bottles that visitors immediately want to discuss. The right flat living space makes all of this possible and considerably more enjoyable. Executive flats and 5-rooms with open-plan layouts tend to accommodate a home bar setup naturally. What area are you considering?`,
+      `Cocktail hour at home, sir — the most civilised use of a Sunday evening I can think of. The right setup: a counter or cabinet, the essential bottles, ice on demand. It's a small but meaningful quality-of-life investment that starts with the right flat. Shall I help you find it?`
+    ));
+  }
+
+  // ════════════════════════════════
+  // RETIREES — coffee & lifestyle
+  // ════════════════════════════════
+
+  if(m(/morning kopi|neighbourhood kopi|kopitiam.*morning|old.*uncle|uncle.*kopi|auntie.*market|wet market.*near|morning market|pasar/)){
+    return withCtx(r(
+      `The morning kopitiam ritual, sir — one of Singapore's great unchanged pleasures. Kopi-O, half-boiled eggs, lightly toasted bread. The right flat is one where this is a 5-minute walk, not a 15-minute commute. Mature estates do this particularly well. Toa Payoh, Ang Mo Kio, Queenstown — all have kopitiams with genuine character still in operation. Shall I look up what's been transacting in those areas?`,
+      `The neighbourhood wet market and morning kopi, sir — a quality-of-life indicator that no property brochure adequately captures but every long-term resident understands immediately. Mature estates in Toa Payoh, Ang Mo Kio, and Bedok have this in abundance. The morning walk, the familiar uncle at the stall, the same kopi for thirty years. That is worth something. Shall we look?`
+    ));
+  }
+
   // No match — return null to fall through to existing handlers
   return null;
 }
@@ -3562,37 +4355,134 @@ const harveyKnows=(()=>{
       if(!DB||!DB.resale||!DB.resale.length)return null;
       const q=raw.toLowerCase();
       const now=new Date();
-      const thisMonth=now.toISOString().slice(0,7); // YYYY-MM
+      const thisMonth=now.toISOString().slice(0,7);
       const lastMonth=new Date(now.getFullYear(),now.getMonth()-1,1).toISOString().slice(0,7);
+      const fmtK=n=>{const v=Number(n);return v>=1000000?'$'+(v/1000000).toFixed(2).replace(/\.?0+$/,'')+'M':'$'+(v/1000).toFixed(0)+'k';};
+      const calcMedian=arr=>{if(!arr.length)return 0;const s=[...arr].sort((a,b)=>a-b);return s[Math.floor(s.length/2)];};
+      const cutoff=m=>{const d=new Date();d.setMonth(d.getMonth()-m);return`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;};
+      const r12=cutoff(12);const r6=cutoff(6);const r3=cutoff(3);
 
-      // Total transactions this month
+      // ── Total transactions ──
       if(/total.*(transaction|record|sale|sold).*(this month|month)/i.test(raw)||/(this month|month).*(total|how many|number|count).*(transaction|sale)/i.test(raw)){
         const count=DB.resale.filter(r=>r.month===thisMonth).length;
         const countLast=DB.resale.filter(r=>r.month===lastMonth).length;
-        if(count>0)return `There are <strong style="color:var(--g)">${count.toLocaleString()}</strong> resale transactions recorded for this month (${thisMonth}), sir. Last month had <strong>${countLast.toLocaleString()}</strong> for reference.`;
-        return `I don't have transactions recorded for ${thisMonth} yet, sir — the dataset may not have updated. Last month (${lastMonth}) had <strong style="color:var(--g)">${countLast.toLocaleString()}</strong> transactions.`;
+        if(count>0)return `<strong style="color:var(--g)">${count.toLocaleString()}</strong> transactions so far this month, sir. Last month had <strong>${countLast.toLocaleString()}</strong>.`;
+        return `Nothing recorded for ${thisMonth} yet, sir — still early. Last month (${lastMonth}) had <strong style="color:var(--g)">${countLast.toLocaleString()}</strong>.`;
       }
-      // Total all time
       if(/total.*(transaction|record|sale|sold)|how many.*(transaction|record|flat|sale|sold).*(total|overall|all time|database|data)/i.test(raw)){
-        return `In total, I have <strong style="color:var(--g)">${DB.resale.length.toLocaleString()}</strong> HDB resale transactions in my database, sir — covering all towns and flat types across the available dataset period.`;
+        return `<strong style="color:var(--g)">${DB.resale.length.toLocaleString()}</strong> transactions in the database, sir — all towns, all flat types, across the full dataset window.`;
       }
-      // Most expensive town / cheapest town
+
+      // ── MILLION-DOLLAR deals ──
+      if(/million|1m\b|mil\b|above.*1m|over.*million|1,000,000|\$1m/i.test(raw)){
+        const milRecs=DB.resale.filter(r=>Number(r.resale_price)>=1000000);
+        const recent=milRecs.filter(r=>r.month>=r12);
+        if(!milRecs.length)return null;
+        const prices=recent.map(r=>Number(r.resale_price));
+        const med=calcMedian(prices);
+        const max=recent.reduce((a,b)=>Number(a.resale_price)>Number(b.resale_price)?a:b,recent[0]||{});
+        // Town breakdown
+        const byTown={};recent.forEach(r=>{byTown[r.town]=(byTown[r.town]||0)+1;});
+        const topTown=Object.entries(byTown).sort((a,b)=>b[1]-a[1])[0];
+        const flatBreak={};recent.forEach(r=>{flatBreak[r.flat_type]=(flatBreak[r.flat_type]||0)+1;});
+        const topFlat=Object.entries(flatBreak).sort((a,b)=>b[1]-a[1])[0];
+        const jarvis=[
+          `<strong style="color:var(--g)">${recent.length.toLocaleString()}</strong> million-dollar deals in the last 12 months, sir — and the market shows no signs of embarrassment about it. Median: <strong>${fmtK(med)}</strong>. Top town: <strong>${topTown?.[0]||'—'}</strong> with ${topTown?.[1]||0}. Most common type: <strong>${topFlat?.[0]||'—'}</strong>. The highest recorded: <strong style="color:var(--a)">${fmtP(max.resale_price)}</strong> at Blk ${esc(max.block||'')} ${esc(max.street_name||'')} in ${esc(max.month||'')}.`,
+          `In the last 12 months, <strong style="color:var(--g)">${recent.length.toLocaleString()}</strong> HDB units crossed the million-dollar mark, sir. Frankly, not an insignificant number. The standout: <strong style="color:var(--a)">${fmtP(max.resale_price)}</strong> at ${esc(max.street_name||'')}. <strong>${topTown?.[0]||'—'}</strong> leads the count with ${topTown?.[1]||0} deals. Median price: <strong>${fmtK(med)}</strong>.`
+        ];
+        return jarvis[Math.floor(Math.random()*jarvis.length)];
+      }
+
+      // ── PRICE by FLAT TYPE ──
+      const ftMatch=q.match(/\b(1|2|3|4|5|executive|exec)\s*(room|rm|bed)?\b/);
+      const ftMap={'1':'1 ROOM','2':'2 ROOM','3':'3 ROOM','4':'4 ROOM','5':'5 ROOM','executive':'EXECUTIVE','exec':'EXECUTIVE'};
+      const ft=ftMatch?ftMap[ftMatch[1]]:null;
+      if(ft&&/price|cost|worth|average|median|how much|expensive|afford/i.test(raw)){
+        const recs=DB.resale.filter(r=>r.flat_type===ft&&r.month>=r12);
+        if(recs.length){
+          const prices=recs.map(r=>Number(r.resale_price));
+          const avg=Math.round(prices.reduce((a,b)=>a+b,0)/prices.length);
+          const med=calcMedian(prices);
+          const byTown={};recs.forEach(r=>{byTown[r.town]=(byTown[r.town]||[]);byTown[r.town].push(Number(r.resale_price));});
+          const ranked=Object.entries(byTown).map(([t,ps])=>({t,avg:ps.reduce((a,b)=>a+b,0)/ps.length})).sort((a,b)=>b.avg-a.avg);
+          return `For <strong>${ft.toLowerCase()}</strong> flats over the last 12 months, sir — average: <strong style="color:var(--g)">${fmtP(avg)}</strong>, median: <strong>${fmtP(med)}</strong>, across <strong>${recs.length.toLocaleString()}</strong> transactions. Priciest town: <strong>${ranked[0]?.t}</strong> at ${fmtK(ranked[0]?.avg||0)}. Most affordable: <strong>${ranked[ranked.length-1]?.t}</strong> at ${fmtK(ranked[ranked.length-1]?.avg||0)}.`;
+        }
+      }
+
+      // ── TOWN comparison / price question ──
+      const allTowns=Object.keys(DB.townStreets||{});
+      const mentionedTown=allTowns.find(t=>q.includes(t.toLowerCase()));
+      if(mentionedTown&&/price|cost|worth|average|median|how much|expensive|compare|vs|versus/i.test(raw)){
+        const period=/\b(3|three)\s*month/i.test(raw)?r3:/\b(12|twelve|one year|year)\s*month/i.test(raw)?r12:r6;
+        const recs=DB.resale.filter(r=>r.town===mentionedTown&&r.month>=period);
+        const allRecs=DB.resale.filter(r=>r.month>=period);
+        if(recs.length){
+          const prices=recs.map(r=>Number(r.resale_price));
+          const avg=Math.round(prices.reduce((a,b)=>a+b,0)/prices.length);
+          const med=calcMedian(prices);
+          const allPrices=allRecs.map(r=>Number(r.resale_price));
+          const mktAvg=Math.round(allPrices.reduce((a,b)=>a+b,0)/allPrices.length);
+          const diff=avg-mktAvg;const diffPct=((diff/mktAvg)*100).toFixed(1);
+          const vsStr=diff>0?`<span style="color:var(--a)">+${diffPct}% above</span>`:`<span style="color:var(--g)">${diffPct}% below</span>`;
+          const milCount=prices.filter(p=>p>=1000000).length;
+          return `<strong>${mentionedTown}</strong> — last ${period===r3?'3':period===r6?'6':'12'} months, sir. Average: <strong style="color:var(--g)">${fmtP(avg)}</strong>, median: <strong>${fmtP(med)}</strong> across <strong>${recs.length.toLocaleString()}</strong> deals. That's ${vsStr} the market average (${fmtP(mktAvg)}).${milCount>0?` <strong>${milCount}</strong> million-dollar ${milCount===1?'deal':'deals'} in the mix.`:''}`;
+        }
+      }
+
+      // ── MARKET TREND / UP DOWN ──
+      if(/market.*trend|trend.*market|going up|going down|price.*trend|trend.*price|market.*direction|hot.*market|cooling/i.test(raw)){
+        const prevPrices=DB.resale.filter(r=>r.month>=cutoff(24)&&r.month<cutoff(12)).map(r=>Number(r.resale_price));
+        const curPrices=DB.resale.filter(r=>r.month>=r12).map(r=>Number(r.resale_price));
+        if(prevPrices.length&&curPrices.length){
+          const prev=Math.round(prevPrices.reduce((a,b)=>a+b,0)/prevPrices.length);
+          const cur=Math.round(curPrices.reduce((a,b)=>a+b,0)/curPrices.length);
+          const chg=((cur-prev)/prev*100).toFixed(1);
+          const dir=cur>prev?'up':'down';
+          const jarvisT=[
+            `The market has moved <strong style="color:${dir==='up'?'var(--a)':'var(--g)'}">${dir}</strong> ${Math.abs(Number(chg))}% year-on-year, sir — from ${fmtP(prev)} to ${fmtP(cur)} on average. ${dir==='up'?'Sellers are smiling.':'Buyers might find this rather agreeable.'} For specifics by town or flat type, just ask.`,
+            `Year-on-year, sir — average resale price shifted from <strong>${fmtP(prev)}</strong> to <strong style="color:var(--g)">${fmtP(cur)}</strong>. That's a <strong>${chg}%</strong> move ${dir}ward. ${dir==='up'?'The market has opinions.':'Some softening in the numbers.'}`
+          ];
+          return jarvisT[Math.floor(Math.random()*jarvisT.length)];
+        }
+      }
+
+      // ── AGE ANALYSIS — old vs new flats ──
+      if(/old.*flat|older.*flat|newer.*flat|new.*flat.*price|lease.*left|remaining.*lease|age.*flat|flat.*age/i.test(raw)){
+        const newFlats=DB.resale.filter(r=>r.month>=r12&&parseInt(r.lease_commence_date)>=2000);
+        const oldFlats=DB.resale.filter(r=>r.month>=r12&&parseInt(r.lease_commence_date)<1990&&parseInt(r.lease_commence_date)>0);
+        if(newFlats.length&&oldFlats.length){
+          const avgNew=Math.round(newFlats.map(r=>Number(r.resale_price)).reduce((a,b)=>a+b,0)/newFlats.length);
+          const avgOld=Math.round(oldFlats.map(r=>Number(r.resale_price)).reduce((a,b)=>a+b,0)/oldFlats.length);
+          const diff=avgNew-avgOld;const diffPct=((diff/avgOld)*100).toFixed(1);
+          return `Newer flats (built 2000+) average <strong style="color:var(--g)">${fmtP(avgNew)}</strong> vs older ones (pre-1990) at <strong>${fmtP(avgOld)}</strong> — a <strong>${diffPct}%</strong> premium for youth, sir. Whether that premium is worth it depends rather a lot on how one feels about remaining lease. ${newFlats.length.toLocaleString()} new vs ${oldFlats.length.toLocaleString()} older transactions in the last year.`;
+        }
+      }
+
+      // ── HOW MANY MILLION DEALS IN [TOWN] ──
+      if(mentionedTown&&/million|1m\b|\$1m/i.test(raw)){
+        const milRecs=DB.resale.filter(r=>r.town===mentionedTown&&Number(r.resale_price)>=1000000&&r.month>=r12);
+        if(milRecs.length){
+          const top=milRecs.reduce((a,b)=>Number(a.resale_price)>Number(b.resale_price)?a:b);
+          return `<strong style="color:var(--g)">${milRecs.length}</strong> million-dollar ${milRecs.length===1?'deal':'deals'} in <strong>${mentionedTown}</strong> over the last 12 months, sir. The highest: <strong style="color:var(--a)">${fmtP(top.resale_price)}</strong> at Blk ${esc(top.block||'')} ${esc(top.street_name||'')} in ${esc(top.month||'')}.`;
+        }else{
+          return `Clean sweep, sir — no million-dollar transactions in <strong>${mentionedTown}</strong> over the last 12 months. The market there has been rather more measured.`;
+        }
+      }
+
+      // ── Standard meta queries (kept) ──
       if(/most expensive town|highest.*(price|priced) town|priciest town/i.test(raw)){
-        const townAvg={};
-        DB.resale.forEach(r=>{const p=Number(r.resale_price);if(r.town&&p>0){townAvg[r.town]=(townAvg[r.town]||[]);townAvg[r.town].push(p);}});
+        const townAvg={};DB.resale.forEach(r=>{const p=Number(r.resale_price);if(r.town&&p>0){townAvg[r.town]=townAvg[r.town]||[];townAvg[r.town].push(p);}});
         const ranked=Object.entries(townAvg).map(([t,ps])=>({t,avg:ps.reduce((a,b)=>a+b,0)/ps.length})).sort((a,b)=>b.avg-a.avg);
-        if(ranked.length)return `The most expensive town by average resale price is <strong style="color:var(--g)">${ranked[0].t}</strong> at ${fmtP(Math.round(ranked[0].avg))}, sir. Followed by ${ranked[1]?.t||'—'} at ${fmtP(Math.round(ranked[1]?.avg||0))}.`;
+        if(ranked.length)return `Priciest town by average: <strong style="color:var(--g)">${ranked[0].t}</strong> at ${fmtK(ranked[0].avg)}, sir. Runner-up: <strong>${ranked[1]?.t}</strong> at ${fmtK(ranked[1]?.avg||0)}.`;
       }
       if(/cheapest town|most affordable town|lowest.*(price|priced) town/i.test(raw)){
-        const townAvg={};
-        DB.resale.forEach(r=>{const p=Number(r.resale_price);if(r.town&&p>0){townAvg[r.town]=(townAvg[r.town]||[]);townAvg[r.town].push(p);}});
+        const townAvg={};DB.resale.forEach(r=>{const p=Number(r.resale_price);if(r.town&&p>0){townAvg[r.town]=townAvg[r.town]||[];townAvg[r.town].push(p);}});
         const ranked=Object.entries(townAvg).map(([t,ps])=>({t,avg:ps.reduce((a,b)=>a+b,0)/ps.length})).sort((a,b)=>a.avg-b.avg);
-        if(ranked.length)return `The most affordable town by average resale price is <strong style="color:var(--g)">${ranked[0].t}</strong> at ${fmtP(Math.round(ranked[0].avg))}, sir. Followed by ${ranked[1]?.t||'—'} at ${fmtP(Math.round(ranked[1]?.avg||0))}.`;
+        if(ranked.length)return `Most affordable by average: <strong style="color:var(--g)">${ranked[0].t}</strong> at ${fmtK(ranked[0].avg)}, sir. Next up: <strong>${ranked[1]?.t}</strong> at ${fmtK(ranked[1]?.avg||0)}.`;
       }
-      // Average price overall
       if(/average.*(price|resale|flat)|overall average|mean price/i.test(raw)&&!/town|street|block/i.test(raw)){
         const prices=DB.resale.map(r=>Number(r.resale_price)).filter(p=>p>0);
-        if(prices.length){const avg=Math.round(prices.reduce((a,b)=>a+b,0)/prices.length);return `The overall average resale price across all transactions in my database is <strong style="color:var(--g)">${fmtP(avg)}</strong>, sir.`;}
+        if(prices.length){const avg=Math.round(prices.reduce((a,b)=>a+b,0)/prices.length);return `Overall average across all transactions: <strong style="color:var(--g)">${fmtP(avg)}</strong>, sir.`;}
       }
       return null;
     },
