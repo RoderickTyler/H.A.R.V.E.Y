@@ -492,7 +492,7 @@ tr:hover td{background:rgba(0,212,255,.03)}
             </button>
           </div>
           <div class="ifooter">
-            <span class="ihint">ENTER ↵ · 🎤 MIC · SAY "WAKE UP HARVEY"</span>
+            <span class="ihint">ENTER ↵ · 🎤 PUSH-TO-TALK · <span style="cursor:pointer;color:var(--g);text-decoration:underline" onclick="activateVoiceMode()">🎙 VOICE MODE</span></span>
             <span class="ihint" id="vs-sup">DATA: GOOGLE SHEETS → BLOCKSENSE</span>
           </div>
         </div>
@@ -3717,8 +3717,12 @@ function startClapDetector(){
     const buf=new Uint8Array(clapAnalyser.fftSize);
     let lastClapTime=0;
     let inClap=false;
-    const CLAP_THRESHOLD=IS_MOBILE_DEVICE?185:210;
+    const CLAP_THRESHOLD=IS_MOBILE_DEVICE?140:160; // Lowered — 210 was too high for most mics
     const CLAP_WINDOW=900;
+
+    // Show clap sensitivity meter in the hint bar so user knows mic is active
+    vsSup.textContent='MIC ACTIVE — DOUBLE-CLAP TO ACTIVATE VOICE MODE';
+    vsSup.style.color='var(--g)';
 
     function tick(){
       clapAnimFrame=requestAnimationFrame(tick);
@@ -3726,6 +3730,12 @@ function startClapDetector(){
       clapAnalyser.getByteTimeDomainData(buf);
       let peak=0;
       for(let i=0;i<buf.length;i++){const v=Math.abs(buf[i]-128);if(v>peak)peak=v;}
+
+      // Live meter in hint bar — shows mic is receiving signal
+      const pct=Math.min(100,Math.round(peak/128*100));
+      if(peak>20){ // any sound above background noise
+        vsSup.textContent=`MIC LEVEL: ${'█'.repeat(Math.ceil(pct/10))}${'░'.repeat(10-Math.ceil(pct/10))} ${peak>CLAP_THRESHOLD?'⚡ CLAP!':''}`;
+      }
       const now=Date.now();
       if(peak>CLAP_THRESHOLD&&!inClap){
         inClap=true;
@@ -3762,10 +3772,12 @@ function normaliseVoiceInput(txt){
 function buildRecog(){
   if(!SR)return null;
   const r=new SR();
-  r.continuous=false; // false is most reliable cross-device; we restart in onend
+  r.continuous=false;
   r.interimResults=true;
-  r.lang=IS_IOS?'en-GB':'en-SG'; // iOS handles en-SG inconsistently
-  r.maxAlternatives=1;
+  // Try en-SG but fall back gracefully — some browsers reject it silently
+  // Use en-US as broadest fallback since it has best recognition for Singapore English
+  try{r.lang=IS_IOS?'en-US':'en-SG';}catch(e){r.lang='en-US';}
+  r.maxAlternatives=3; // More alternatives = better chance of correct match
 
   r.onstart=()=>{
     recogBusy=true;
@@ -3879,8 +3891,18 @@ function safeStart(){
 function toggleMic(){
   if(!SR){harveyMsg('Voice input is not supported on this browser, sir. Please try Chrome on Android or Safari on iOS 14.5 or later.');return;}
   if(voiceMode){deactivateVoiceMode();return;}
-  if(micState==='query'){clearTimeout(speechTimer);speechTimer=null;micState='wake';try{recog?.abort();}catch(e){}
-  }else{micState='query';try{recog?.abort();}catch(e){}setTimeout(()=>safeStart(),200);}
+  if(micState==='query'){
+    clearTimeout(speechTimer);speechTimer=null;
+    micState='wake';
+    try{recog?.abort();}catch(e){}
+    recogBusy=false;
+  }else{
+    // Set to query regardless of current state (handles pre-boot clicks)
+    micState='query';
+    try{recog?.abort();}catch(e){}
+    recogBusy=false;
+    setTimeout(()=>safeStart(),100);
+  }
 }
 
 function toggleMobMic(){
@@ -3899,15 +3921,17 @@ setInterval(()=>{
 
 if(SR){
   const hint=IS_MOBILE_DEVICE
-    ?'DOUBLE-CLAP TO ACTIVATE VOICE MODE \u00B7 OR PRESS \uD83C\uDF99'
-    :'SAY "WAKE UP HARVEY" \u00B7 DOUBLE-CLAP \u00B7 OR CLICK \uD83C\uDF99';
+    ?'DOUBLE-CLAP OR PRESS 🎤 TO ACTIVATE VOICE'
+    :'SAY "WAKE UP HARVEY" · DOUBLE-CLAP · OR CLICK 🎤';
   vsSup.textContent=hint;
   vsSup.style.color='var(--g)';
   micState='wake';
-  setTimeout(()=>safeStart(),IS_MOBILE_DEVICE?4000:3000);
+  // Start quickly — 1s delay is enough for page to settle
+  setTimeout(()=>safeStart(),1000);
+  // Clap detector starts on first user gesture to satisfy browser security
 }else{
   mbEl.style.display='none';
-  vsSup.textContent='VOICE NOT SUPPORTED \u2014 TYPE TO CHAT WITH HARVEY';
+  vsSup.textContent='VOICE NOT SUPPORTED — TYPE TO CHAT WITH HARVEY';
   vsSup.style.color='var(--a)';
 }
 
