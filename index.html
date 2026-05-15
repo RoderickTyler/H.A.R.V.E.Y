@@ -3668,18 +3668,24 @@ function activateVoiceMode(){
   }
   voiceMode=true;
   vmBadge.classList.add('active');
-  vmTxt.textContent='VOICE MODE \u00B7 LISTENING';
+  vmTxt.textContent='VOICE MODE · LISTENING';
   vsBar.classList.add('voice-active');
   vsBar.style.display='flex';
-  vsTxt.textContent='HARVEY LISTENING \u2014 SPEAK ANYTIME';
+  vsTxt.textContent='HARVEY LISTENING — SPEAK ANYTIME';
   const msg=rand([
     'Voice mode activated, sir. I am listening continuously. Say go to sleep Harvey when you are done.',
     'Always-on listening mode, sir. I am with you. Just speak naturally.',
     'Voice mode on, sir. I will hear everything. Say go to sleep Harvey whenever you want to stop.'
   ]);
   harveyMsg(msg);speak(msg);
+
+  // CRITICAL: abort any currently running recogniser first,
+  // then restart cleanly in query mode after it fully closes
   micState='query';
-  setTimeout(()=>safeStart(),800);
+  try{recog?.abort();}catch(e){}
+  recogBusy=false;
+  clearTimeout(speechTimer);
+  setTimeout(()=>safeStart(),600);
 }
 
 function deactivateVoiceMode(){
@@ -3854,37 +3860,56 @@ function buildRecog(){
   };
 
   r.onend=()=>{
-    recogBusy=false;mbEl.classList.remove('active');
+    recogBusy=false;
+    mbEl.classList.remove('active');
     if(!voiceMode)vsBar.style.display='none';
+
     if(micState==='wake'&&!voiceMode){
       setTimeout(()=>safeStart(),IS_IOS?600:300);
     } else if(micState==='query'){
-      setTimeout(()=>{
-        if(!speechTimer){
-          if(voiceMode){
-            vsTxt.textContent='HARVEY LISTENING \u2014 SPEAK ANYTIME';
-            setTimeout(()=>safeStart(),IS_IOS?700:350);
-          } else {micState='wake';safeStart();}
+      if(!speechTimer){
+        if(voiceMode){
+          // Restart immediately — keep listening
+          vsTxt.textContent='HARVEY LISTENING — SPEAK ANYTIME';
+          setTimeout(()=>safeStart(),IS_IOS?700:250);
         } else {
-          speechTimer=setTimeout(()=>{
-            if(ciEl.value.trim())handleInput();
-            if(voiceMode)setTimeout(()=>safeStart(),600);
-            else{micState='wake';setTimeout(()=>safeStart(),600);}
-          },voiceMode?600:1500);
+          micState='wake';
+          setTimeout(()=>safeStart(),300);
         }
-      },200);
+      } else {
+        // Speech timer still running — wait for it
+        const t=speechTimer;
+        speechTimer=setTimeout(()=>{
+          if(t===speechTimer&&ciEl.value.trim())handleInput();
+          if(voiceMode)setTimeout(()=>safeStart(),500);
+          else{micState='wake';setTimeout(()=>safeStart(),500);}
+        },voiceMode?500:1200);
+      }
     }
   };
   return r;
 }
 
 function safeStart(){
-  if(recogBusy||micState==='off'||!SR)return;
+  if(micState==='off'||!SR)return;
+  // If somehow stuck busy, force-clear after a grace period
+  if(recogBusy){
+    setTimeout(()=>{
+      if(recogBusy){recogBusy=false;safeStart();}
+    },2000);
+    return;
+  }
   recog=buildRecog();
-  try{recog.start();}
-  catch(e){
+  try{
+    recog.start();
+    // Update status bar
+    if(micState==='wake'){
+      vsTxt.textContent='SAY "WAKE UP HARVEY"';
+      vsBar.style.display='flex';
+    }
+  }catch(e){
     recogBusy=false;
-    setTimeout(()=>safeStart(),IS_IOS?2500:1500);
+    setTimeout(()=>safeStart(),IS_IOS?2500:1000);
   }
 }
 
@@ -3892,16 +3917,21 @@ function toggleMic(){
   if(!SR){harveyMsg('Voice input is not supported on this browser, sir. Please try Chrome on Android or Safari on iOS 14.5 or later.');return;}
   if(voiceMode){deactivateVoiceMode();return;}
   if(micState==='query'){
+    // Turn off
     clearTimeout(speechTimer);speechTimer=null;
     micState='wake';
     try{recog?.abort();}catch(e){}
     recogBusy=false;
+    mbEl.classList.remove('active');
+    vsBar.style.display='none';
   }else{
-    // Set to query regardless of current state (handles pre-boot clicks)
+    // Turn on — abort anything running first, then restart clean
     micState='query';
     try{recog?.abort();}catch(e){}
     recogBusy=false;
-    setTimeout(()=>safeStart(),100);
+    clearTimeout(speechTimer);
+    // 300ms for abort to fully close before restart
+    setTimeout(()=>safeStart(),300);
   }
 }
 
