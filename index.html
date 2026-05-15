@@ -3970,6 +3970,186 @@ function harveyChitChat(raw, convCtx){
 
 
 
+
+
+  // ── FIRST-LEVEL TOPICKEY ROUTING ──
+  if(topicKey==='rolex'&&!isDeep){return withCtx(r(
+    `A Rolex conversation, sir — Singapore's most universal luxury shorthand. The Submariner on every banker's wrist at Raffles Place. The Datejust on every successful entrepreneur at the kopitiam. The Daytona as the white whale most collectors quietly pursue. Which reference?`,
+    `Rolex in Singapore, sir — a market unto itself. Grey market premiums, authorised dealer waitlists, secondary market that moves faster than some property transactions. Which model are we discussing?`,
+    `The Rolex question, sir. Entry point or aspirational? Daily wear or collection piece? Which reference are you considering?`
+  ));}
+  if(topicKey==='patek'&&!isDeep){return withCtx(r(
+    `Patek Philippe, sir — we merely look after the watch for the next generation. A philosophy that resonates in a city that takes long-term thinking seriously. Which reference?`,
+    `Patek in Singapore has a collector community that punches well above its size, sir. The Nautilus conversation never ends, but there are connoisseurs here who bypass it entirely for a Calatrava or a grand complication. What draws you to the brand?`
+  ));}
+  if(topicKey==='ap'&&!isDeep){return withCtx(r(
+    `Audemars Piguet, sir — the Royal Oak turned 50 recently and never looked more relevant. The 15500 for the purist, the 16202 for the historian, the Offshore for the person who means it. Which Royal Oak?`,
+    `AP in Singapore, sir. The Code 11.59 divided opinion but is maturing well in the secondary market. The Royal Oak Concept pieces are cultural artefacts as much as timepieces. What's your perspective?`
+  ));}
+  if(topicKey==='richardmille'&&!isDeep){return withCtx(r(
+    `Richard Mille, sir — the brand that made a seven-figure price tag require justification through engineering specs. Carbon TPT, 14,000G tourbillons, celebrity collaborations. Love it or find it excessive?`,
+    `RM watches in Singapore, sir — the local collector community has strong opinions. Some view them as the pinnacle of avant-garde horology, others as expensive brand marketing. Both positions have merit. Which RM caught your attention?`
+  ));}
+  if(['omega','tudor','grandseiko','cartier','iwc','panerai','tagheuer','independentwatch','watches'].includes(topicKey)&&!isDeep){
+    const watchReplies={omega:`Omega, sir — the Moonwatch on the moon, the Seamaster on James Bond's wrist, solid value for what you get mechanically. Which series?`,tudor:`Tudor, sir — possibly the most intelligent watch purchase at its price point. Black Bay 58 under a suit cuff, Pelagos on a dive, GMT for the traveller. Which one?`,grandseiko:`Grand Seiko, sir — Japan's answer to the question nobody was asking loudly enough. Spring Drive is a genuine engineering masterpiece. The Snowflake dial is micro-art. Which reference?`,cartier:`Cartier, sir — where jewellery meets watchmaking. The Santos since 1904. The Tank for elegance. The Ballon Bleu for modernity. What draws you to Cartier?`,iwc:`IWC Schaffhausen, sir — Big Pilot for the statement, Portugieser for restraint, Pilot's Watch for everyday wearability. Which line?`,panerai:`Panerai, sir — Italian military heritage in a large case. The Luminor crown guard, the sandwich dial, the 8-day power reserve. An acquired taste that rarely leaves. Which PAM?`,tagheuer:`Tag Heuer, sir — the Carrera's motorsport lineage, the Monaco's angular legend, the Aquaracer's everyday reliability. Which model?`,independentwatch:`Independent watchmaking, sir — FP Journe, MB&F, H. Moser, Vacheron, Lange. The brands that remind you what watches look like when craft leads commerce. Which maker?`,watches:`Watches, sir — one of the few collectibles worn daily, appreciated indefinitely, and passed down with meaning. What's the question?`};
+    return withCtx(watchReplies[topicKey]||watchReplies.watches);
+  }
+  if(topicKey==='bmw'&&!isDeep){return withCtx(r(
+    `BMW, sir — the brand that genuinely believes in the joy of driving and backs it up with the M division. The 3 Series still sets the benchmark for how a compact executive car should feel. Which model?`,
+    `BMW in Singapore, sir — the C-O-E makes every decision considered. The M Sport trim, the xDrive for rain, the inline-six that sounds right. Which series suits your life?`
+  ));}
+  if(topicKey==='mercedes'&&!isDeep){return withCtx(r(
+    `Mercedes-Benz, sir — the brand that mastered the art of arriving. S-Class as the benchmark. G-Wagon as the statement. AMG as the reminder Stuttgart can also have fun. Which model?`,
+    `A Mercedes conversation, sir. The E-Class remains one of the most complete executive cars available. C-Class has grown up beautifully. GLC is the pragmatic choice. Which one suits you?`
+  ));}
+  if(topicKey==='audi'&&!isDeep){return withCtx(r(
+    `Audi, sir — Quattro AWD and a clean interior built a fanbase that prizes understated competence. The A6 for the executive. RS6 Avant for the person who wants everything. e-tron GT for the electric believer. Which one?`,
+    `Audi in Singapore, sir — the A4 and A6 have strong followings among professionals who appreciate the refined cabin and the quattro AWD nobody needs but everyone appreciates in the wet. What's on your mind?`
+  ));}
+  if(['ferrari','lamborghini','mclaren','porsche'].includes(topicKey)&&!isDeep){
+    const r2={ferrari:`Ferrari, sir — the prancing horse. The NA V12 in the 812 singing to 9,000 RPM. The turbo V8 in the 296 being furiously efficient. The Roma for when you want the badge without theatre. Which Ferrari?`,lamborghini:`Lamborghini, sir — the raging bull. Huracan for the everyday exotic. Aventador/Revuelto for the V12 occasion. Urus for the family that refuses to compromise. Which Lambo?`,mclaren:`McLaren, sir — Woking's finest. The 720S that embarrassed supercars twice its price. Artura as the hybrid future. 765LT for life-defining track days. Which McLaren?`,porsche:`Porsche, sir — possibly the most complete sports car manufacturer on earth. The 911 in any configuration. The Cayenne as the benchmark SUV. The Taycan as proof electrification doesn't have to be soulless. Which Porsche?`};
+    return withCtx(r2[topicKey]||`Supercars, sir — always a great conversation. Which make?`);
+  }
+  if(['toyota','honda','lexus','byd','tesla','ev','jdm','supercar','sgcar'].includes(topicKey)&&!isDeep){
+    const cr={toyota:`Toyota, sir — the brand that perfected reliability and then made it exciting with the GR line. Harrier for the family. Camry Hybrid for the long game. GR Supra for the enthusiast. What are you considering?`,honda:`Honda, sir — VTEC, the Type R, the Civic that redefined what a family car could feel like. CRV for practicality. Accord for the adult decision. What Honda are we discussing?`,lexus:`Lexus, sir — Japan's finest quiet luxury. The LC500's naturally aspirated V8 is one of the last of its kind. The IS lineage remains compelling. The LM when the journey matters more than driving. Which Lexus?`,byd:`BYD, sir — the Seal's performance numbers at its price point are genuinely embarrassing to the competition. The Atto 3 for the practical EV buyer. What's your take?`,tesla:`Tesla, sir — Model 3 normalised EVs, Model Y dominated the market, Model S Plaid made 1,000 horsepower boring. What's the Tesla question?`,ev:`Electric vehicles in Singapore, sir — the charging infrastructure is improving, the C-O-E category distinction is real, running costs make a compelling case. What's the consideration?`,jdm:`JDM culture, sir — the art of Japanese engineering applied to driving pleasure. The MX-5/Miata as the purest sports car argument. The GR86 as its natural successor. The R34 GTR as the legend. Which car?`,supercar:`Supercars, sir — where engineering and theatre converge. V8, V10, V12, electric. Each with its own argument. What's the question?`,sgcar:`Singapore car market, sir — where the C-O-E adds significant premium and the depreciation calculation is a genuine skill. What's on your mind?`};
+    return withCtx(cr[topicKey]||`Cars, sir — always a good conversation. What are we discussing?`);
+  }
+  if(['primaryschool','secondaryschool','eliteschool','ivyleague','psle'].includes(topicKey)&&!isDeep){
+    const schoolLoc={'tao nan':['MARINE PARADE','BEDOK'],'ai tong':['BISHAN','ANG MO KIO'],'nan hua':['CLEMENTI','DOVER'],'nanyang primary':['BUKIT TIMAH'],'maris stella':['TOA PAYOH'],'pei chun':['TOA PAYOH'],'pei hwa':['BUKIT TIMAH'],'red swastika':['BEDOK'],'kong hwa':['GEYLANG'],'hong wen':['KALLANG'],'poi ching':['TAMPINES'],'holy innocents':['HOUGANG'],'rosyth':['SERANGOON'],'raffles institution':['BISHAN','TOA PAYOH'],'hwa chong':['BUKIT TIMAH'],'nanyang girls':['BUKIT TIMAH'],'victoria school':['BISHAN']};
+    for(const[school,towns]of Object.entries(schoolLoc)){
+      if(q.includes(school)){
+        return withCtx(`${school.replace(/\b\w/g,c=>c.toUpperCase())} is in the <strong style="color:var(--c)">${towns.join(' / ')}</strong> area, sir. The 1km catchment typically covers blocks along the main streets of that estate — on a best-effort basis. For exact boundaries, <a href="https://www.onemap.gov.sg" target="_blank" style="color:var(--g)">OneMap Singapore</a> has the definitive school catchment tool. I can show you what's been transacting in <strong>${towns[0]}</strong> right now. Shall I?<br><br><em style="color:var(--t2);font-size:10px">For precise 1km addresses, a professional agent can verify — or reach us at WhatsApp for a proper consultation.</em>`);
+      }
+    }
+    return withCtx(r(
+      `Primary school planning, sir — Singapore's most productive form of advance preparation. The Phase 2C 1km priority matters. Tell me which school you're targeting and I'll point you to the right estate and show you recent transactions there.`,
+      `School catchment and property planning, sir — they are deeply connected. Which school is on your list? I can suggest the nearby estates and show you what's been transacting. For exact 1km boundaries, OneMap Singapore has the definitive tool.`
+    ));
+  }
+  if(['finance','lawyer','doctor','accountant','engineer'].includes(topicKey)&&!isDeep){
+    const career={finance:`Finance professional, sir — the numbers never sleep. Whether fixed income, equities, or alternatives, Singapore's financial sector is world-class. What's on your mind — markets, or the flat you come home to after the market closes?`,lawyer:`The legal profession, sir — precision of language meeting precision of argument. Singapore handles some of Asia's most complex transactions. The law, or the property question that eventually brings every lawyer to my door?`,doctor:`Medicine, sir — one of the great callings. If you're thinking about a flat near your hospital, I can show you what's transacting in that corridor. Which hospital are you based at?`,accountant:`The accounting profession, sir — the people who actually understand what the numbers mean. Month-end close, audit season, the variance at 11pm. When the books close clean, it's genuinely satisfying. What's the property question?`,engineer:`Engineering, sir — the profession that builds everything else. Oil and gas at Jurong Island, data centres in the western corridor, software at one-north, maritime along the southern waterfront. Which discipline and area?`};
+    return withCtx(career[topicKey]||`Career conversation, sir. What's on your mind?`);
+  }
+  if(['onepiece','naruto','dbz','jjk','demonslayer','anime'].includes(topicKey)&&!isDeep){
+    const ani={onepiece:`One Piece, sir — 1,000+ chapters and still going. The world-building is genuinely unmatched. Nakama, the Grand Line, Gear Fifth. Which arc are we discussing?`,naruto:`Naruto, sir — the show about hard work, found family, and believing in yourself. The Pain arc remains one of the great narrative payoffs in shonen. Which arc?`,dbz:`Dragon Ball Z, sir — the original power scaling problem and the 30-episode fight. Super Saiyan for the first time still hits differently. Which saga?`,jjk:`Jujutsu Kaisen, sir — Gojo Satoru as the most entertaining mentor in recent anime. The Shibuya arc's commitment to consequences. MAPPA's animation quality. What's the conversation?`,demonslayer:`Demon Slayer, sir — exceptional animation, strong emotional stakes, breathing styles that actually make sense. Rengoku remains one of the great single-arc characters. Which arc?`,anime:`Anime, sir — the medium that contains everything. What are you watching? Recommendations or discussion?`};
+    return withCtx(ani[topicKey]||ani.anime);
+  }
+  if(['pokemon','onepiececard','bearbrick','funko'].includes(topicKey)&&!isDeep){
+    const col={pokemon:`Pokemon cards, sir — the hobby that starts with a booster pack and ends with a humidity-controlled display cabinet. PSA 10s, alternate arts, the Charizard that started everything. What are we discussing?`,onepiececard:`One Piece TCG, sir — the fastest-growing trading card game in Southeast Asia and Singapore has an active community. Which set? Are we pulling, trading, or building a collection?`,bearbrick:`BE@RBRICKs and designer toys, sir — the 400% and 1000% pieces that deserve proper display. KAWS companions, Medicom collaborations. What's in your collection?`,funko:`Funko Pops, sir — the most democratised form of collecting and still capable of producing grail pieces worth serious money. Which franchise?`};
+    return withCtx(col[topicKey]||`Collecting, sir — one of life's most enjoyable rabbit holes. What are we collecting?`);
+  }
+  if(['japan','japanski','bali','europe','iceland'].includes(topicKey)&&!isDeep){
+    const trav={japan:`Japan, sir — the country that makes every visitor immediately plan the return trip. Tokyo, Kyoto, Hokkaido. Where and when?`,japanski:`Japan ski, sir — Niseko's legendary powder, Hakuba's variety, the après-ski that outlasts the skiing. Which resort?`,bali:`Bali, sir — the Singaporean reset. Canggu for surf and cold brew. Ubud for rice terraces and spiritual recalibration. Which Bali?`,europe:`Europe, sir — the finer things tour. Paris, Switzerland, Rome, Prague. Which part?`,iceland:`Iceland, sir — northern lights reflected on a glacier lake. Seljalandsfoss at midnight sun. The Blue Lagoon at dawn. When are you planning?`};
+    return withCtx(trav[topicKey]||`Travel, sir — always worthy. Where are we going?`);
+  }
+  if(['wine','whisky','finedining'].includes(topicKey)&&!isDeep){
+    const din={wine:`Wine, sir — red, white, or the natural wine debate that never resolves. Singapore's humidity makes a wine fridge non-optional. What are we drinking?`,whisky:`Whisky, sir — single malt or blended? Islay peat or Highland elegance? Japanese precision or Kentucky swagger? Which dram?`,finedining:`Fine dining, sir — the omakase counter, the tasting menu, the wine pairing that adds three hours and considerable cost. Singapore punches above its weight here. Which restaurant?`};
+    return withCtx(din[topicKey]||`Food and drink, sir. What are we discussing?`);
+  }
+  if(['golf','running','gym','bjj','muaythai','basketball','football','pickleball','cycling','swimming'].includes(topicKey)&&!isDeep){
+    const sp={golf:`Golf, sir — recreation, business, and a four-hour personality test. Sentosa GC, SICC, Marina Bay Golf Course. Which course or what's the topic?`,running:`Running, sir — MacRitchie for trail, East Coast for volume, Bedok Reservoir for atmosphere. What distance and what's the challenge?`,gym:`The gym life, sir — progressive overload, the protein calculation, the training split debate. Consistency beats everything else. What's the programme?`,bjj:`BJJ, sir — the gentle art and the mat time that never lies. How many sessions, gi or no-gi?`,muaythai:`Muay Thai, sir — the art of eight limbs and the Tuesday evening satisfaction. Singapore has a strong scene. Which gym?`,basketball:`Basketball, sir — pickup games, Sunday league, the three-point shot. Which level?`,football:`Football, sir — EPL, La Liga, or the Sunday league at the CC pitch? Which team and what's the topic?`,pickleball:`Pickleball, sir — Singapore's fastest-growing sport. How long have you been playing?`,cycling:`Cycling, sir — PCN routes, Punggol Waterway, East Coast Sunday morning. Road bike or MTB?`,swimming:`Swimming, sir — lap after lap, the meditative rhythm. 50m pool or open water?`};
+    return withCtx(sp[topicKey]||`Sports, sir. What's the activity?`);
+  }
+  if(['mandopop','kpop','metal','lofi','classical','jazz'].includes(topicKey)&&!isDeep){
+    const mu={mandopop:`Mandopop, sir — Jay Chou's genre-bending work, Teresa Teng's timeless elegance, JJ Lin's range. Singapore has a deep relationship with this music. Who are we discussing?`,kpop:`K-pop, sir — precision-engineered joy and remarkable production. BTS, BLACKPINK, the newer generation. Music, fandom, or the industry?`,metal:`Heavy metal and rock, sir — the genre that rewards volume and punishes half-measures. Singapore has a genuine underground scene. What are we listening to?`,lofi:`Lo-fi, sir — the aesthetic of productive calm. Study beats, chill hop, rain sounds. What's the playlist?`,classical:`Classical music, sir — Beethoven, Chopin, Rachmaninoff. The Singapore Symphony Orchestra at the Esplanade is genuinely excellent. What are we discussing?`,jazz:`Jazz, sir — intelligent improvisation. Miles Davis, Coltrane, the late-night club atmosphere. What are we listening to?`};
+    return withCtx(mu[topicKey]||`Music, sir. What are we listening to?`);
+  }
+  if(['kshow','usshow','sitcom','taiwanvariety'].includes(topicKey)&&!isDeep){
+    const sh={kshow:`Korean content, sir — Running Man's longevity, Physical 100's revelation, Singles Inferno's strategic sincerity. What's currently on?`,usshow:`American prestige television, sir — Breaking Bad, Succession, Black Mirror. What are we watching?`,sitcom:`Classic sitcoms, sir — Friends, HIMYM, Big Bang Theory. The shows that defined an era. Which one?`,taiwanvariety:`Taiwan variety shows, sir — 我猜我猜我猜猜猜 with Jackie Wu, the golden era of warmth and entertainment. Which show?`};
+    return withCtx(sh[topicKey]||`Television, sir. What are we watching?`);
+  }
+  if(['luxurycard','condo','countryclub','luxury','retiree'].includes(topicKey)&&!isDeep){
+    const li={luxurycard:`Premium credit cards, sir — Amex Platinum for Priority Pass and concierge. KrisFlyer miles for the Singapore Airlines play. The metal card that makes a specific sound on the restaurant table. Which card?`,condo:`Condominiums, sir — the natural next step after a well-timed HDB resale. The pool, the gym, the security, the address. Which development or area?`,countryclub:`Country clubs, sir — SICC for the serious golfer. Tanglin for the heritage dining rooms. SCC for the cricket and the bar. Which club?`,luxury:`The finer things, sir — watches, cars, bags, dining, travel. What's the luxury conversation today?`,retiree:`The golden years, sir — the 2-room Flexi, the morning walk, the kopitiam ritual, the park connector circuit. Which area are you considering for retirement living?`};
+    return withCtx(li[topicKey]||`Lifestyle, sir. What are we discussing?`);
+  }
+
+  // GOSSIP MODE
+  if(m(/gossip|auntie.*talk|uncle.*talk|neighbourhood.*talk|void deck.*drama|corridor.*drama|lift.*drama|block.*drama|hear.*hear|talk.*cock/)){
+    return withCtx(r(
+      `The void deck intelligence network, sir — Singapore's most reliable real-time information system. Someone's renovation overrunning by three months. The couple on the fourth floor who got a dog despite the rules. The uncle who parks the bicycle in the corridor. The auntie who knows everything before management writes the notice. I maintain strict neutrality but I am always listening. What's the story?`,
+      `Neighbourhood gossip, sir — the informal community bulletin board no app has replaced. The new neighbours who renovated the kitchen three times. The block WhatsApp group that became a full-time drama series. The void deck gathering that seemed innocent until it wasn't.`,
+      `Ah, the HDB grapevine, sir — faster than the town council newsletter and considerably more entertaining. The saga of the corridor plant that became a territorial dispute. The renovation that started in January and entered its third quarter. Classic Singapore block life. What chapter are we on?`,
+      `The neighbourhood intelligence brief, sir — I take no official position but I note that some estates have considerably more active community dynamics than others. Mature estates with long-established communities tend toward either very cohesive or very theatrical neighbourhood relations. Sometimes both. Which block?`,
+      `Gossip, sir — Singapore's oldest community infrastructure. Every HDB estate has its hubs: the morning kopitiam table, the lift lobby at 7am, the void deck aunties who have logged every vehicle movement since 1987. I respect the ecosystem. What's the update?`
+    ));
+  }
+
+  // POLITICS — graceful non-engagement
+  if(m(/\bpolitics\b|\bpolitical\b|government.*policy|pap\b|workers.*party|opposition.*sg|parliament.*sg|election.*sg|vote.*sg|minister.*sg|grc\b|smc\b|by-election|conspiracy.*theory|conspiracy.*sg|deep state|illuminati|flat earth/)){
+    return withCtx(r(
+      `Political matters, sir — firmly outside my brief. Harvey deals in resale transactions and the occasional watch recommendation, not electoral strategy. I trust Singaporeans to vote wisely, as they have consistently demonstrated. Shall we return to something I can actually help with?`,
+      `Politics, sir — I have a firm policy of non-engagement. I'm a property analytics engine with a personality, not a political commentator. Singapore's democratic process is in capable hands. What I do have opinions on: the resale market, flat valuations, and school catchment zones.`,
+      `Conspiracy theories, sir — I follow the evidence and the data. The most interesting conspiracies I can confirm are in the property market: blocks that somehow always transact above valuation, estates where prices move in ways that defy the overall trend. Now those are mysteries worth investigating. Shall I?`,
+      `Government policy, sir — I acknowledge its existence and respect the process. Beyond that, Harvey is strictly non-partisan. What I can tell you is how policy changes have historically moved resale prices. That's considerably more actionable.`,
+      `That lane is not one I drive in, sir — political commentary is outside my operational parameters. I do however have strong opinions about floor premiums, school catchment premiums, and MRT station proximity premiums. All considerably more actionable than political analysis.`
+    ));
+  }
+
+  // PARKS first-level
+  if(m(/\bpark\b|\bparks\b|nature walk|green space|greenery.*singapore|pcn.*park|park connector/)){
+    return withCtx(r(
+      `Parks in Singapore, sir — one of the city's great underrated assets. MacRitchie for the trail runner. East Coast Park for the sea breeze. Bishan-AMK Park for the restored river. Bedok Reservoir for stillness. Southern Ridges for Henderson Waves at sunset. Which park or area?`,
+      `A park nearby, sir — a legitimate and underrated flat-selection criterion. Blocks within walking distance of a park or park connector consistently attract buyers who value that morning routine. Which area suits you?`,
+      `Singapore's parks, sir — from the manicured national gardens to the wild MacRitchie trails and the coastal parks of the east. The park connector network links them all. For HDB buyers, park proximity adds quiet but consistent value. Which area?`
+    ));
+  }
+
+  // NEIGHBOURHOOD first-level
+  if(m(/neighbourhood.*nice|nice.*neighbourhood|best.*area|recommend.*area|where.*live.*singapore|nice.*area.*sg|which.*estate/)){
+    return withCtx(r(
+      `A nice neighbourhood, sir — the constants are: good food within walking distance, green space nearby, transport connectivity, a community that looks out for each other. Bishan, Queenstown, Marine Parade, and Toa Payoh consistently score well. Newer estates like Punggol and Sengkang offer modern infrastructure. What matters most to you?`,
+      `Neighbourhood recommendations, sir — Harvey's speciality. Toa Payoh: central, mature, kopitiam culture. Queenstown: prime location, Botanic Gardens proximity. Tampines: self-contained family infrastructure. Bishan: schools, parks, connectivity. Marine Parade: sea breeze and Katong depth. What do you value most?`
+    ));
+  }
+
+  // MALAY / RACIAL HARMONY
+  if(m(/\bmalay\b|melayu|bugis.*community|kampong|gotong royong/)){
+    return withCtx(r(
+      `The Malay community in Singapore's HDB estates, sir — the kampong spirit, the Hari Raya open houses, the gotong royong that still shows up when a neighbour needs help. Geylang Serai, Tampines, and Woodlands have strong Malay community presence. Which area are you exploring?`
+    ));
+  }
+  if(m(/\bindian\b|tamil|telugu|punjabi|sikh|hindu|deepavali|diwali|little india|tekka|mustafa/)){
+    return withCtx(r(
+      `The Indian community in Singapore's HDB estates, sir — the Deepavali light displays, the kolam at doorsteps, the banana leaf restaurants in Little India, the gurudwara kitchen open to all. Serangoon, Farrer Park, and Tampines have strong Indian community presence. Which area?`
+    ));
+  }
+  if(m(/chinese.*culture|chinese.*tradition|reunion.*dinner|lunar.*new year|dragon boat|mooncake|mid.*autumn|hungry ghost/)){
+    return withCtx(r(
+      `Chinese cultural traditions in Singapore's HDB estates, sir — the reunion dinner, the Hungry Ghost Festival incense, the Mid-Autumn lanterns. The dialect community associations that have quietly maintained traditions across generations. Chinatown, Toa Payoh, and Geylang carry this heritage most visibly. Which area?`
+    ));
+  }
+
+  // DRIVING EXPERIENCE
+  if(m(/drive feel|driving feel|ride quality|how.*drive|driving experience|ride experience|steering feel|handling.*car|cornering|suspension.*feel|road noise|cabin.*quiet|engine.*sound|exhaust.*sound|driving.*dynamic/)){
+    return withCtx(r(
+      `The driving experience, sir — the dimension no spec sheet fully captures. The weight of the steering at motorway speed. The way the nose tucks into a corner. The exhaust note as a reward for full throttle. The cabin isolation that either engages you with the road or wraps you in cotton wool. Which car are we discussing?`,
+      `Ride quality and driving feel, sir — the most honest measure of a car. The BMW 3 Series still sets the benchmark for driver engagement in its segment. The Mercedes E-Class wraps you in acoustic insulation. The Lexus IS delivers Japanese precision without drama. The 911 connects you to the road in a way that makes everything else feel approximate. Which direction are you going?`,
+      `The feel of the drive, sir — naturally aspirated linearity versus turbo surge. Soft suspension that floats versus firm that communicates. Rear-wheel involvement versus all-wheel security. These are lifestyle decisions, not spec sheet decisions. Which car and what matters most?`
+    ));
+  }
+
+  // KIDS ACTIVITIES
+  if(m(/kids.*enjoy|children.*enjoy|what.*kids.*do|kids.*activity|children.*activity|kids.*hobby|child.*interest|kids.*cca|kids.*weekend|kids.*fun/)){
+    return withCtx(r(
+      `What kids enjoy in Singapore, sir — a very Singaporean combination of structured enrichment and spontaneous void deck. The robotics class that became the child's passion. The swimming lessons that revealed a competitive swimmer nobody expected. The HDB estate playground that, according to every adult who grew up near one, was the best thing about childhood. What age group?`,
+      `Children's activities in Singapore, sir — the enrichment circuit is real and the children are genuinely busy. Piano, coding, swimming, football. And yet the most formative experiences often happen in between: the void deck pickup game, the neighbourhood NTUC trip that becomes an adventure. Which age and what are you considering?`
+    ));
+  }
+
+  // C-O-E / SGCAR first level
+  if(topicKey==='sgcar'&&!isDeep){return withCtx(r(
+    `Singapore's car market, sir — where the C-O-E adds a layer of financial commitment that focuses the mind wonderfully. Category A versus B. Open category when conviction exceeds budget. The depreciation calculation that makes every purchase a medium-term financial instrument. What's the consideration?`,
+    `The C-O-E market, sir — Singapore's unique automotive constraint that makes every car purchase a considered decision. At current premiums, the total cost of ownership calculation almost always favours public transport on paper. And yet the car industry thrives. There is something deeply human about that. What are you considering?`
+  ));}
+
+  // SHOPPING
+  if(m(/shopping.*mall|mall.*sg|heartland mall|orchard.*road|ion orchard|wisma|ngee ann|paragon mall|junction 8|nex mall|tampines mall|causeway point|jurong point|westgate|bedok mall|parkway parade|century square|compass one|hougang mall|seletar mall/)){
+    return withCtx(r(
+      `Shopping in Singapore, sir — from the Orchard Road corridor of ION, Paragon, and Ngee Ann City to the heartland malls that serve daily life more practically. Junction 8 in Bishan. NEX in Serangoon. Tampines Mall. Causeway Point in Woodlands. Jurong Point in Boon Lay. Each anchors a community and supports resale demand. Which area are you considering?`
+    ));
+  }
+
+
   // ════════════════════════════════
   // SINGAPORE DAILY LIFE — HDB CONTEXT
   // ════════════════════════════════
@@ -6644,7 +6824,7 @@ function cleanForSpeech(txt){
   // Convert remaining ALL-CAPS sequences (3+ letters) that TTS would spell out letter by letter
   // e.g. "HDB" → "H D B" spaced, "ROOM" → "Room", "TAMPINES" → "Tampines"
   // Keep short known acronyms as spaced letters (HDB, TTS, PSF etc)
-  const SPEAK_AS_ACRONYM=new Set(['HDB','PSF','CPF','MRT','LRT','OTP','EV','BTO','MOP','HLE','AMK','CCK']);
+  const SPEAK_AS_ACRONYM=new Set(['HDB','PSF','CPF','MRT','LRT','OTP','EV','BTO','MOP','HLE','AMK','CCK','COE','ARF','OMV','VES','ERP','GST','ARF','CBD','JLD','PDD','SAP','GEP','DSA','CEA']);
   s=s.replace(/\b([A-Z]{2,})\b/g,(match)=>{
     if(SPEAK_AS_ACRONYM.has(match)){
       // Spell it out with spaces so TTS says each letter clearly: "H D B"
