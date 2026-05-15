@@ -2260,6 +2260,7 @@ async function _handleInputInner(raw){
     userMsg('Start over');
     ctx={};convCtx={};mode='menu';
     stopSpeech();
+    removeLiveBubble();
     harveyMsg(`Of course, sir. Starting fresh — what would you like to do?`,[
       {label:'ESTIMATE VALUE',val:'estimate value'},
       {label:'SEARCH TRANSACTIONS',val:'search'}
@@ -2738,6 +2739,32 @@ async function _handleInputInner(raw){
 
 function chipClick(val){ciEl.value=val;handleInput();}
 function sendMessage(){handleInput();}
+
+// ── LIVE VOICE TRANSCRIPTION BUBBLE ──
+// Shows what Harvey is hearing in real time as a chat bubble
+let liveBubbleEl=null;
+function showLiveBubble(text){
+  if(!liveBubbleEl){
+    liveBubbleEl=document.createElement('div');
+    liveBubbleEl.className='msg-user';
+    liveBubbleEl.style.opacity='0.6';
+    liveBubbleEl.style.transition='opacity .2s';
+    liveBubbleEl.innerHTML=`<div class="mbub" style="border-style:dashed;position:relative">
+      <span style="font-family:var(--mono);font-size:8px;color:var(--g);display:block;margin-bottom:4px;letter-spacing:1px">🎙 HARVEY IS HEARING YOU…</span>
+      <span id="live-bubble-txt" style="color:var(--t)"></span>
+    </div>`;
+    msgsEl.appendChild(liveBubbleEl);
+  }
+  const el=document.getElementById('live-bubble-txt');
+  if(el)el.textContent=text;
+  msgsEl.scrollTop=msgsEl.scrollHeight;
+}
+function removeLiveBubble(){
+  if(liveBubbleEl){
+    liveBubbleEl.remove();
+    liveBubbleEl=null;
+  }
+}
 
 // ── Harvey attempt — "I'll try but no promises" + 10s timeout give-up ──
 async function harveyAttempt(raw){
@@ -3819,30 +3846,46 @@ function buildRecog(){
       }
     } else if(micState==='query'){
       if(interim){
-        vsTxt.textContent='HEARING: '+interim.toUpperCase().slice(0,60);
+        // Update input box with full text (no truncation) + trigger height resize
         ciEl.value=interim;
+        ciEl.style.height='auto';
+        ciEl.style.height=Math.min(ciEl.scrollHeight,80)+'px';
+        // Update status bar
+        vsTxt.textContent='🎙 '+interim;
+        vsBar.style.color='var(--g)';
+        // Show/update live transcription bubble in chat
+        showLiveBubble(interim);
         clearTimeout(speechTimer);clearTimeout(voiceModeSilTimer);
         const silenceMs=voiceMode?2500:IS_MOBILE_DEVICE?3000:4000;
         speechTimer=setTimeout(()=>{
           if(ciEl.value.trim()){
+            removeLiveBubble();
             const raw=normaliseVoiceInput(ciEl.value);
             const normalised=normalizeSpeech(raw);
-            ciEl.value=normalised;handleInput();
+            ciEl.value=normalised;
+            ciEl.style.height='auto';
+            ciEl.style.height=Math.min(ciEl.scrollHeight,80)+'px';
+            handleInput();
           }
         },silenceMs);
       }
       if(final){
         clearTimeout(speechTimer);clearTimeout(voiceModeSilTimer);
+        removeLiveBubble();
         let raw=normaliseVoiceInput(final);
         if(isDeactivationPhrase(raw)){deactivateVoiceMode();return;}
         if(isSkipPhrase(raw)){
           skipPreamble=true;
           raw=raw.replace(/skip|just tell me|get to the point|no need intro|skip all these|just show me|direct answer|just the data|results only/gi,'').trim();
-          if(!raw){harveyMsg('Understood, sir \u2014 brevity mode. Ask away.');speak('Understood, sir. Brevity mode. Ask away.');if(voiceMode)setTimeout(()=>safeStart(),800);return;}
+          if(!raw){harveyMsg('Understood, sir — brevity mode. Ask away.');speak('Understood, sir. Brevity mode. Ask away.');if(voiceMode)setTimeout(()=>safeStart(),800);return;}
         }
         const normalised=normalizeSpeech(raw);
         ciEl.value=normalised;
-        vsTxt.textContent='HEARD: '+normalised.toUpperCase().slice(0,60);
+        ciEl.style.height='auto';
+        ciEl.style.height=Math.min(ciEl.scrollHeight,80)+'px';
+        vsTxt.textContent='✓ HEARD: '+normalised;
+        vsTxt.style.color='var(--c)';
+        setTimeout(()=>{vsTxt.style.color='';},2000);
         const delay=voiceMode?800:IS_MOBILE_DEVICE?1200:1500;
         speechTimer=setTimeout(()=>handleInput(),delay);
       }
@@ -4062,115 +4105,6 @@ function cleanForSpeech(txt){
   return s;
 }
 
-function buildRecog(){
-  if(!SR)return null;
-  const r=new SR();
-  r.continuous=false;
-  r.interimResults=true;
-  r.lang='en-SG';
-  r.onstart=()=>{
-    recogBusy=true;
-    if(micState==='query'){
-      mbEl.classList.add('active');
-      vsBar.style.display='flex';
-      vsTxt.textContent='HARVEY LISTENING…';
-    }
-  };
-  r.onresult=e=>{
-    let interim='',final='';
-    for(let i=e.resultIndex;i<e.results.length;i++){
-      if(e.results[i].isFinal)final+=e.results[i][0].transcript;
-      else interim+=e.results[i][0].transcript;
-    }
-    const heard=(final||interim).trim();
-
-    if(micState==='wake'){
-      if(/wake.?up.?harvey|hey.?harvey|ok.?harvey/i.test(heard)){
-        if(isIdle){wakeFromIdle();}
-        else{
-          const rep=rand([
-            'Yes, sir. Go ahead.',
-            'At your service, sir.',
-            'Listening, sir.',
-            'Harvey online. What do you need?',
-            'Right here, sir. What can I do for you?'
-          ]);
-          harveyMsg(rep,[{label:'RESALE TRANSACTIONS',val:'search'},{label:'ESTIMATE VALUE',val:'estimate value'}]);
-          speak(rep);mode='menu';
-          setTimeout(()=>{micState='query';safeStart();},1200);
-        }
-        resetIdle();
-      }
-    } else if(micState==='query'){
-      // Show interim in real time so user sees Harvey is hearing them
-      if(interim){
-        vsTxt.textContent='HEARING: '+interim.toUpperCase();
-        ciEl.value=interim;
-        // Reset the silence timer — user is still speaking
-        clearTimeout(speechTimer);
-        speechTimer=setTimeout(()=>{
-          // 4 seconds of silence after last interim = user finished speaking
-          if(ciEl.value.trim()){
-            const normalised=normalizeSpeech(ciEl.value);
-            ciEl.value=normalised;
-            handleInput();
-          }
-        },4000);
-      }
-      if(final){
-        // Final result — wait 1.5s more before processing (give user time to continue if needed)
-        clearTimeout(speechTimer);
-        const normalised=normalizeSpeech(final);
-        ciEl.value=normalised;
-        vsTxt.textContent='HEARD: '+normalised.toUpperCase();
-        speechTimer=setTimeout(()=>handleInput(),1500);
-      }
-    }
-  };
-  r.onerror=e=>{
-    recogBusy=false;clearTimeout(speechTimer);
-    if(e.error==='not-allowed'||e.error==='service-not-allowed'){
-      vsSup.textContent='MIC BLOCKED — allow in browser';vsSup.style.color='var(--r)';micState='off';return;
-    }
-    if(micState!=='off')setTimeout(()=>safeStart(),1200);
-  };
-  r.onend=()=>{
-    recogBusy=false;mbEl.classList.remove('active');vsBar.style.display='none';
-    // Don't immediately restart if speech timer is pending (user may still be pausing mid-sentence)
-    if(micState==='wake'){setTimeout(()=>safeStart(),300);}
-    else if(micState==='query'){
-      // Wait for speech timer to fire before dropping back to wake
-      setTimeout(()=>{
-        if(!speechTimer){micState='wake';safeStart();}
-        else{
-          // Timer still running — stay in query mode, let timer handle it
-          const orig=speechTimer;
-          speechTimer=setTimeout(()=>{
-            if(ciEl.value.trim())handleInput();
-            micState='wake';setTimeout(()=>safeStart(),600);
-          },1500);
-        }
-      },200);
-    }
-  };
-  return r;
-}
-function safeStart(){if(recogBusy||micState==='off'||!SR)return;recog=buildRecog();try{recog.start();}catch(e){setTimeout(()=>safeStart(),1500);}}
-function toggleMic(){
-  if(!SR){alert('Use Chrome or Edge for voice');return;}
-  if(micState==='query'){
-    clearTimeout(speechTimer);speechTimer=null;
-    micState='wake';try{recog?.abort();}catch(e){}
-  }else{
-    micState='query';try{recog?.abort();}catch(e){}
-    setTimeout(()=>safeStart(),200);
-  }
-}
-
-if(SR){
-  vsSup.textContent='SAY "WAKE UP HARVEY" OR CLICK 🎤';vsSup.style.color='var(--g)';
-  micState='wake';setTimeout(()=>safeStart(),3000);
-}else{mbEl.style.display='none';vsSup.textContent='USE CHROME/EDGE FOR VOICE';vsSup.style.color='var(--a)';}
 
 // ── MOBILE PANEL TOGGLE ──
 function toggleMobPanel(panelId,tabId){
