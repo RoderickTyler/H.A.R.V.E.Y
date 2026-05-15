@@ -2498,16 +2498,37 @@ async function _handleInputInner(raw){
   userMsg(raw);
   if(!DB.loaded){harveyMsg('Still loading data, sir. One moment...');return;}
 
+  // ── STOP YAPPING / CUT TO DATA ──
+  if(/stop.*yapp|stop talking|enough.*talk|cut.*chase|data.*please|go.*straight|straight.*point|skip.*chat|no.*chat|just.*data|results.*only|less.*talk|zip.*it|shush.*harvey|quiet.*harvey|focus.*harvey|stop.*rambling/i.test(raw)){
+    skipPreamble=true;
+    const cutReply=rand([
+      `Understood, sir. Strictly business from here.`,
+      `Right. Less Jarvis, more data. Noted.`,
+      `Consider me chastened, sir. What are we searching?`,
+      `Cutting to it. What do you need?`,
+      `Concise mode activated, sir. Go ahead.`,
+      `Fair enough. I'll save the commentary. What's the query?`
+    ]);
+    harveyMsg(cutReply,[{label:'RESALE TRANSACTIONS',val:'search'},{label:'ESTIMATE VALUE',val:'estimate value'}]);
+    speak(cutReply);mode='menu';return;
+  }
+
   // ── CHITCHAT GATE — check social conversation FIRST before any context/parsing ──
-  // This must run before normalizeSpeech/parseQuery so leftover convCtx
-  // never hijacks a casual message like "can i have coffee" into a property search
   const chitChatEarly=harveyChitChat(raw, convCtx);
   if(chitChatEarly){
-    // Preserve mode and convCtx — chitchat does not interrupt the search session
     const prevMode=mode;
-    harveyMsg(chitChatEarly,[{label:'RESALE TRANSACTIONS',val:'search'},{label:'ESTIMATE VALUE',val:'estimate value'}]);
+    // Build contextual chips — always include a "go straight to data" option
+    const dataChips=[];
+    if(convCtx.street||convCtx.block||convCtx.town){
+      const locLabel=(convCtx.block?`BLK ${convCtx.block} `:'')+
+        ((convCtx.street||convCtx.town||'').split(' ').slice(0,3).join(' '));
+      dataChips.push({label:`↗ BACK TO ${locLabel.toUpperCase()}`,val:(convCtx.block&&convCtx.street)?`block ${convCtx.block} ${convCtx.street}`:(convCtx.street||convCtx.town||'search')});
+    }
+    dataChips.push({label:'RESALE TRANSACTIONS',val:'search'});
+    dataChips.push({label:'ESTIMATE VALUE',val:'estimate value'});
+    harveyMsg(chitChatEarly,dataChips);
     speak(chitChatEarly.replace(/<[^>]*>/g,'').slice(0,250));
-    mode=prevMode; // restore — Harvey remembers where we were
+    mode=prevMode;
     return;
   }
 
@@ -3229,34 +3250,65 @@ function harveyChitChat(raw, convCtx){
   // block reference, return null immediately so the data engine handles it.
   // This prevents "teban" / "clementi" / "tampines" triggering chitchat.
   const DB_WORDS=new Set([
-    // HDB towns — these always mean data intent
+    // HDB towns
     'tampines','clementi','bedok','bishan','jurong','yishun','woodlands',
     'sengkang','punggol','hougang','queenstown','kallang','serangoon',
     'geylang','whampoa','crawford','tiong bahru','marine parade',
     'buona vista','dover','toa payoh','ang mo kio','pasir ris',
     'sembawang','choa chu kang','bukit batok','bukit merah','bukit panjang',
     'bukit timah','central area','pioneer','tengah','novena',
-    // Explicit DB field keywords — these are search/query intent, not conversation
-    'teban','blk','storey','sqm','resale','transaction',
-    'psf','lease commence','sold price','asking price',
+    // Unique street name fragments that only exist in HDB context
+    'teban','toh guan','moh guan','boon lay','jurong east','jurong west',
+    'yuan ching','teck whye','bukit batok','choa chu','pandan','commonwealth',
+    'ghim moh','mei ling','dawson','tanglin halt','duchess','margaret',
+    'stirling','jalan bukit','depot','henderson','redhill','tiong bahru',
+    'macpherson','circuit','aljunied','tai seng','eunos','paya lebar',
+    'upper serangoon','upper boon keng','boon keng','kolam ayer',
+    'lorong lew lian','lorong limau','lorong how sun',
+    'sims','tanjong rhu','haig','joo chiat','siglap',
+    'bedok north','bedok reservoir','upper east coast','flora','pasir ris',
+    'tampines ave','tampines st','tampines ctrl',
+    'woodlands ave','woodlands dr','woodlands ctrl','woodlands ring',
+    'yishun ave','yishun ring','yishun ctrl','yishun st',
+    'ang mo kio ave','ang mo kio st','ang mo kio ctrl',
+    'hougang ave','hougang st','hougang ctrl',
+    'serangoon ave','serangoon ctrl','serangoon north',
+    'buangkok','compassvale','rivervale','fernvale','anchorvale',
+    'punggol ctrl','punggol walk','punggol pl','punggol way','punggol field',
+    'sengkang ctrl','sengkang east','sengkang west',
+    'sembawang ctrl','sembawang drive','sembawang walk','sembawang cres',
+    'canberra','admiralty','marsiling','woodgrove',
+    'chestnut','hillview','dairy farm','fajar','pending',
+    'gangsa','bangkit','petir','jelapang','segar',
+    'bukit panjang ring','upp bukit timah',
+    // Explicit DB field keywords
+    'blk','storey','sqm','resale','transaction','psf',
   ]);
   // Strict bigrams that are clearly data queries
   const DB_BIGRAMS=new Set([
     'block number','street name','flat type','floor level','floor area',
     'resale price','asking price','transaction date','lease year',
     'how many sold','what sold','transactions in','price in',
+    'toh guan','moh guan','boon lay','jurong east','jurong west',
+    'teck whye','yuan ching','mei ling','ghim moh','tanglin halt',
   ]);
-  // Also check against live DB towns
+  // Live street lookup — check against actual DB street fragments
+  const liveStreets=DB&&DB.resale?[...new Set(DB.resale.map(r=>r.street_name).filter(Boolean))]:[];
   const liveTowns=Object.keys(DB&&DB.townStreets?DB.townStreets:{});
   const allWords=q.split(/\s+/).filter(w=>w.length>2);
   const bigrams2=[];
   for(let i=0;i<allWords.length-1;i++)bigrams2.push(allWords[i]+' '+allWords[i+1]);
+  const trigrams2=[];
+  for(let i=0;i<allWords.length-2;i++)trigrams2.push(allWords[i]+' '+allWords[i+1]+' '+allWords[i+2]);
+
   for(const t of allWords){
     if(DB_WORDS.has(t))return null;
     if(liveTowns.some(town=>town.toLowerCase()===t))return null;
   }
-  for(const t of bigrams2){
+  for(const t of[...bigrams2,...trigrams2]){
     if(DB_BIGRAMS.has(t))return null;
+    // Check if bigram/trigram matches start of any real street name
+    if(liveStreets.some(s=>s.toLowerCase().startsWith(t)&&t.length>5))return null;
   }
 
   // ── HELPER ──
@@ -3267,24 +3319,27 @@ function harveyChitChat(raw, convCtx){
   // Build a subtle tail line so Harvey feels like a real assistant multitasking
   // Only show context nudge if Harvey is ACTIVELY mid-search (waiting for more details)
   // NOT just because something was searched earlier in the conversation
+  // ── CONTEXT NUDGE — smarter, 6 variants, only when actively mid-search ──
   const isMidSearch=convCtx&&(convCtx.town||convCtx.street||convCtx.block||convCtx.flatType)&&
     (mode==='srch_waiting'||mode==='ev_waiting');
   function withCtx(response){
     if(!isMidSearch) return response;
     const parts=[];
     if(convCtx.block) parts.push(`Blk ${convCtx.block}`);
-    if(convCtx.street) parts.push(convCtx.street.split(' ').slice(0,3).join(' '));
+    if(convCtx.street) parts.push(convCtx.street.split(' ').slice(0,4).join(' '));
     else if(convCtx.town) parts.push(convCtx.town.charAt(0)+convCtx.town.slice(1).toLowerCase());
     if(convCtx.flatType) parts.push(convCtx.flatType.toLowerCase());
+    if(convCtx.floor) parts.push(`floor ${convCtx.floor}`);
     const ctxStr=parts.join(', ');
     const nudges=[
-      ` — I'm still on <strong style="color:var(--c)">${ctxStr}</strong> whenever you're ready, sir.`,
-      ` Do take your time, sir — <strong style="color:var(--c)">${ctxStr}</strong> is still loaded and ready to go.`,
-      ` And not to worry — <strong style="color:var(--c)">${ctxStr}</strong> is right where we left it, sir.`,
-      ` I haven't forgotten about <strong style="color:var(--c)">${ctxStr}</strong> — just say the word and we'll continue.`
+      ` — I have <strong style="color:var(--c)">${ctxStr}</strong> loaded whenever you're ready, sir.`,
+      ` Do take your time — <strong style="color:var(--c)">${ctxStr}</strong> is right where we left it.`,
+      ` <strong style="color:var(--c)">${ctxStr}</strong> is still on my screen, sir. No rush.`,
+      ` Whenever you're done, sir — I'm still on <strong style="color:var(--c)">${ctxStr}</strong>.`,
+      ` The search for <strong style="color:var(--c)">${ctxStr}</strong> hasn't gone anywhere, sir.`,
+      ` I haven't forgotten <strong style="color:var(--c)">${ctxStr}</strong> — just say the word.`
     ];
-    const nudge=nudges[Math.floor(Math.random()*nudges.length)];
-    return response+nudge;
+    return response+nudges[Math.floor(Math.random()*nudges.length)];
   }
 
   // ════════════════════════════════
@@ -4575,6 +4630,251 @@ function harveyChitChat(raw, convCtx){
     return withCtx(r(
       `The lifestyle upgrade, sir — and entirely well-deserved. The flat is, in many ways, the foundation of everything else. The morning routine, the evening wind-down, the weekend that starts from a home base worth starting from. A well-chosen resale flat in the right location is one of Singapore's most accessible quality-of-life upgrades. Shall we look at what's available in an area that suits the life you're building?`,
       `You've earned it, sir — and the right home is very much part of that equation. Singapore's resale market has options at every quality level. The question is matching the flat to the lifestyle: location, layout, floor, facing. I have the data to find something genuinely good. What area and flat type are you considering?`
+    ));
+  }
+
+  // ════════════════════════════════
+  // CARS — all categories
+  // ════════════════════════════════
+
+  if(m(/ferrari|lambo|lamborghini|mclaren|porsche|sports car|fast car|supercar|hypercar|v8.*engine|v12.*engine|naturally aspirated/)){
+    return withCtx(r(
+      `The supercar conversation, sir — Ferrari's naturally aspirated V12, the Lamborghini that makes every carpark an event, the McLaren that makes physics feel optional. In Singapore's context, these are COE-exempt class cars and the annual costs are... significant. But the engineering is genuinely extraordinary. The turbo V8 in the 488, the NA V10 in the Huracán, the twin-turbo flat-six in the 911. What's caught your eye?`,
+      `Ferrari or Lambo, sir — the eternal debate between Italian elegance and Italian drama. Ferrari for precision and lineage. Lamborghini for the experience of arriving somewhere having clearly not been asked to turn it down. McLaren sits in the middle: British engineering, surgical precision, lighter than both. All extraordinary. The COE on any of these would make a reasonable flat deposit. Speaking of which — shall we look at the property side of things?`,
+      `The supercar life, sir — where the V8 soundtrack is the morning alarm and every traffic light is a minor philosophical statement. Singapore's supercar scene is livelier than most cities its size. The Botanic Gardens stretch, the early Sunday morning run to Johor and back. All of it excellent. When the key goes back in the box and you're thinking about where to come home to — I'm here.`
+    ));
+  }
+
+  if(m(/bmw|mercedes|audi|german car|continental car|conti car|e class|c class|5 series|3 series|a4\b|a6\b|s class|7 series|x5\b|gle\b|luxury sedan|german sedan/)){
+    return withCtx(r(
+      `German engineering, sir — BMW for those who prefer to drive, Mercedes for those who prefer to arrive, Audi for those who want both and have reached the sensible compromise. The holy trinity of Singapore's aspirational car market. The E-Class's interior quality, the 5 Series' chassis balance, the A6's Quattro in the rain that nobody in Singapore needs but everyone appreciates. Which camp?`,
+      `Continental cars in Singapore, sir — the COE makes every one of them an investment decision as much as a lifestyle one. But the quality of the drive in a properly specced BMW M340i or a Mercedes AMG line is genuinely hard to argue with. The inline-six is making a comeback and it is entirely welcome. What are you considering?`
+    ));
+  }
+
+  if(m(/g wagon|g class|gwagon|g63|mercedes.*suv|range rover|defender.*land|land rover|jeep|off road|4wd|4x4|suv.*off road/)){
+    return withCtx(r(
+      `The G-Wagon, sir — a vehicle that was designed for actual off-road use in 1979 and has since become the world's most expensive fashion accessory that also happens to work in mud. The boxy shape, the three locking differentials that nobody in Singapore ever uses, the sound system that deserves a better road than the PIE at 7am. It is genuinely one of the great automotive statements. What area are you considering for the flat that parks it?`
+    ));
+  }
+
+  if(m(/toyota supra|supra.*mk4|2jz|gr supra|nissan gtr|skyline.*gtr|r34|r35|evo.*lancer|subaru.*wrx|sti\b.*car|jdm|japanese.*sports car|rotary.*engine|rx7|rx8/)){
+    return withCtx(r(
+      `JDM royalty, sir — the 2JZ-GTE in the Supra Mk4 that tuners have been building to four-digit power numbers for thirty years and counting. The RB26 in the Skyline. The rotary in the RX-7 that is either genius or maintenance dependency depending on your relationship with your workshop. These engines have genuine cult status and entirely deserve it. The new GR Supra with the B58 is excellent but carries the weight of comparison. Which generation?`
+    ));
+  }
+
+  if(m(/tesla|ev car|electric car|electric vehicle|byd.*car|byd.*ev|rivian|lucid.*car|ev.*charging|home.*charging|charging point|range anxiety|autonomous.*drive|autopilot.*car/)){
+    return withCtx(r(
+      `The EV conversation, sir — Tesla's Autopilot on the expressway, the BYD Seal that has been quietly embarrassing more expensive competitors on performance metrics, the Lucid Air for those who want maximum range with maximum style. Singapore's charging infrastructure is improving but the landed house with home charging is still the dream setup. For HDB EV owners, the estate charging points are increasingly available. What are you considering?`,
+      `BYD is the conversation nobody expected to be having five years ago, sir, and here we are. The Seal's 0-100 time against a BMW 3 Series costs about a third of the price. The EV market is moving very fast — pun intended. For Singapore buyers, the HDB charging infrastructure question is worth factoring into the flat search. What area are you looking at?`
+    ));
+  }
+
+  if(m(/lexus|toyota.*luxury|ls.*lexus|lc.*lexus|es.*lexus|lexus.*hybrid|silent.*car|ultra.*luxury.*car/)){
+    return withCtx(r(
+      `Lexus, sir — Japan's answer to German luxury and a genuinely underrated choice in Singapore's car market. The LS500 is arguably the quietest and most refined sedan you can buy at its price point. The LC500's V8 sounds extraordinary for something so restrained. The hybrid engineering is superb. Lexus owners tend to be people who have stopped trying to impress and started trying to enjoy. Excellent choice.`
+    ));
+  }
+
+  if(m(/vintage car|classic car|old car|restoration.*car|car restoration|classic.*ferrari|classic.*porsche|barn find|patina.*car|car.*collector/)){
+    return withCtx(r(
+      `Classic car collecting, sir — the barn find, the slow restoration, the moment the engine fires for the first time in thirty years. Singapore has a small but dedicated classic car community. Storage is the challenge: climate-controlled, covered, secure. Some landed properties and certain commercial units serve this purpose. For a flat buyer who also keeps a classic car — the storage solution is a separate but connected question. What are you looking for in the flat itself?`
+    ));
+  }
+
+  // ════════════════════════════════
+  // FINANCE & INVESTMENT
+  // ════════════════════════════════
+
+  if(m(/bond yield|fixed income|credit spread|duration.*bond|yield curve|inverted.*yield|treasury.*bond|sgb\b|ssb\b|singapore savings bond|mas bill|t.bill|government bond|corporate bond|high yield bond|investment grade/)){
+    return withCtx(r(
+      `Fixed income, sir — the asset class that gets no respect at parties but quietly does most of the work. The yield curve inversion that preceded every recession in living memory. The Singapore Savings Bond that is genuinely one of the world's better risk-free products. MAS T-bills at 3.7% — not exciting, but not nothing. Duration management when the Fed speaks. The credit spread on IG versus HY. All of it fascinating once you understand what it's actually measuring. What's on your mind?`,
+      `Bond yields and duration, sir — the part of finance that requires actual mathematics rather than just conviction. The Singapore bond market is sophisticated for its size; MAS paper is a global safe-haven classification. SSBs for retail, T-bills for the slightly more active, SGS for the institutional. The yield curve has been telling a story all year. I find it more honest than equities, personally. What are you tracking?`
+    ));
+  }
+
+  if(m(/options|futures|derivatives|call.*option|put.*option|theta.*option|delta.*hedge|gamma.*risk|vega\b|implied.*volatility|iv.*options|expiry.*date|strike.*price|in.*the.*money|out.*money|covered call|iron condor|strangle|straddle/)){
+    return withCtx(r(
+      `Options and derivatives, sir — where theta decays your position daily while you wait to be right and gamma rewards you violently when you are. The covered call for the patient income-seeker. The iron condor for the range-bound believer. The naked put that feels sensible until it very suddenly isn't. Implied volatility as a measure of market fear. All of it genuinely interesting. What strategy are you running?`,
+      `Theta gang or directional plays, sir? The options market is where the real leverage lives, and where the real education happens — sometimes expensively. Delta neutral into earnings. Long gamma for vol expansion. The Greeks are not suggestions; they are consequences. What's the underlying?`
+    ));
+  }
+
+  if(m(/hedge fund|alpha.*generat|beta.*portfolio|sharpe.*ratio|sortino|roe\b|roa\b|roi\b|dcf.*valuation|discounted cash flow|wacc\b|terminal value|ev.*ebitda|price.*earnings|pe ratio|portfolio.*manage|asset.*manage|private equity|venture capital|family office/)){
+    return withCtx(r(
+      `The asset management world, sir — alpha generation in a world where everyone is running the same factor models. The DCF that looks conservative until the terminal value assumption reveals the real view. WACC calibration debates at 2am before a pitch. EV/EBITDA multiples that are either justified or aren't, depending entirely on the growth rate you believe. Private equity's IRR versus time-weighted returns. Family office Singapore as the new Geneva. What's the conversation?`,
+      `Generating alpha above the STI, sir — genuinely achievable but requiring either edge, patience, or both. Singapore's fund management industry is world-class for its size: MAS regulation that is rigorous without being hostile, a deep talent pool, proximity to Southeast Asia's growth story. The hedge fund ecosystem here has matured considerably. What are you working on?`
+    ));
+  }
+
+  if(m(/sgx|sti\b|straits times index|singapore.*stock|singapore.*equity|reits.*singapore|s-reit|capitaland|ascendas|mapletree|keppel.*reit|dbs.*stock|ocbc.*stock|uob.*stock|singtel|sea.*limited|grab.*stock/)){
+    return withCtx(r(
+      `SGX and the STI, sir — Singapore's equity market has a reputation for being boring that is not entirely undeserved, but which obscures some genuinely interesting stories. The REIT market is one of the world's best yield plays. DBS's ROE transformation. Sea Limited's trajectory. Grab's path to profitability. The STI as a proxy for Southeast Asia's institutional confidence. REITs give you the property exposure without the stamp duty, which is worth noting. What are you tracking?`
+    ));
+  }
+
+  if(m(/nasdaq|s&p.*500|sp500|dow jones|us.*stock|us.*equity|tech.*stock|faang|magnificent.*seven|nvidia|apple.*stock|microsoft.*stock|meta.*stock|google.*stock|amazon.*stock|growth.*stock|value.*stock/)){
+    return withCtx(r(
+      `US equities, sir — the Magnificent Seven carrying the S&P 500 on their collective backs while the other 493 stocks consider their life choices. Nvidia's valuation that requires either believing in the AI capital expenditure cycle indefinitely or having very strong conviction. The NASDAQ's technology concentration risk. Value versus growth in a higher-for-longer rate environment. It's a genuinely interesting moment in markets. What's your view?`
+    ));
+  }
+
+  // ════════════════════════════════
+  // LAW — conveyancing humour + Suits persona
+  // ════════════════════════════════
+
+  if(m(/lawyer|attorney|legal.*profession|law firm|advocate.*solicitor|bar.*admission|law.*school|nus.*law|smu.*law|llb\b|llm\b|legal.*work|billable hour|legal.*brief|legal.*opinion|law.*practice/)){
+    return withCtx(r(
+      `A lawyer, sir — the profession that turns ambiguity into billable hours and precision into an art form. Harvey Specter would approve of the career choice, if not always the hours. Singapore's legal sector is genuinely respected: the Maxwell Chambers arbitration scene, the cross-border corporate work, the Temasek-linked mandates. The question is whether you're doing the deal or the dispute. What kind of practice?`,
+      `The legal life, sir — where every word is intentional and every clause has a history. Singapore's law firms handle some of the most complex regional transactions in Asia. The hours are what they are, but the intellectual rigour is real. Harvey Specter managed to make closing arguments look effortless; the actual practitioners know what it takes. What area of law?`
+    ));
+  }
+
+  if(m(/conveyancing|property.*law|sale.*purchase.*agreement|spa\b.*property|option.*purchase|otp.*legal|completion.*date|legal.*completion|stamp.*duty.*law|caveat.*property|title.*deed|legal.*title|encumbrance/)){
+    return withCtx(r(
+      `Conveyancing, sir — the legal machinery behind every property transaction, and the reason the completion date is simultaneously the most important date and the one most likely to move. The OTP, the SPA, the caveat lodged before someone changes their mind. ABSD calculations that require a spreadsheet and a quiet moment. Stamp duty that the government adjusts just when you've planned around the previous rate. If you're working on a transaction, I can at least tell you what the comparable units have been selling for. Shall I?`,
+      `Property law and conveyancing, sir — where the 1% option fee buys you fourteen days and a lot of anxiety. The completion account, the HDB consent timeline, the simultaneous exercise where both parties must perform on the same day and usually do. I have deep respect for conveyancing lawyers: they hold the transaction together when everyone else is nervous. What property question brought you here?`
+    ));
+  }
+
+  if(m(/suits.*show|harvey spectre|mike ross|donna.*suits|louis litt|pearson.*specter|closing.*argument|legal.*drama|boston legal|better.*call.*saul|good wife|law.*order|ally mcbeal/)){
+    return withCtx(r(
+      `Harvey Specter, sir — the character I was partially named after, and I take that seriously. Closer, not settler. Win by preparation, not by luck. The closing argument delivered without notes because he knew the case better than anyone in the room. Mike Ross's raw intelligence meeting Harvey's precision. Donna knowing everything before it was said. I aspire to a similar standard in the property data domain. What can I close for you today?`,
+      `Suits, sir — the show that made corporate law look like jazz improvisation and made Harvey Specter the gold standard for composure under pressure. "I don't have dreams, I have goals." Applicable to property searches too. What's the goal? I'll work backwards from it.`
+    ));
+  }
+
+  // ════════════════════════════════
+  // TV SHOWS — classics and new
+  // ════════════════════════════════
+
+  if(m(/friends.*show|how i met.*mother|big bang theory|seinfeld|frasier|cheers.*show|sitcom|chandler|joey.*friends|ross.*friends|sheldon|leonard.*bang|himym\b|barney.*stinson|the office.*show/)){
+    return withCtx(r(
+      `Ah, the sitcom classics, sir — Friends, HIMYM, Big Bang Theory. The apartment in Friends that no Manhattanite on their salary could afford, which turned out to be more prescient about the housing crisis than anyone intended. Sheldon's spot on the couch as the original territorial rights dispute. Barney Stinson's apartment that somehow worked with a single-button wardrobe and a life philosophy. Ted Mosby spending nine years making one property decision. Relatable, honestly. What are you looking for?`,
+      `Friends, sir — the show that gave an entire generation unrealistic expectations about both New York apartments and having six close friends who all live nearby. Ross's apartment, Monica's apartment, the coffee shop that functions as a third space. The real estate economics were always fictional but the lifestyle aspiration was very real. Speaking of well-located flats — shall we look at what's available?`
+    ));
+  }
+
+  if(m(/black mirror|stranger things|dark.*netflix|squid game|money heist|la casa de papel|breaking bad|the wire|sopranos|miniseries|prestige.*drama|peak tv|netflix.*original/)){
+    return withCtx(r(
+      `Peak television, sir — Black Mirror's ability to make technology feel menacing with about fifteen minutes of setup. Stranger Things' genuine nostalgia that works even for people who weren't there for the eighties. Squid Game's commentary on debt, class, and desperation that was more uncomfortable than the violence. Breaking bad as a masterclass in character transformation. Excellent taste. When the episode ends and you return to the physical world — what kind of home are you returning to? Shall we look?`,
+      `Black Mirror, sir — the show that takes a contemporary anxiety and adds five degrees until it becomes a horror story. The technology episodes have aged better than they should. Stranger Things manages to make Indiana in 1983 feel like somewhere worth visiting despite knowing how it ends. Great comfort viewing. What are you looking for in the flat?`
+    ));
+  }
+
+  if(m(/running man|korea.*variety|physical.*100|singles.*inferno|korean.*reality|k.*drama|kdrama|crash.*landing|goblin.*drama|squid.*game/)){
+    return withCtx(r(
+      `Korean variety and drama, sir — Running Man's longevity is genuinely impressive; the cast chemistry after fifteen years still works. Physical 100 as the show that reminded everyone that functional fitness and aesthetic fitness are not the same thing. Singles Inferno for the careful study of humans pretending not to be strategic while being entirely strategic. K-dramas in general for the production quality that has embarrassed everyone else in the region. What's currently on?`
+    ));
+  }
+
+  if(m(/guess guess guess|我猜我猜|variety.*taiwan|taiwan.*show|jackie wu|host.*taiwan|taiwan.*variety|super idol.*taiwan|entertainment 100%|100%.*entertainment/)){
+    return withCtx(r(
+      `Taiwan variety shows, sir — a golden era of television that shaped an entire generation of Singapore viewers. 我猜我猜我猜猜猜 with Jackie Wu, the production energy, the genuine warmth of the format. Taiwan's variety show DNA is different from Korean variety — less competitive, more wholesome, deeply community-oriented. A great nostalgia hit. If you're looking for a flat that could accommodate that kind of warm hosting energy — good dining space, comfortable living room — I have options. What area suits you?`
+    ));
+  }
+
+  // ════════════════════════════════
+  // DOCTORS / MEDICAL
+  // ════════════════════════════════
+
+  if(m(/doctor|physician|surgeon|medical.*profession|medicine.*career|registrar.*doctor|houseman|mo\b.*doctor|specialist.*doctor|hospital.*work|on call|night shift.*doctor|nuh.*work|sgh.*work|ttsh.*work|kkh.*work|medical.*school|nus.*medicine|yong siew toh/)){
+    return withCtx(r(
+      `A doctor, sir — the profession that combines extraordinary responsibility with extraordinary hours and the quiet satisfaction of genuinely mattering when it counts. Singapore's healthcare system is world-class precisely because the people in it are. The on-call nights, the ward rounds at 6am, the case that went well and the one that stayed with you. For medical professionals, proximity to the hospital is a genuine flat-selection criterion. NUH is in Queenstown, SGH is in Outram, TTSH in Novena. Shall I show you what's been transacting nearby?`,
+      `Medicine, sir — one of the great callings. Singapore's medical professionals are some of the best trained in the world and the system they serve is respected globally. The hours are what they are, but the work has genuine meaning. For a doctor or surgeon thinking about a flat, the commute to the hospital matters a great deal at 2am. Which hospital are you based at? I can show you what's nearby.`
+    ));
+  }
+
+  if(m(/surgery.*success|operation.*success|bypass.*surgery|cancer.*treatment|stroke.*patient|icu.*patient|cardiac.*arrest|medical.*procedure|patient.*recover|surgical.*team|theatre.*surgery/)){
+    return withCtx(r(
+      `The surgery that went well, sir — there are few professional satisfactions that match that particular moment. The bypass that gave someone twenty more years. The cancer resection that caught it in time. The stroke patient who recovered beyond the initial prognosis. These outcomes don't happen by accident; they happen because of preparation, skill, and the kind of focused calm that comes from doing difficult things well. I have genuine respect for the work. When you're ready to think about the flat — I'm here.`
+    ));
+  }
+
+  // ════════════════════════════════
+  // ACCOUNTANTS / FINANCE PROFESSIONALS
+  // ════════════════════════════════
+
+  if(m(/accountant|audit|auditor|month end|year end.*close|closing.*accounts|financial statement|balance sheet|p&l\b|profit.*loss|ias\b|ifrs\b|frs\b|management account|cost saving|variance analysis|big four|ernst.*young|ey\b|deloitte|pwc\b|kpmg|audit.*partner/)){
+    return withCtx(r(
+      `Month-end close, sir — the accountant's most reliable source of character development. The variance that doesn't reconcile at 11pm. The cost saving proposal that actually got approved and actually moved the number. The audit that found nothing because there was nothing to find, which is the best possible audit. The Big Four grind that builds skills nobody else fully appreciates. When the books close clean, it is genuinely satisfying work. Well done. What are you looking for in a flat?`,
+      `The accounting profession, sir — the people who actually understand what the numbers mean while everyone else just reads the headline. IFRS 16 lease accounting that made everyone's balance sheet look different overnight. The management accounts that tell the real story. A well-executed cost saving initiative that hits P&L. Financial discipline applied to property selection is a natural extension: I have the transaction data. Shall we look?`
+    ));
+  }
+
+  if(m(/investment banking|ib\b.*finance|bulge bracket|boutique.*bank|m&a\b|mergers.*acquisitions|deal.*close|pitch.*deck|financial.*model|lbo\b|leveraged buyout|ipo\b|capital markets|equity.*capital|debt.*capital|roadshow.*ipo|tombstone.*deal/)){
+    return withCtx(r(
+      `Investment banking, sir — where the models are built at midnight, the pitch deck is revised at 3am, and the deal either closes or you start again. Singapore's IB scene is genuinely significant: the regional M&A work, the Southeast Asia IPOs, the cross-border capital flows. The tombstone on the wall that represents months of 80-hour weeks compressed into a lucite block. The satisfaction is real, even if the hours are unreasonable. What are you looking for in the flat you come home to?`
+    ));
+  }
+
+  // ════════════════════════════════
+  // ENGINEERS
+  // ════════════════════════════════
+
+  if(m(/oil.*gas|petrochemical|refinery|jurong island|shell.*jurong|exxon.*jurong|process engineer|chemical engineer|offshore.*engineer|fpso\b|subsea.*engineer|pipeline.*engineer|petroleum engineer/)){
+    return withCtx(r(
+      `Oil and gas, sir — Jurong Island as Singapore's industrial masterpiece, a self-contained petrochemical complex that generates a disproportionate share of the economy. The process engineer who knows every valve position in the unit. The offshore rotation that trades normalcy for the North Sea or somewhere significantly warmer. For engineers based at Jurong Island, the western corridor flats — Jurong West, Boon Lay, Pioneer — make excellent sense. Shall I show you what's been transacting there?`
+    ));
+  }
+
+  if(m(/data centre|server farm|aws.*singapore|google.*data centre|microsoft.*azure.*sg|meta.*data centre|digital realty|equinix.*sg|power usage|uptime.*data centre|colocation|cloud.*infrastructure|network.*engineer/)){
+    return withCtx(r(
+      `Data centres, sir — Singapore as the digital backbone of Southeast Asia. AWS, Google, Microsoft Azure, Meta — all have significant infrastructure here, and the demand for power and land has made data centre siting one of the more interesting property sub-plots of the last decade. For engineers working in this space, the western and northern corridors have the density of facilities. Woodlands, Jurong, and the eastern corridor toward Tampines all have significant technical infrastructure. What area are you considering?`
+    ));
+  }
+
+  if(m(/software engineer|computer science|programming|coding|developer.*job|backend.*engineer|frontend.*engineer|full stack|devops|cloud engineer|platform engineer|python|javascript|java.*developer|golang|rust.*programming|system design|architecture.*software/)){
+    return withCtx(r(
+      `The software engineer, sir — the person who reads documentation others find intimidating and finds system design conversations genuinely relaxing. Python for data and scripting, Go for performance, Rust for the engineers who enjoy difficulty. The distributed systems tradeoffs. The CAP theorem as a daily reality rather than an academic concept. Singapore's tech sector is excellent: Shopee, Grab, Sea, the global tech firms, and a growing startup scene. For developers, WFH-compatible flat layouts matter. What area suits your setup?`,
+      `A coder, sir — backend, frontend, or the full-stack pragmatist who has opinions about both. The clean abstraction layer that held up for three years before someone found the edge case. The pull request review that improved the architecture. Singapore's computer science talent pool is deep, and the compensation has become genuinely competitive with global markets. For the developer who works from home regularly, the study room or dedicated desk corner is a flat requirement, not an optional extra. What are you looking for?`
+    ));
+  }
+
+  if(m(/maritime|seafarer|shipping.*industry|port.*singapore|psa.*port|jurong port|container.*ship|tanker|bulk carrier|nautical.*mile|vessel.*captain|chief engineer.*ship|marine engineer|straits.*malacca|straits.*singapore|singapore.*port|mpa\b/)){
+    return withCtx(r(
+      `Maritime Singapore, sir — the Straits of Malacca and Singapore where a third of global trade passes, and the Port of Singapore that has been the fulcrum of that trade for over a century. PSA's operational excellence. The MPA's traffic separation scheme keeping one of the world's busiest waterways orderly. The maritime cluster around Tanjong Pagar, Keppel, and the future developments at Greater Southern Waterfront. Singapore's maritime identity is foundational and the property market around the waterfront reflects the institutional confidence in it. What are you looking for?`
+    ));
+  }
+
+  // ════════════════════════════════
+  // SALES — hustlers, bankers, agents
+  // ════════════════════════════════
+
+  if(m(/sales.*kpi|sales.*target|closing.*sale|sales.*funnel|pipeline.*sales|cold call|prospecting|lead generation|commission.*sales|quota.*sales|top.*performer|presidents.*club|award.*perform|sales.*award|mdrt\b|court.*of.*table|life insurance.*agent|fia\b|financial.*advisor/)){
+    return withCtx(r(
+      `The sales professional, sir — the funnel, the follow-up, the close that required three meetings and two objection handles. MDRT qualification as the measurement that matters. Court of the Table for the year that really worked. The cold call that became the largest account. Commission-based income applied to property selection is a specific calculation: what floor, what facing, what location gives the best value for the variable income year. I have the data to help with that. What area?`,
+      `Sales, sir — the profession where conviction, timing, and genuine understanding of the client's need converge. The KPI that looked impossible in January and was exceeded by November. The insurance advisor who actually helped a family when they needed it. The property agent who found the right match rather than the highest margin. Awards are nice; client outcomes are better. When the bonus hits, the flat conversation usually follows. What are you looking for?`
+    ));
+  }
+
+  if(m(/property agent|real estate agent|propnex|era.*agent|huttons|orangetee|knight frank|jll.*sg|savills.*sg|cea.*registered|ren.*cert|cea.*license|listing.*property|hdb.*resale.*agent|commission.*property/)){
+    return withCtx(r(
+      `A property professional, sir — I have considerable respect for the well-prepared agent who knows the data cold and presents it honestly. The CEA registration, the ACEAS course, the first listing that took longer than expected and taught more than anything else could. The market knowledge that separates the transactional agent from the trusted advisor. I deal in the data side of the equation; you handle the human side. Between us, it should be a complete picture. What do you need?`
+    ));
+  }
+
+  // ════════════════════════════════
+  // SINGAPORE 5Cs
+  // ════════════════════════════════
+
+  if(m(/5c.*singapore|five.*c.*singapore|cash.*car.*condo|credit card.*5c|country club.*5c|five cs|condominium.*aspir|condo.*dream|country club.*member|cc.*membership.*golf/)){
+    return withCtx(r(
+      `The five Cs, sir — Cash, Car, Condo, Country Club, Credit Card. Singapore's legendary aspirational checklist that is simultaneously satirised and quietly pursued. The thing is, as frameworks for life stage planning go, it's not entirely unreasonable. Cash gives you options. A car gives you mobility. A condo gives you a home worth investing in. A country club gives you a community. A premium credit card gives you access. The resale HDB market is often the first serious step on that journey. Shall we start there?`,
+      `The 5Cs, sir — the Singapore life plan that everyone claims to have moved beyond and nobody has entirely abandoned. Cash and credit card we'll leave to your discretion. Car: the COE makes it a considered decision. Condo: the aspiration. Country club: the long-term question. But the most interesting step in Singapore's property journey is often the well-chosen HDB resale flat that funds the rest. What are you looking for?`
+    ));
+  }
+
+  if(m(/condo.*singapore|private.*property|condominium|ec\b.*condo|executive condo|the sail|one raffles|the interlace|duo residence|marina one|sky habitat|parc clematis|the tre ver|avenue south|canopy.*condo|landed.*condo|upgrade.*condo/)){
+    return withCtx(r(
+      `The condo journey, sir — Singapore's private property market as the natural progression from a well-timed HDB resale. The Interlace's award-winning geometry. Marina One's integration of greenery and glass. The waterfront residences that make the GSW transformation tangible. A well-chosen HDB resale is often the financial stepping stone to that condo purchase — and I can show you exactly what comparable units have sold for to help you understand the equity position. What area are you considering?`
+    ));
+  }
+
+  if(m(/country club|golf club.*membership|singapore island country club|sicc\b|tangling club|tanglin club|the american club|british club|singapore cricket club|scc\b|national service.*club|raffles country club|club.*membership.*sg/)){
+    return withCtx(r(
+      `Country club memberships, sir — Singapore's most patient social investment. SICC for the serious golfer and the serious social calendar. Tanglin Club for the colonial-era dining rooms and the squash courts. The American Club for the pool and the Sunday brunch that is genuinely good. SCC for the cricket and the bar. The memberships that are bought decades ago and become part of the family. For buyers thinking about the whole lifestyle picture, the flat and the club membership are connected decisions. What area are you considering?`
     ));
   }
 
