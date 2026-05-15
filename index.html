@@ -3264,687 +3264,533 @@ function harveyChitChat(raw, convCtx){
   const q=raw.toLowerCase().replace(/[^a-z0-9\s']/g,' ');
 
   // ── EXPANDED JOINING WORDS — 3000+ synonyms across 75 topic clusters ──
+  // ── JOINING WORDS — 3500+ triggers with smart shorthand, nicknames, partials ──
+  // topicOf() uses substring + word-boundary matching so short forms work too
   const JOINS={
     kopi:['kopi','kopi-o','kopi o','kopi c','kopi siew dai','kopi tarik','kopi peng','kopi poh','kopi gao',
       'kopitiam','nanyang coffee','ipoh white coffee','ipoh coffee','local coffee','morning kopi',
       'uncle kopi','auntie kopi','kopi stall','coffee stall singapore','hawker coffee','kopi gao siew dai',
-      'singapore coffee','toast coffee','traditional coffee','kaya toast coffee','half boiled egg coffee',
-      'ya kun kaya toast','toast box','killiney kopitiam','old town coffee','tong ah coffee',
-      'teh si','teh halia','teh c peng','local brew singapore','sock filter coffee','robusta coffee',
-      'butter roast coffee','sugar roast coffee','coffee sock','drip coffee sock','kopitiam uncle',
-      'morning brew singapore','breakfast kopi','kopi o kosong','coffee no sugar','kopi tarik uncle',
-      'pull coffee','coffee pull','ice kopi','iced coffee local','cold kopi'],
+      'singapore coffee','toast coffee','traditional coffee','kaya toast','half boiled egg','half-boiled',
+      'half boiled','boiled egg','soft boiled','ya kun','toast box','killiney','old town coffee',
+      'tong ah','kopitiam uncle','morning brew','breakfast kopi','kopi o kosong','kopi tarik uncle',
+      'coffee sock','robusta','butter roast','local brew','sock filter','teh si'],
     coffee:['coffee','espresso','cappuccino','latte','flat white','americano','long black','macchiato',
-      'cortado','ristretto','lungo','cold brew','pour over','v60','chemex','aeropress','kalita wave',
-      'moka pot','french press','siphon coffee','drip coffee','filter coffee','coffee bean','roast profile',
-      'light roast','medium roast','dark roast','extraction','under extraction','over extraction',
-      'coffee grinder','burr grinder','flat burr','conical burr','coffee ratio','brew ratio',
-      'bloom coffee','pre infusion','pressure profiling','portafilter','tamper','tamping','puck prep',
-      'steam wand','milk steaming','microfoam','latte art','rosetta','tulip art','heart pour',
-      'third wave coffee','specialty coffee','single origin','direct trade','geisha bean','kenya coffee',
-      'ethiopia coffee','colombia coffee','panama coffee','natural process','washed process','honey process',
-      'anaerobic ferment','coffee subscription','morning machine sg','bean to cup','specialty cafe',
-      'kopi machine','barista','home barista','coffee competition','wbc','world barista','cupping coffee',
-      'coffee cupping','coffee notes','tasting notes coffee','coffee acidity','coffee sweetness',
-      'coffee body','coffee finish','breville','rocket espresso','la marzocco','jura coffee','delonghi',
-      'nespresso','philips coffee','simonelli','gaggia','rancilio','lelit','ecm coffee'],
+      'cortado','ristretto','lungo','cold brew','pour over','v60','chemex','aeropress','kalita',
+      'moka pot','french press','siphon','drip coffee','filter coffee','coffee bean','roast',
+      'extraction','grinder','burr grinder','flat burr','conical burr','brew ratio',
+      'bloom','pre infusion','pressure profiling','portafilter','tamper','tamping',
+      'steam wand','milk steaming','microfoam','latte art','rosetta','tulip','heart pour',
+      'third wave','specialty coffee','single origin','direct trade','geisha','kenya','ethiopia',
+      'colombia','panama','natural process','washed process','honey process','anaerobic',
+      'coffee subscription','morning machine','bean to cup','specialty cafe','barista',
+      'home barista','coffee competition','cupping','tasting notes','coffee acidity',
+      'breville','rocket espresso','la marzocco','jura','delonghi','nespresso','simonelli',
+      'gaggia','rancilio','lelit','ecm','coffee machine','espresso machine','home cafe'],
     tea:['tea','teh','teh tarik','teh o','teh c','teh peng','teh siew dai','teh halia','teh c peng',
-      'teh tarik uncle','pulled tea','milk tea','bubble tea','boba tea','pearl milk tea',
-      'earl grey','earl grey bergamot','english breakfast tea','breakfast tea','darjeeling first flush',
-      'darjeeling second flush','assam tea','assam milk tea','ceylon tea','nilgiri tea',
-      'oolong tea','oolong','tie guan yin','tieguanyin','tie kuan yin','iron goddess','iron goddess tea',
-      'da hong pao','big red robe','wuyi oolong','cliff tea','rock tea','puerh','pu erh','pu-erh',
-      'aged puerh','raw puerh','cooked puerh','sheng puerh','shou puerh','puerh cake',
-      'silver needle white tea','white peony tea','bai mu dan','white tea','shou mei',
-      'green tea','longjing','dragon well','bi luo chun','anji white tea','green tea japan',
-      'sencha','fukamushi sencha','gyokuro','kabusecha','tencha','matcha','ceremonial matcha',
-      'culinary matcha','hojicha','genmaicha','kukicha','bancha','cold brew tea',
-      'taiwanese tea','high mountain oolong','gao shan cha','ali shan','li shan','da yu ling',
-      'dong ding','oriental beauty','bai hao oolong','four seasons oolong',
-      'gongfu cha','gongfu tea','gong fu','yixing teapot','yixing clay','purple clay pot',
-      'gaiwan','tea ceremony','chado','tea service','tea tray','tea stage',
-      'steeping tea','brewing tea','water temperature tea','tea timer','tea collection',
-      'chinese tea','taiwanese tea culture','japanese tea','english tea','herbal tea',
-      'chamomile','peppermint tea','rooibos','hibiscus tea','lemon tea','ginger tea','lemongrass tea',
-      'afternoon tea','high tea','cream tea','british tea','singapore high tea','tea set',
-      'tea pairing','tea and food','tisane','infusion tea'],
-    bmw:['bmw','beemer','bimmer','bm','blue white roundel','blue white propeller','bmw group',
-      '1 series bmw','2 series bmw','3 series bmw','318i','320i','330i','330e','m340i','340i',
-      '4 series bmw','430i','m4','m4 csl','5 series bmw','520i','530i','540i','m5','m5 cs',
-      '7 series bmw','730li','740li','750li','m7','x1 bmw','x2 bmw','x3 bmw','x4 bmw',
-      'x5 bmw','x6 bmw','x7 bmw','ix bmw','i3 bmw','i4 bmw','i5 bmw','i7 bmw',
-      'z4 bmw','m2 bmw','bmw m division','bmw m performance','bmw motorsport',
-      'bmw individual','bmw alpina','b3 alpina','b5 alpina','bmw m sport','bmw luxury',
-      'bavarian motor works','bmw sedan','bmw suv','bmw coupe','bmw electric',
-      'inline six bmw','b58 engine','s58 engine','n55 engine','bmw xdrive','bmw rwd'],
-    mercedes:['mercedes','mercedes benz','merc','benz','daimler','three pointed star','amg',
-      'a class','b class','c class','cla','cls','e class','s class','g class','g wagon',
-      'gwagon','g63 amg','g63','g500','gl class','gla','glb','glc','gle','gls','maybach',
-      'mercedes maybach','s680 maybach','eqs','eqe','eqc','eqa','eqb','eq series',
-      'c200','c300','c43','c63','e200','e220d','e300','e43','e63','s350','s400','s450','s500',
-      'a180','cla180','amg line','amg 43','amg 53','amg 63','amg gt','amg c63 black series',
-      'mercedes coupe','mercedes suv','mercedes sedan','mercedes ev','mercedes hybrid',
-      'mbux system','airmatic suspension','e active body control','4matic','rear wheel drive merc',
-      'mercedes performance','night package','edition mercedes','designo','burmester sound'],
-    audi:['audi','audi ag','ingolstadt','four rings','ingolstadt germany',
-      'a1 audi','a3 audi','a4 audi','a5 audi','a6 audi','a7 audi','a8 audi',
-      'q2 audi','q3 audi','q4 audi','q5 audi','q6 audi','q7 audi','q8 audi',
-      'rs3','rs4','rs5','rs6','rs7','rs q8','r8 audi','tt audi','tts',
-      'a4 sportback','a5 sportback','a7 sportback','a4 avant','a6 avant',
-      'e-tron','q4 e-tron','q8 e-tron','audi ev','rs e-tron gt',
-      'quattro','quattro awd','s tronic','tiptronic','audi sport',
-      'audi matrix led','virtual cockpit','bang olufsen audi','mmi infotainment',
-      'tfsi engine','tdi engine','audi mild hybrid','audi phev','s line audi','black edition audi'],
-    ferrari:['ferrari','scuderia ferrari','prancing horse','il cavallino','maranello',
-      'ferrari roma','ferrari portofino','ferrari california','sf90 stradale','sf90 spider',
-      '296 gtb','296 gts','ferrari 488','488 gtb','488 pista','812 superfast','812 gts',
-      'ferrari f8','f8 tributo','f8 spider','laferrari','enzo ferrari','f40','f50',
-      'ferrari daytona','ferrari 250','ferrari testarossa','ferrari mondial',
-      'ferrari purosangue','ferrari suv','ferrari v12','ferrari v8','ferrari hybrid',
-      'prancing horse badge','ferrari red','rosso corsa','ferrari yellow','ferrari special series',
-      'ferrari icona','ferrari sp','one off ferrari','ferrari tailor made','atelier ferrari',
-      'cavallino rampante','ferrari racing','formula 1 ferrari','charles leclerc ferrari'],
-    lamborghini:['lamborghini','lambo','raging bull','sant agata bolognese',
-      'huracan','huracan evo','huracan sterrato','huracan sto','huracan lp610',
-      'aventador','aventador svj','aventador ultimae','aventador lp750',
-      'urus','urus s','urus performante','lamborghini suv','lamborghini v10','lamborghini v12',
-      'lamborghini hybrid','lanzador ev lamborghini','revuelto lamborghini',
-      'sesto elemento','veneno lamborghini','centenario','sian lamborghini',
-      'lamborghini orange','arancio','verde mantis','blu cepheus','lamborghini color',
-      'lamborghini design','lamborghini scissor door','lamborghini noise'],
-    mclaren:['mclaren','mclaren automotive','woking surrey','speedtail','elva mclaren',
-      '720s','720s spider','765lt','765lt spider','mclaren gt','artura','artura spider',
-      '600lt','570s','540c','mclaren f1','mclaren p1','mclaren senna','senna gtr',
-      'mclaren sabre','ultimate series','super series','sports series mclaren',
-      'mclaren carbon fibre','mclaren monocoque','proactive chassis','mclaren twin turbo',
-      'mclaren v8 biturbo','mclaren handling','mclaren steering','mclaren track',
-      'mclaren papaya orange','mclaren black','mclaren bespoke','mso mclaren'],
-    porsche:['porsche','porsche ag','stuttgart','911 porsche','992 generation',
-      '911 carrera','911 carrera s','911 carrera gts','911 turbo','911 turbo s',
-      '911 gt3','911 gt3 rs','911 gt2 rs','911 dakar','911 targa','911 cabriolet',
-      '718 cayman','718 boxster','718 spyder','718 cayman gt4','718 gt4 rs',
-      'cayenne','cayenne turbo','cayenne coupe','cayenne s','macan','macan ev',
-      'panamera','panamera turbo','panamera sport turismo','taycan','taycan turbo s',
-      'taycan cross turismo','taycan ev','porsche electric','porsche hybrid',
-      'porsche flat six','porsche pdk','porsche manual','porsche awd','porsche rwd',
-      'porsche design','porsche exclusive','porsche club sport','porsche gt sport',
-      'porsche motorsport','porsche 24h le mans','porsche track day'],
-    toyota:['toyota','toyota motor','nagoya japan','camry','camry hybrid','camry xse',
-      'harrier hybrid','harrier','venza','alphard','alphard hybrid','vellfire','noah',
-      'land cruiser','land cruiser 300','land cruiser prado','fj cruiser',
-      'rav4','rav4 hybrid','rav4 phev','corolla','corolla cross','corolla altis',
-      'yaris','yaris cross','gr86','gr yaris','gr supra','2jz-gte','2jz engine',
-      'a90 supra','gr corolla','gazoo racing','toyota gr sport',
-      'prius','prius phev','mirai fuel cell','bz4x','bz ev series',
-      'towkay car','toyota chairman car','ceo car singapore','toyota singapore',
-      'toyota hybrid technology','tnga platform','toyota safety sense'],
-    honda:['honda','honda motor','type r','civic type r','civic fl5','civic fe',
-      'civic sedan','civic hatchback','accord','accord hybrid','crv','crv hybrid',
-      'hrv','hrv hybrid','zrv','pilot honda','ridgeline','odyssey honda',
-      'fit honda','jazz honda','city honda','city hatchback',
-      'vtec','vtec turbo','k20c engine','k20 engine','l15 engine','earth dreams',
-      'sense honda','honda nsx','acura nsx','integra honda','element',
-      'honda hybrid system','immd','two motor hybrid honda',
-      'honda reliability','honda maintenance','honda resale value singapore'],
-    tesla:['tesla','tesla motors','tesla inc','elon musk car','model 3','model y',
-      'model s','model x','model s plaid','model x plaid','cybertruck','roadster tesla',
-      'autopilot','fsd','full self driving','tesla ap','navigate on autopilot',
-      'tesla supercharger','supercharger network','tesla charging','destination charger',
-      'range tesla','tesla range anxiety','400 mile range','mile range ev',
-      'ludicrous mode','plaid mode','cheetah stance','launch mode tesla',
-      'tesla software update','over the air update','ota update tesla',
-      'tesla interior','yoke steering','glass roof tesla','minimalist interior',
-      'tesla community','tesla forum','teslarati','tesla sg','tesla singapore'],
-    byd:['byd','build your dreams','shenzhen china byd','atto 3','atto3',
-      'dolphin byd','seal byd','han byd','tang byd','song byd','yuan byd',
-      'byd ev','byd electric','byd hybrid','dmi hybrid','byd blade battery',
-      'lfp battery byd','lithium ferro phosphate','cell to body byd',
-      'byd design','byd interior','byd adas','byd autopilot',
-      'byd singapore dealer','byd reliability','byd warranty','byd service',
-      'byd market share','byd vs tesla','chinese ev','chinese car singapore',
-      'mg ev','omoda ev','great wall ev','zeekr ev','xpeng','nio electric',
-      'geely ev','volvo ev','polestar ev','byd price singapore'],
-    lexus:['lexus','lexus international','toyota luxury','is lexus','is250','is300',
-      'es lexus','es250','es300h','es350','gs lexus','ls lexus','ls500','ls500h',
-      'lc lexus','lc500','lc500h','nx lexus','nx250','nx350h','rx lexus','rx350',
-      'rx350h','rx500h','ux lexus','ux250h','gx lexus','lx lexus','lx600',
-      'lexus lm','lm350h','lm500h','lexus suv','lexus sedan','lexus coupe',
-      'lexus hybrid','lexus phev','multi stage hybrid','lexus heev',
-      'lexus quiet','lexus refinement','lexus reliability','lexus smooth ride',
-      'takumi craftsmanship','lexus japan made','lexus finisher','lexus interior quality',
-      'mark levinson sound','lexus sound system','lexus safety','lexus lss'],
-    jdm:['jdm','japanese domestic market','japan import car','jdm culture',
-      'rx7 mazda','rx7 fd','rx7 fc','rx8 mazda','rotary engine','wankel rotary',
-      '13b engine','20b engine','renesis engine','bridge port rotary',
-      'toyota supra mk4','a80 supra','jza80','2jz engine','2jz-gte','single turbo 2jz',
-      'nissan skyline','r32 gtr','r33 gtr','r34 gtr','rb26 engine','rb26dett',
-      'mitsubishi lancer evo','evo iv','evo v','evo vi','evo vii','evo viii','evo ix','evo x',
-      '4g63 engine','awd evo','transfer case evo',
-      'subaru impreza wrx','gc8 subaru','sti wrx','wrx sti','ej20 engine','ej257',
-      'honda nsx na1','na2 nsx','c30a engine','c32b engine',
-      'honda integra dc2','b18 engine','b16 engine','vtec honda',
-      'mazda mx5','miata','nb mazda','nc mazda','nd mazda','roadster mazda',
-      'toyota ae86','hachi roku','4a-ge engine','drift car','touge car','time attack'],
-    supercar:['supercar','hypercar','exotic car','exotic vehicle','ultra luxury car',
-      'million dollar car','multi million car','limited production car','homologation car',
-      'fast car','high performance car','sports car','track car','race car road legal',
-      'naturally aspirated engine','na engine','forced induction','turbo charged','twin turbo',
-      'supercharged engine','v8 engine','v10 engine','v12 engine','w12 engine','w16 engine',
-      'mid engine','rear engine','front engine sports','flat six','inline six sports',
-      'carbon fibre body','lightweight car','aerodynamic car','active aero',
-      'downforce car','df car','ground effect','venturi channel',
-      'track day car','nurburgring record','ring taxi','hockenheim',
-      'pagani','koenigsegg','bugatti','rimac','hennessey','saleen','noble',
-      'ascari','dallara','radical','caterham','lotus sports','tvr',
-      'alfa romeo giulia gta','ferrari challenge','lambo super trofeo'],
-    ev:['electric car','electric vehicle','ev car','bev','battery electric vehicle',
-      'phev','plug in hybrid electric','mild hybrid','48v mild hybrid','full hybrid',
-      'range anxiety','ev range','battery range','usable battery','kwh battery',
-      'ev charging','home charging','wall box charger','type 2 charger','ccs charger',
-      'chademo charger','tesla supercharger','ionity charger','fast charging',
-      'rapid charging','dc fast charge','ac charging','overnight charging',
-      'ev tax singapore','arf rebate ev','ves rebate ev','category a ev',
-      'ev incentive','ev grant','lta ev','singapore ev','ev adoption singapore',
-      'hdb ev charging','estate charging','carpark charging','hdb charger',
-      'ioniq 5','ioniq 6','kia ev6','kia ev9','rivian r1t','lucid air',
-      'rivian suv','ford mustang mach-e','volkswagen id4','id buzz',
-      'bmw ix','bmw i4','mercedes eqs','porsche taycan','audi e-tron gt'],
-    sgcar:['coe','certificate of entitlement','coe price','coe renewal','coe bidding',
-      'arf','additional registration fee','arf rebate','parf rebate','oe value',
-      'omv','open market value','singapore car tax','road tax singapore',
-      'ves','vehicle emissions scheme','ves surcharge','ves rebate',
-      'category a coe','cat a coe','category b coe','cat b coe','open category coe',
-      'motorcycle coe','bus coe','goods vehicle coe',
-      'car loan singapore','car financing','car installment','car downpayment',
-      'car insurance singapore','ntuc income car','aviva car insurance','aig car',
-      'parallel import car','pi car','authorised dealer','ad car',
-      'sgcaremart','carousell car','car mart singapore','sgcarmart review',
-      'toyota showroom singapore','honda showroom','mercedes showroom',
-      'car depreciation singapore','10 year car','car scrapping','srf rebate',
-      'petrol price singapore','98 ron','95 ron','shell petrol','esso petrol','caltex'],
-    rolex:['rolex','rolex sa','hans wilsdorf','oyster case','oyster perpetual',
-      'submariner','submariner date','sub no date','126610','126610ln','126610lv',
-      'starbucks rolex','green submariner','124060','no date sub',
-      'daytona','cosmograph daytona','126500','126500ln','panda daytona','white daytona',
-      '126520','126519ln','oysterflex daytona','gold daytona',
-      'gmt master ii','126710blro','pepsi rolex','pepsi bezel','gmt pepsi',
-      '126710blnr','batman rolex','batman bezel','126710grnr','bruce wayne rolex',
-      '126711chnr','root beer rolex','everose gold gmt',
-      'datejust','126200','126333','datejust 41','wimbledon dial',
-      'explorer','explorer i','124270','explorer ii','216570','polar dial explorer',
-      'sea dweller','deepsea','126660','d-blue dial','deep sea challenge',
-      'yacht master','126622','slate dial','yacht master 42','126680',
-      'day date','228235','228238','228236','president bracelet','ice blue dial',
-      'sky dweller','336935','annual calendar rolex','fluted bezel sky',
-      'milgauss','116400gv','z-blue dial','green crystal',
-      'oyster steel','904l steel','rolesor','everose gold','18k yellow gold rolex',
-      'cerachrom bezel','jubilee bracelet','oyster bracelet','president bracelet rolex',
-      'caliber 3230','caliber 3235','caliber 3285','caliber 7140','caliber 9001',
-      'rolex waitlist','rolex grey market','rolex premium','rolex ad',
-      'rolex authorised dealer','watches of switzerland','cortina watch',
-      'sincere watch rolex','the hour glass rolex'],
-    patek:['patek philippe','patek','stern family','manufacture patek',
-      'nautilus','nautilus 5711','5711 1a','5711 1g','5712 nautilus','5726a nautilus',
-      'nautilus 5726','annual calendar nautilus','travel time nautilus',
-      'aquanaut','5167a aquanaut','5164a aquanaut','5168g aquanaut','aquanaut luce',
-      '5167r aquanaut','aquanaut rubber strap','aquanaut annual calendar',
-      'calatrava','6119g','6119r','6006g','6000g','5196g','simple calatrava',
-      'grand complications','5270g','5270p','perpetual calendar chronograph',
-      'sky moon tourbillon','grandmaster chime','5175r','5175','ref 5175',
-      'ref 5270','5270 salmon','5270 mint','patek salmon',
-      'complications','5905r','5905p','annual calendar chronograph patek',
-      '5146','5205g','annual calendar','world time','5130','5131',
-      'patek tourbillon','5539g','back winder','hinge patek',
-      'minute repeater patek','5178g','5178r',
-      'patek women','calatrava ladies','twenty 4','4910','diamond dial',
-      'chaux de fonds patek','in house movement patek','ch 29-535','324 caliber',
-      'geneva seal','patek service','patek certificate','birth certificate watch'],
-    ap:['audemars piguet','ap watch','ap','le brassus','vallée de joux',
-      'royal oak','royal oak 15500','15500st','15510','jumbo royal oak','16202st',
-      '50th anniversary royal oak','ref 16202','ultra thin royal oak',
-      'royal oak blue','royal oak black','royal oak grey','royal oak green',
-      'royal oak offshore','26420','26400','offshore chronograph','offshore diver',
-      'offshore lebron','offshore theme',
-      'code 11.59','26393','26393st','code automatic','code flying tourbillon',
-      'royal oak concept','concept tourbillon','spiderman ap','black panther ap',
-      'millenary','millenary ap','4101','oval case ap',
-      'royal oak selfwinding','3120 caliber','3126 caliber','cal 3120','cal 2121',
-      'ap limited edition','ap sapphire crystal','ap rubber strap','ap alligator',
-      'ap boutique singapore','ap le brassus','ap manufacture'],
-    richardmille:['richard mille','rm','rm watch','rm 11','rm 11-03','rm 27','rm 27-05',
-      'rm 35','rm 35-03','rm 67','rm 67-02','rm 07','rm 07-01','rm 052','rm 69','rm 74',
-      'rm 50','rm 50-03','rm 72','rm 001','rm 002','rm 003',
-      'carbon tpt','carbon tpt b4','quartz tpt','ntpt carbon','carbon case rm',
-      'titanium rm','ceramic rm','sapphire rm','rm sapphire crystal',
-      'rm tourbillon','flying tourbillon rm','semi skeletonised','skeletonized rm',
-      'tonneau shape rm','rm tonneau','pillow shape rm',
-      'rm nadal','rafael nadal watch','rm federer','richard mille athlete',
-      'rm bubba watson','rm yohan blake','rm sprint','rm sprint 100m',
-      '14000g shock','shock resistance rm','ultralight watch','11 gram watch',
-      'rm materials','rm innovation','most expensive watch','rm price',
-      'six figure watch','seven figure watch','rm singapore','rm boutique'],
-    omega:['omega','omega sa','biel bienne','swatch group omega',
-      'seamaster','seamaster 300m','seamaster diver 300m','2254 50','8800 caliber',
-      'aqua terra','seamaster aqua terra','150m aqua terra','teak dial',
-      'planet ocean','planet ocean 600m','ultra deep','6000m planet ocean',
-      'constellation omega','constellation co-axial','globemaster',
-      'speedmaster','moonwatch','professional moonwatch','hesalite crystal speedmaster',
-      '311 30 42 50 01 001','moonwatch sapphire','moonwatch with hesalite',
-      'alaska project','speedmaster legend','first watch moon','nasa speedmaster',
-      'de ville','de ville prestige','de ville tresor','de ville co-axial',
-      'seamaster 300','spectre bond','skyfall bond','no time to die bond',
-      'james bond omega','daniel craig omega','omega bond edition',
-      'co-axial escapement','george daniels omega','master chronometer',
-      'metas certified','antimagnetic omega','15000 gauss','omega anti magnetic',
-      '8400 caliber','8500 caliber','8800 caliber','8900 caliber',
-      'omega ceralgold','omega liquidmetal','omega sedna gold','omega bronze gold',
-      'omega nato strap','omega rubber strap','omega mesh bracelet'],
-    tudor:['tudor','tudor watch','tudor sa','tudor manufacture',
-      'black bay','black bay 58','bb58','79030','bb58 gilt','bb58 black',
-      'black bay 54','79000','37mm tudor','smaller black bay',
-      'black bay 36','79500','bb36','vintage tudor',
-      'black bay 41','79540','bb41','modern black bay',
-      'black bay gmt','79830rb','diet pepsi tudor','bb gmt',
-      'black bay pro','79470','gmt pro tudor','field watch tudor',
-      'pelagos','tudor pelagos','25600','pelagos 39','25607','lightweight diver',
-      'tudor royal','28600','integrated bracelet tudor','day date tudor',
-      'tudor heritage','tudor 1926','fabric strap tudor','leather tudor',
-      'kenissi movement','mt5602','mt5400','mt5001 tudor','manufacture tudor',
-      'tudor price','tudor value','tudor vs rolex','tudor alternative',
-      'tudor boutique','tudor dealer singapore','tudor cortina'],
-    grandseiko:['grand seiko','seiko','sbga211','snowflake dial','spring drive',
-      'sarx055','baby snowflake','titanium seiko','sbga413',
-      'sbga015','spring drive snowflake','limited edition seiko',
-      'spb077','prospex seiko','marinemaster','turtle reissue','skx007',
-      'spb143','62mas reissue','padi seiko','pepsi seiko','prospex solar',
-      'presage','ssa458','cocktail time','limited presage','sary series',
-      'king seiko','reborn king seiko','kseiko','sdka001','sdka003',
-      'grand seiko heritage','hi beat 36000','cal 9sa5','cal 9f61',
-      'sbgw231','slim elegance','dress seiko','evening landscape dial',
-      'credor seiko','prospex alpinist','sarb017','62mas modern',
-      'seiko prospex snk809','snk807','5 sports seiko','automatic seiko budget',
-      'seiko 5','snkl23','snkl28','orient star','orient watch'],
-    cartier:['cartier','maison cartier','paris jeweller','love cartier',
-      'santos de cartier','santos large','santos medium','santos xl',
-      'santos dumont','slim santos','santos steel','santos bicolour',
-      'tank cartier','tank must','tank louis','tank americaine','tank francaise',
-      'tank solo','tank a vis','tank chinoise',
-      'panthere de cartier','panthere watch','panthere bracelet',
-      'ballon bleu','ballon bleu 40mm','ballon bleu 42mm','large ballon bleu',
-      'drive de cartier','drive extra flat','drive automatic',
-      'rotonde de cartier','rotonde chronograph','rotonde perpetual',
-      'calibre de cartier','pasha de cartier','pasha series',
-      'cartier ronde','cartier crash','cartier cpcp',
-      'cartier 1847 mc','cartier 1904 mc','manufacture cartier',
-      'cartier love ring','love bracelet','juste un clou','trinity ring',
-      'cartier diamond','cartier ruby','cartier emerald','high jewellery',
-      'les must de cartier','panthere jewellery','panthère'],
-    iwc:['iwc schaffhausen','international watch company','schaffhausen',
-      'big pilot','big pilot 43','big pilot 46','big pilot heritage',
-      'pilot mark','mark xviii','mark xx','pilot spitfire','spitfire chronograph',
-      'double chronograph iwc','iwc chronograph','flyback chronograph',
-      'portugieser','portugieser automatic','portugieser chronograph',
-      'portugieser annual calendar','portugieser perpetual',
-      'aquatimer','aquatimer deep two','aquatimer chronograph',
-      'ingenieur','ingenieur automatic','ingenieur chronograph',
-      'da vinci','da vinci perpetual','da vinci tourbillon',
-      'pilot top gun','top gun edition','ceramic iwc','black ceramic',
-      'amg iwc','iwc amg partnership',
-      'caliber 82110','caliber 69380','caliber 51111',
-      'probus scafusia','manufacture iwc'],
-    panerai:['panerai','officine panerai','florence italy panerai',
-      'luminor','luminor marina','luminor submersible','luminor 1950',
-      'luminor base logo','luminor due','pam luminor','pam1312','pam1313',
-      'radiomir','radiomir 1940','pam radiomir','radiomir 3 days',
-      'submersible','submersible mike horn','submersible carbotech',
-      'submersible gmt','submersible depth gauge',
-      'op logo','panerai crown guard','patented crown protect',
-      'esteele panerai','fibratech panerai','carbotech','dmls panerai',
-      'pam 01312','pam 00661','pam 00616','pam 00271','pam 00005',
-      'italian dive watch','marina militare','historic dive watch',
-      '8 day power reserve','p 9010 caliber','p 9000 caliber','p 9001','p 5000',
-      'panerai size','44mm panerai','42mm panerai','47mm panerai',
-      'panerai singapore','panerai boutique','panerai rubber strap','nato panerai'],
-    tagheuer:['tag heuer','tag','heuer','la chaux de fonds tag','lvmh tag',
-      'carrera','carrera date','carrera chronograph','carrera glassbox',
-      'carrera calibre 1887','carrera heuer 02','carrera skipper',
-      'monaco','monaco chronograph','monaco blue','monaco steve mcqueen',
-      'aquaracer','aquaracer professional','aquaracer 300','wbp201c',
-      'formula 1','tag formula 1','indy 500','f1 tag watch',
-      'connected','tag heuer connected','smartwatch tag','titan series',
-      'autavia','autavia countdown','autavia origin','heuer autavia',
-      'monza','monza heritage','monza ferrari','monza limited',
-      'calibre heuer 02','heuer 02t tourbillon','el primero tag',
-      'lvmh tag heuer','tag heuer esports','tag heuer porsche'],
-    independentwatch:['fp journe','francois paul journe','chronometre a resonance',
-      'resonance watch','fp journe tourbillon souverain','fpj octa',
-      'mb&f','maximilian busser friends','hm11','hm9','hm7','horological machine',
-      'mb&f legacy machine','lm101','lm perpetual','lm sequent','m&f fd',
-      'h moser cie','moser','funky blue','moser endeavour','moser streamliner',
-      'agenhor movement','moser nomad','moser swiss alp watch',
-      'vacheron constantin','overseas dual time','overseas ref 4500v',
-      'overseas perpetual calendar','historiques cornes de vache',
-      'patrimony vacheron','traditionnelle vacheron','les cabinotiers',
-      'a lange sohne','lange sohne','datograph','datograph perpetual',
-      'datograph lumen','datograph flyback','lange 1','lange zeitwerk',
-      'blancpain','fifty fathoms','fifty fathoms bathyscaphe','tech gombessa',
-      'Villeret blancpain','traditional blancpain',
-      'zenith','el primero','chronomaster sport','defy zenith','defy extreme',
-      'hublot','big bang','classic fusion','spirit of big bang','big bang integral',
-      'girard perregaux','laureato absolute','cat eye','gp gmt',
-      'jaeger lecoultre','jlc','reverso','reverso hybris mechanica',
-      'master calendar','geophysic','polaris jlc',
-      'breguet','marine breguet','classique breguet','type xxii','reine de naples',
-      'franck muller','vanguard','cintre curvex','master banker','heart tourbillon',
-      'urwerk','angular momentum','de bethune','db28','svw watch','voutilainen'],
+      'pulled tea','milk tea','bubble tea','boba','pearl milk tea','bbt','brown sugar boba',
+      'taro milk tea','matcha milk tea','cheese tea','tiger boba','hokkaido milk tea',
+      'earl grey','bergamot','english breakfast','darjeeling','first flush','assam','ceylon','nilgiri',
+      'oolong','tie guan yin','tieguanyin','tie kuan yin','iron goddess',
+      'da hong pao','big red robe','wuyi','cliff tea','rock tea','puerh','pu erh','aged puerh',
+      'raw puerh','cooked puerh','sheng puerh','shou puerh','puerh cake',
+      'silver needle','white peony','bai mu dan','white tea','shou mei',
+      'longjing','dragon well','bi luo chun','anji white','sencha','gyokuro',
+      'tencha','matcha','hojicha','genmaicha','kukicha','bancha',
+      'ali shan','li shan','da yu ling','dong ding','oriental beauty','bai hao oolong',
+      'gongfu','gong fu','yixing','purple clay','gaiwan','tea ceremony',
+      'steeping','brewing tea','water temperature tea','tea collection',
+      'chamomile','peppermint','rooibos','hibiscus','lemon tea','ginger tea',
+      'afternoon tea','high tea','cream tea','tisane','infusion tea','herbal tea'],
+    bmw:['bmw','beemer','bimmer','bm car','blue white roundel','blue white propeller',
+      '1 series','2 series','3 series','318i','320i','330i','330e','m340i',
+      '4 series','430i','m4','m4 csl','5 series','520i','530i','540i','m5','m5 cs',
+      '7 series','730li','740li','750li','x1','x2','x3','x4','x5','x6','x7',
+      'ix','i3','i4','i5','i7','z4','m2','bmw m','alpina','b3 alpina','b5 alpina',
+      'm sport','bmw sport','bavarian','inline six','b58','s58','n55','xdrive','rwd bmw'],
+    mercedes:['mercedes','benz','merc','three pointed star','star car','amg',
+      'a class','b class','c class','cla','cls','e class','s class','g class',
+      'g wagon','gwagon','g63','g500','gla','glb','glc','gle','gls','maybach',
+      'mercedes maybach','eqs','eqe','eqc','eqa','eqb',
+      'c200','c300','c43','c63','e200','e220','e300','e43','e63','s350','s400','s450','s500',
+      'amg line','amg 43','amg 53','amg 63','amg gt','black series',
+      'airmatic','4matic','burmester','mbux'],
+    audi:['audi','four rings','ingolstadt',
+      'a1','a3','a4','a5','a6','a7','a8','q2','q3','q4','q5','q6','q7','q8',
+      'rs3','rs4','rs5','rs6','rs7','rs q8','r8','tt','tts',
+      'sportback','audi avant','e-tron','audi ev','rs e-tron',
+      'quattro','s tronic','tiptronic','audi sport',
+      'tfsi','tdi','s line','black edition audi'],
+    ferrari:['ferrari','prancing horse','cavallino','maranello','scuderia',
+      'ferrari roma','portofino','california','sf90','296 gtb','296 gts',
+      '488','488 gtb','488 pista','812 superfast','812 gts','f8','f8 tributo',
+      'laferrari','f40','f50','daytona','testarossa','ferrari purosangue',
+      'ferrari v12','ferrari v8','ferrari red','rosso corsa','ferrari racing'],
+    lamborghini:['lamborghini','lambo','raging bull','sant agata',
+      'huracan','huracan evo','huracan sterrato','huracan sto',
+      'aventador','aventador svj','aventador ultimae','revuelto',
+      'urus','urus s','urus performante','lambo suv',
+      'v10 lambo','v12 lambo','scissor door','lambo sound',
+      'lamborghini orange','verde mantis','blu cepheus'],
+    mclaren:['mclaren','woking','speedtail','elva',
+      '720s','765lt','artura','mclaren gt','mclaren senna','p1 mclaren',
+      'mclaren f1','mclaren 675lt','mclaren carbon','mclaren monocoque',
+      'papaya orange','mclaren bespoke','mso'],
+    porsche:['porsche','stuttgart','zuffenhausen',
+      '911','992','911 carrera','carrera s','carrera gts','911 turbo','turbo s',
+      'gt3','gt3 rs','gt2 rs','911 dakar','911 targa','911 cabriolet',
+      '718','718 cayman','boxster','718 spyder','cayman gt4','gt4 rs',
+      'cayenne','cayenne turbo','cayenne coupe','macan','macan ev',
+      'panamera','taycan','taycan turbo','taycan ev',
+      'flat six','pdk','porsche manual','porsche motorsport'],
+    toyota:['toyota','camry','harrier','alphard','vellfire','land cruiser','prado',
+      'rav4','corolla','yaris','gr86','gr yaris','gr supra','supra','2jz',
+      'towkay car','toyota hybrid','prius','bz4x','tnga','gr sport',
+      'toyota reliability','toyota maintenance'],
+    honda:['honda','civic','type r','fl5 civic','accord','crv','hrv','zrv','odyssey','fit honda',
+      'jazz honda','city honda','vtec','k20','earth dreams','honda nsx','acura','integra'],
+    tesla:['tesla','model 3','model y','model s','model x','cybertruck','roadster tesla',
+      'autopilot','fsd','full self driving','ludicrous mode','plaid mode','supercharger',
+      'tesla range','ota update','tesla community','tesla sg'],
+    byd:['byd','atto 3','dolphin byd','seal byd','han byd','byd ev','blade battery',
+      'lfp battery','cell to body','byd design','byd vs tesla','chinese ev','byd singapore'],
+    lexus:['lexus','lc500','ls500','lexus is','is250','is300','is200t','is300h',
+      'lexus es','es250','es300h','lexus nx','lexus ux','lexus lm','lexus rx',
+      'lexus gx','lexus lx','lexus hybrid','quiet luxury','takumi','mark levinson'],
+    jdm:['jdm','miata','mx5','mx-5','roadster mazda','na miata','nb miata','nc miata','nd miata',
+      'rx7','rx-7','rx8','rotary','wankel','13b','20b',
+      'supra mk4','a80','jza80','2jz','rb26','skyline','r32','r33','r34','r35','gtr',
+      'evo','lancer evo','4g63','mitsubishi evo',
+      'wrx','sti subaru','ej20','ej257','impreza',
+      'nsx na1','na2','c30a','c32b','integra dc2','b18','b16',
+      'ae86','hachi roku','4age','touge','time attack','drift car','jdm culture'],
+    supercar:['supercar','hypercar','exotic car','million dollar car','fast car',
+      'sports car','track car','race car','v8','v10','v12','w12','w16',
+      'naturally aspirated','na engine','forced induction','turbo','twin turbo','supercharged',
+      'mid engine','rear engine','carbon fibre body','active aero','downforce',
+      'nurburgring','ring taxi','pagani','koenigsegg','bugatti','rimac',
+      'zero to hundred','0 to 100','0-100 kmh','quarter mile'],
+    ev:['electric car','electric vehicle','ev','bev','phev','plug in hybrid',
+      'mild hybrid','48v','full hybrid','range anxiety','ev range','battery range',
+      'kwh','ev charging','home charging','wall box','type 2 charger','ccs',
+      'chademo','fast charging','rapid charging','dc fast','ac charging',
+      'ves rebate','lta ev','hdb charging','ev grant','ioniq','kia ev','rivian','lucid'],
+    sgcar:['coe','certificate of entitlement','arf','parf','oe value','omv',
+      'road tax','ves','ves surcharge','category a','category b','open coe',
+      'car loan','car financing','car installment','parallel import','pi car',
+      'sgcarmart','car depreciation','10 year car','car scrapping','srf rebate',
+      'petrol price','98 ron','95 ron','erp gantry'],
+    rolex:['rolex','submariner','sub date','no date sub','daytona','cosmograph',
+      'panda daytona','gmt master','gmt-master','pepsi rolex','batman rolex','batgirl','starbucks rolex',
+      'bruce wayne rolex','root beer rolex','datejust','explorer','sea dweller','deepsea',
+      'yacht master','day date','sky dweller','milgauss','oyster perpetual',
+      'jubilee bracelet','oystersteel','cerachrom','caliber 3235','caliber 3285',
+      'rolex waitlist','grey market rolex','rolex ad','hour glass rolex','cortina rolex',
+      '126610','126710','126500','126333','124270','116400'],
+    patek:['patek','patek philippe','nautilus','5711','5811','5712','5726','aquanaut','5167',
+      'calatrava','6119','grand complications','5270','sky moon','grandmaster chime',
+      'patek perpetual','patek tourbillon','minute repeater patek',
+      'patek twenty 4','calatrava ladies','pp watch','birth certificate watch',
+      'chaux de fonds','ch 29-535','324 caliber','geneva seal'],
+    ap:['audemars','audemars piguet','ap watch','royal oak','15500','16202','jumbo royal oak',
+      'royal oak offshore','26420','26400','offshore chronograph','code 11.59',
+      'royal oak concept','ap concept','millenary','ap limited','ap bespoke',
+      'le brassus','3120 caliber','2121 caliber','ap rubber strap'],
+    richardmille:['richard mille','rm watch','rm11','rm27','rm35','rm67','rm07','rm52',
+      'rm 11','rm 27','rm 35','rm 67','rm 07','rm 52','carbon tpt','ntpt carbon',
+      'rm tourbillon','rm flyback','rm nadal','rm federer','rm bubba',
+      '14000g','shock resistance watch','ultralight watch','11 gram watch'],
+    omega:['omega','seamaster','speedmaster','moonwatch','aqua terra','planet ocean',
+      'ultra deep','6000m','constellation omega','de ville','globemaster',
+      'james bond watch','bond watch','co-axial','master chronometer','metas certified',
+      '8800 caliber','8500 caliber','anti magnetic omega','sedna gold','ceralgold',
+      'nato strap omega','omega rubber'],
+    tudor:['tudor','black bay','bb58','black bay 54','bb36','bb41',
+      'tudor gmt','diet pepsi tudor','bb gmt','black bay pro',
+      'pelagos','tudor royal','heritage tudor','baby rolex','tudor alternative',
+      'kenissi','mt5602','mt5400','tudor price','tudor value'],
+    grandseiko:['grand seiko','seiko','snowflake','spring drive','sbga211','sarx055',
+      'baby snowflake','king seiko','prospex','spb','marinemaster','turtle seiko',
+      'padi seiko','pepsi seiko','presage','ssa458','cocktail time',
+      'seiko 5','snk','automatic seiko','seikoboy'],
+    cartier:['cartier','santos','santos de cartier','santos dumont','tank cartier',
+      'tank must','tank louis','tank americaine','tank francaise','tank solo',
+      'panthere','ballon bleu','drive cartier','rotonde cartier','pasha cartier',
+      'cartier crash','cartier love','love bracelet','juste un clou','trinity ring'],
+    iwc:['iwc','big pilot','portugieser','pilot watch','spitfire iwc','schaffhausen',
+      'ingenieur iwc','mark 18','mark xx','iwc chronograph','flyback iwc',
+      'aquatimer','da vinci iwc','top gun iwc','armor gold'],
+    panerai:['panerai','luminor','luminor marina','luminor submersible','luminor 1950',
+      'luminor due','radiomir','radiomir 1940','submersible panerai',
+      'op logo','crown guard panerai','esteele','carbotech','pam',
+      'pam01312','pam00661','8 day power','p 9010','p 9000','panerai strap'],
+    tagheuer:['tag heuer','tag','heuer','carrera','monaco watch','monaco chronograph',
+      'aquaracer','formula 1 tag','tag connected','autavia','monza tag',
+      'calibre heuer 02','el primero tag'],
+    independentwatch:['fp journe','francois paul journe','resonance watch','fpj',
+      'mb&f','hm11','hm9','hm7','legacy machine','lm101','lm perpetual',
+      'h moser','moser','funky blue','streamliner moser','swiss alp watch',
+      'vacheron','vacheron constantin','overseas','historiques vacheron',
+      'lange','a lange','datograph','lange 1','zeitwerk',
+      'blancpain','fifty fathoms','bathyscaphe','tech gombessa',
+      'zenith','el primero','chronomaster','defy zenith',
+      'hublot','big bang','classic fusion','spirit big bang',
+      'girard perregaux','laureato','gp gmt',
+      'jaeger lecoultre','jlc','reverso','master calendar','geophysic',
+      'breguet','classique breguet','marine breguet','type xxii',
+      'franck muller','vanguard','cintre curvex','urwerk','de bethune'],
     watches:['watch','wristwatch','timepiece','horology','watchmaking','horological',
-      'mechanical watch','automatic watch','self winding','hand wound','manual wind',
-      'tourbillon','flying tourbillon','triple axis tourbillon','detent escapement',
-      'perpetual calendar','annual calendar','instantaneous calendar','retrograde calendar',
-      'grande complication','minute repeater','carillon','westminster chime',
-      'chronograph','flyback chronograph','split second','rattrapante','mono pusher',
-      'gmt watch','world timer','travel watch','dual time zone','multi time',
-      'dive watch','diver watch','tool watch','field watch','aviator watch','pilot watch',
-      'dress watch','formal watch','classic watch','military watch',
-      'sports watch','robust watch','everyday watch','beater watch',
-      'watch collection','watch box','watch case','watch winder','watch storage',
-      'watch strap','nato strap','rubber strap','leather strap','alligator strap',
-      'bracelet watch','integrated bracelet','jubilee bracelet','oyster bracelet',
-      'sapphire crystal','anti-reflective coating','exhibition caseback','solid caseback',
-      'watch service','movement service','watch polish','case refinishing',
-      'watch insurance','watch appraisal','watch valuation','watch authenticity',
-      'grey market watch','watch dealer','watch broker','watch auction',
-      'christies watch','sothebys watch','phillips watch auction',
-      'watch investment','watch appreciation','watch depreciation',
-      'watch singapore','cortina watch','the hour glass','sincere watch',
-      'watches of switzerland sg','tyme watch','watches estate','consignment watch'],
-    primaryschool:['primary school','pri school','primary education','elementary school',
-      'p1','p2','p3','p4','p5','p6','p1 registration','p1 reg','p1 2025','p1 2026',
-      'psle','psle 2025','psle score','al score','achievement level','psle al',
-      'psle aggregate','t-score','psle t score','psle prep','psle tuition',
-      'phase 1 registration','phase 2a1','phase 2a2','phase 2b','phase 2c',
-      '1km school priority','2km school','school ballot','school posting',
-      'school posting result','primary 1 posting','p1 posting 2025',
-      'primary school registration','school registration singapore',
-      'primary school choice','school selection','choosing primary school',
-      'school zone','school catchment zone','within 1km','1km radius school',
-      'school ballot priority','alumni priority school','sibling priority school',
-      'sap school','sap programme','special assistance plan','chinese school',
-      'gep','gifted education programme','gifted program singapore','gep selection',
-      'gep test','gep screening','gep secondary','gifted child',
-      'dsa primary','direct school admission primary','dsa interview',
-      'school near me','school proximity flat','school zone property','school catchment property',
-      'school ranking singapore','primary school ranking','psle ranking','school popularity',
-      'primary school tuition','p1 tuition','p2 tuition','p3 tuition','p4 tuition',
-      'primary school enrichment','coding enrichment','math enrichment','science enrichment',
-      'school holiday','school term','school vacation','school calendar sg'],
-    secondaryschool:['secondary school','sec school','sec education','secondary education sg',
-      'o level','o levels','o level subjects','o level results','o level grade',
-      'n level','n levels','normal academic','normal technical','na stream','nt stream',
-      'express stream','secondary express','sec 1 posting','sec 2','sec 3','sec 4','sec 5',
-      'integrated programme','ip programme','ip school','ip track','6 year programme',
-      'bypass o levels','skip o levels','ip pathway',
-      'secondary 1','secondary 2','secondary 3','secondary 4','sec 1 orientation',
-      'dsa secondary','direct school admission secondary','dsa talent',
-      'school posting result secondary','sec 1 posting result',
-      'subject combination secondary','humanities secondary','sciences secondary',
-      'combined humanities','elective subjects','optional subjects',
-      'cca secondary','co curricular','sports cca','uniformed group','arts cca',
-      'secondary school cca','cca points','cca achievement',
-      'secondary school tuition','sec school tuition','o level tuition',
-      'sec school choice','choosing secondary school','affiliated school',
-      'alumni registration secondary','school preference secondary',
-      'ib programme','international baccalaureate','ib diploma','ib score','ib 45',
-      'ibdp','ib school singapore','ib results'],
-    eliteschool:['raffles institution','ri','raffles','raffles boys','ri school',
-      'raffles girls school','rgs','raffles girls','rgs secondary',
-      'hwa chong institution','hci','hwa chong','hwachong','hwa chong sec',
-      'nanyang girls high','nygh','nanyang girls','nygh secondary',
-      'victoria school','vs school','victoria sec','victoria ip',
-      'dunman high school','dunman high','dhs secondary','dunman ip',
-      'river valley high','rvhs','river valley secondary','rvhs ip',
-      'cedar girls secondary','cedar girls','cedar secondary',
-      'national junior college','njc','njc ip track','njc jc',
-      'chij tpjc','tanjong pagar','chij secondary toa payoh',
-      'acs independent','acsi','acs i','acs junior','acsi ip',
-      'acs barker','acs methodist boys','acs secondary',
-      'st josephs institution','sji','st josephs sec','sji ip',
-      'temasek junior college','tjc','temasek jc','temasek ip',
-      'anderson serangoon jc','asrjc','anderson jc','ajc',
-      'jurong pioneer junior college','jpjc',
-      'yishun innova junior college','yijc',
-      'eunoia junior college','ejc','eunoia jc',
-      'singapore chinese girls school','scgs','chinese girls secondary',
-      'st nicholas girls school','st nicks','st nicholas secondary',
-      'presbyterian high','pres high','presbyterian sec',
-      'mgs secondary','methodist girls secondary','methodist girls school sec',
-      'raffles programme','special programme','dsp','distinctive programme'],
-    ivyleague:['ivy league','ivies','ivy university','us university',
-      'harvard university','harvard college','harvard admission','harvard acceptance',
-      'yale university','yale admission','yale acceptance','yale college',
-      'princeton university','princeton admission','princeton acceptance',
-      'columbia university','columbia admission','columbia nyc',
-      'upenn wharton','university of pennsylvania','wharton school',
-      'dartmouth college','dartmouth admission','dartmouth acceptance',
-      'brown university','brown acceptance','brown liberal arts',
-      'cornell university','cornell admission','cornell ivy',
-      'mit','massachusetts institute of technology','mit admission','mit acceptance',
-      'stanford university','stanford admission','stanford acceptance',
-      'oxford university','university of oxford','oxford ppu','oxford interview',
-      'oxford acceptance','reading oxford','oxford college',
-      'cambridge university','university of cambridge','cambridge interview',
-      'cambridge acceptance','cambridge college','tripos cambridge',
-      'ucl london','imperial college london','london school of economics','lse',
-      'nus national university','nus admission','nus medicine','nus law','nus engineering',
-      'ntu nanyang','ntu admission','ntu ranking','ntu scholarship',
-      'smu singapore management','smu law','smu admission','smu scholarship',
-      'sutd design','sit singapore institute technology','nuss',
-      'scholarship singapore','psc scholarship','a star scholarship','saf scholarship',
-      'ministry scholarship','asean scholarship','admissions officer','common app',
-      'ucas','personal statement','interview uni','portfolio uni','ec activities'],
-    finance:['bond','bond market','bond yield','bond price','bond coupon','bond maturity',
-      'treasury bond','us treasury','sg treasury','government bond','sovereign bond',
-      'investment grade bond','ig bond','high yield bond','hy bond','junk bond',
-      'corporate bond','investment bond','convertible bond','floating rate note',
-      'credit spread','credit risk','default risk','credit rating','moodys','sp rating',
-      'duration','modified duration','macaulay duration','interest rate risk',
-      'yield curve','inverted yield curve','flattening curve','steepening curve',
-      'ssb','singapore savings bond','mas bill','6 month t-bill','1 year t-bill',
-      'sgb','sgs bond','sg government bond','cpf interest','cpf sa','cpf ra',
-      'etf','index fund','passive investing','active management',
-      'reit','reits','s-reit','capitaland reit','ascendas reit','mapletree reit',
-      'keppel reit','frasers reit','reits dividend','dividend yield reit',
-      'alpha','excess return','alpha generation','portfolio alpha','active return',
-      'beta','market beta','beta factor','factor investing','smart beta','fama french',
-      'sharpe ratio','risk adjusted return','information ratio','sortino ratio',
-      'portfolio management','asset allocation','rebalancing','diversification',
-      'hedge fund','long short equity','market neutral','macro fund','quant fund',
-      'family office','single family office','multi family office','uhnw',
-      'private equity','pe fund','buyout','growth equity','venture capital','vc fund',
-      'startup funding','series a','series b','pre ipo','ipo deal','listing',
-      'dcf','discounted cash flow','free cash flow','terminal value','discount rate',
-      'wacc','weighted average cost','cost of equity','capm','risk free rate',
-      'pe ratio','price earnings','ev ebitda','ev sales','price to book',
-      'lbo','leveraged buyout','management buyout','mbo','debt financing',
-      'm&a','mergers acquisitions','deal flow','due diligence','cim','management presentation',
-      'capital markets','ecm','dcm','equity issuance','debt issuance','roadshow',
-      'book building','price discovery','tombstone deal','mandate advisory',
-      'sgx','singapore exchange','sti index','straits times index','blue chip sg',
-      'dbs bank stock','ocbc stock','uob stock','singtel stock','sea limited stock',
-      'capitaland stock','ascendas stock','mapletree stock','singapore airline stock',
-      'nasdaq','s&p 500','sp500 index','dow jones','djia','russell 2000',
-      'us equity','us market','wall street','new york stock exchange','nyse',
-      'options trading','call option','put option','options strategy',
-      'theta decay','delta hedge','gamma scalping','vega trade','rho option',
-      'implied volatility','iv crush','iv expansion','vix','fear index',
-      'covered call','cash secured put','iron condor','iron butterfly',
-      'straddle','strangle','vertical spread','diagonal spread',
-      'futures trading','futures contract','index futures','commodity futures',
-      'derivatives','structured product','equity linked note','etn','elk',
-      'fixed income portfolio','credit portfolio','rates trading','fx trading',
-      'foreign exchange','forex trading','usd sgd','eur usd','gbp usd',
-      'quantitative easing','tapering','fed funds rate','fomc meeting',
-      'mas monetary policy','mas sgd neer','neer band','mas easing','mas tightening'],
-    lawyer:['lawyer','advocate','solicitor','advocate and solicitor','attorney',
-      'legal counsel','in house counsel','general counsel','gc','legal director',
-      'law firm','singapore law firm','law practice','llp','limited liability',
-      'litigation','contentious work','non contentious','transactional law',
-      'corporate law','commercial law','mergers acquisitions law','capital markets law',
-      'banking law','finance law','structured finance','project finance','securitisation',
-      'property law','real estate law','conveyancing','conveyancing lawyer',
-      'otp','option to purchase','spa','sale purchase agreement','completion account',
-      'legal completion','cpf charge','housing loan charge','stamp duty','absd',
-      'bsd','seller stamp duty','ssd','first time buyer','housing grant cpf',
-      'caveat','lodge caveat','property caveat','encumbrance','title search',
-      'legal title','subsidiary strata title','common property','management corporation',
-      'mcst','estate management','strata title','en bloc','collective sale committee',
-      'billable hour','chargeable hour','legal fee','disbursement','contingency',
-      'legal opinion','legal advice','legal letter','demand letter','letter of demand',
-      'nus law','smu law','ntu law','king edward vii','llb degree','jd degree',
-      'llm degree','bar exam','bar admission','called to bar','singapore bar',
-      'law society','law society singapore','lsc','les','siac','arbitration',
-      'mediation','litigation support','discovery','trial','appeal court','court of appeal',
-      'supreme court','high court','state court','district court','magistrate court',
-      'small claims tribunal','employment claims tribunal','syariah court',
-      'suits tv show','harvey specter','mike ross','legal drama','boston legal',
-      'better call saul','good wife','how to get away','legal movie'],
-    doctor:['doctor','dr title','medical doctor','physician','gp','general practitioner',
-      'family physician','specialist doctor','consultant','senior consultant',
-      'registrar','associate consultant','medical officer','houseman','house officer',
-      'intern doctor','junior doctor','resident physician','fellow','fellowship',
-      'surgeon','general surgeon','cardiothoracic surgeon','neurosurgeon','orthopaedic',
-      'ophthalmologist','ent doctor','urologist','gynaecologist','obstetrician',
-      'paediatrician','geriatrician','psychiatrist','dermatologist','radiologist',
-      'anaesthesiologist','pathologist','emergency physician','emergency medicine',
-      'hospital','public hospital','private hospital','restructured hospital',
-      'nuh','national university hospital','sgh','singapore general hospital',
-      'ttsh','tan tock seng hospital','kkh','kandang kerbau hospital',
-      'cgh','changi general hospital','nsc','national skin centre',
-      'ncc','national cancer centre','nih','national heart centre','nhcs',
-      'polyclinic','gp clinic','family clinic','specialist outpatient clinic','soc',
-      'a&e','accident emergency','emergency department','ed','icu','intensive care',
-      'operating theatre','ot','ward round','morning round','evening round',
-      'on call','night duty','on call doctor','call night','post call',
-      'medical school','nus yong loo lin','ntu lee kong chian','duke nus',
-      'mbbs degree','md degree','medical student','clinical year','preclinical',
-      'house job','housemanship','residency','residency programme','specialist training',
-      'mmed','mrcsg','frcs','fams fellowship','college of surgeons',
-      'hospital ranking singapore','best hospital singapore',
-      'patient care','clinical outcome','surgical outcome','complication rate',
-      'mortality rate','morbidity','clinical audit','quality improvement',
-      'peer review','case conference','grand round','morning teaching'],
+      'mechanical watch','automatic watch','hand wound','manual wind',
+      'tourbillon','perpetual calendar','annual calendar','chronograph','flyback',
+      'gmt watch','world timer','dive watch','diver','tool watch','field watch',
+      'dress watch','formal watch','sports watch','everyday watch','beater watch',
+      'watch collection','watch box','watch winder','nato strap','rubber strap',
+      'sapphire crystal','exhibition caseback','grey market watch','watch dealer',
+      'watch auction','christies watch','sothebys watch','phillips watch',
+      'cortina watch','hour glass','sincere watch'],
+    primaryschool:['primary school','pri school','p1','p2','p3','p4','p5','p6',
+      'psle','al score','achievement level','psle aggregate',
+      'phase 2c','1km school','school ballot','school posting',
+      'sap school','gep','gifted education','dsa primary',
+      'school near','school zone','school catchment','school proximity',
+      'tao nan','ai tong','nan hua','nanyang primary','maris stella',
+      'pei chun','pei hwa','red swastika','kong hwa','hong wen',
+      'poi ching','holy innocents','raffles girls primary','rgps',
+      'henry park','rosyth','methodist girls primary','acs junior','princess elizabeth',
+      'chij nicholas','catholic high primary','anglo chinese junior',
+      'keming','rulang','de la salle','st hilda primary','opera estate',
+      'bedok green','changkat primary','tanjong katong primary'],
+    secondaryschool:['secondary school','sec school','o level','o levels','n level',
+      'express stream','normal academic','normal technical','integrated programme',
+      'ip school','ip track','sec 1','sec 2','sec 3','sec 4',
+      'dsa secondary','school posting result','subject combination',
+      'ib programme','international baccalaureate','ib diploma','ib score',
+      'cca secondary','uniformed group','ncc','npcc','sjab','red cross',
+      'secondary tuition','o level tuition'],
+    eliteschool:['raffles institution','raffles','ri school','rgs','raffles girls',
+      'hwa chong','hci','hwachong',
+      'nanyang girls','nygh',
+      'victoria school','dunman high','dhs',
+      'river valley high','rvhs',
+      'cedar girls','national junior college','njc',
+      'chij tpjc','acs independent','acsi','acs barker','sji','st josephs',
+      'temasek junior college','tjc','anderson serangoon','asrjc',
+      'jurong pioneer','jpjc','yishun innova','yijc','eunoia jc',
+      'singapore chinese girls','scgs','presbyterian high','mgs secondary',
+      'raffles programme','special programme'],
+    ivyleague:['ivy league','harvard','yale','princeton','columbia','upenn','wharton',
+      'dartmouth','brown','cornell',
+      'mit','stanford',
+      'oxford','cambridge','ucl','imperial college','lse',
+      'nus','ntu','smu','sutd','sit',
+      'scholarship','psc scholarship','a star scholarship','saf scholarship',
+      'common app','ucas','personal statement','admissions officer'],
+    finance:['bond','bond yield','treasury','credit spread','duration','yield curve',
+      'inverted yield','ssb','t-bill','mas bill','sgb','sgs bond',
+      'etf','index fund','passive investing','reit','s-reit','capitaland reit',
+      'alpha','beta','sharpe ratio','sortino','portfolio','hedge fund',
+      'family office','private equity','pe fund','venture capital',
+      'dcf','wacc','terminal value','lbo','ipo','mergers','capital markets',
+      'sgx','sti','straits times index','dbs stock','ocbc stock','uob stock',
+      'nasdaq','s&p 500','sp500','dow jones','us equity','wall street',
+      'options','futures','derivatives','call option','put option',
+      'theta','delta','gamma','vega','implied volatility','covered call','iron condor',
+      'fixed income','credit risk','investment grade','high yield','junk bond',
+      'forex','foreign exchange','usd sgd','fed rate','fomc','mas policy'],
+    lawyer:['lawyer','advocate','solicitor','attorney','legal counsel','law firm',
+      'litigation','corporate law','commercial law','conveyancing',
+      'otp','option to purchase','spa','sale purchase','completion account',
+      'caveat','legal title','stamp duty','absd','bsd','ssd',
+      'mcst','strata title','en bloc','collective sale',
+      'billable hour','legal fee','disbursement',
+      'nus law','smu law','llb','llm','bar exam','bar admission','law society',
+      'siac','arbitration','mediation','high court','court of appeal',
+      'suits','harvey specter','mike ross','donna suits','legal drama'],
+    doctor:['doctor','physician','gp','specialist','consultant','registrar',
+      'houseman','house officer','medical officer','mo doctor',
+      'surgeon','general surgeon','neurosurgeon','cardiothoracic','orthopaedic',
+      'paediatrician','psychiatrist','dermatologist','radiologist','anaesthesiologist',
+      'nuh','sgh','ttsh','kkh','cgh','nsc','ncc','nhcs',
+      'polyclinic','a&e','emergency','icu','operating theatre','ward round',
+      'on call','night duty','post call','mbbs','medical school','nus medicine',
+      'residency','fellowship','fams','college of surgeons'],
     accountant:['accountant','certified accountant','chartered accountant','ca','cpa',
-      'acca','cima','icaew','icas','ca singapore','isca','icpas',
+      'acca','cima','icaew','isca',
       'audit','auditor','external audit','internal audit','statutory audit',
-      'big four','big 4','deloitte','pwc','pricewaterhousecoopers','ernst young','ey',
-      'kpmg','grant thornton','rsm','bdo','mazars','baker tilly',
-      'financial accounting','management accounting','cost accounting','fund accounting',
-      'tax accounting','tax planning','tax compliance','corporate tax','gst','income tax',
-      'iras','tax filing','tax return','tax assessment','tax refund','estimated chargeable income',
-      'financial statement','annual report','balance sheet','income statement','cash flow',
-      'profit loss','p and l','revenue recognition','expense recognition','accruals',
-      'accounts receivable','accounts payable','working capital','liquidity ratio',
-      'financial ratio','current ratio','quick ratio','debt equity','leverage',
-      'variance analysis','budget vs actual','opex','capex','budget setting',
-      'cost saving','cost reduction','cost optimisation','cost centre','profit centre',
-      'management accounts','monthly accounts','quarterly accounts','year end accounts',
-      'month end','month end close','year end close','hard close','soft close',
-      'journal entry','ledger','general ledger','subledger','reconciliation','bank rec',
-      'trial balance','post close trial balance','chart of accounts','erp system',
-      'sap accounting','oracle financials','microsoft dynamics','xero','quickbooks',
-      'ifrs','frs singapore','ias','gaap','us gaap','accounting standards',
-      'fair value accounting','impairment','goodwill','intangible asset',
-      'consolidation','group accounts','subsidiary accounts','intercompany elimination',
-      'audit committee','board audit','internal controls','sox compliance',
-      'risk management','enterprise risk','audit risk','fraud risk','control weakness',
-      'audit report','clean opinion','qualified opinion','going concern','emphasis of matter',
-      'cfo','chief financial officer','finance director','finance manager','controller'],
-    engineer:['engineer','engineering','engineer degree','beng','meng','phd engineering',
-      'civil engineer','structural engineer','geotechnical','mep engineer',
-      'mechanical engineer','thermodynamics','fluid mechanics','heat transfer',
-      'electrical engineer','power engineer','electronics','circuit design',
-      'chemical engineer','process engineer','reaction engineering','separation process',
-      'oil gas','oil and gas','upstream oil','downstream oil','midstream',
-      'petrochemical','petroleum engineering','reservoir engineer','drilling engineer',
-      'production engineer','completions engineer','offshore engineer','onshore engineer',
-      'jurong island','singapore petrochemical','shell singapore','exxon singapore',
-      'chevron singapore','basf singapore','linde singapore','air products sg',
-      'fpso','floating production','spar platform','semi submersible','jack up rig',
-      'subsea engineering','pipeline engineering','flow assurance','corrosion',
-      'structural integrity','fitness for service','inspection engineer',
-      'data centre engineer','server farm engineer','colocation','dc operations',
-      'aws cloud','azure cloud','gcp cloud','cloud architect','cloud infra',
-      'network engineer','network operations','soc engineer','noc engineer',
-      'software engineer','software developer','swe','backend engineer','frontend engineer',
-      'full stack developer','mobile developer','ios developer','android developer',
-      'devops engineer','sre','site reliability','platform engineer','infra engineer',
-      'data engineer','data pipeline','etl engineer','spark engineer','hadoop',
-      'machine learning engineer','ml engineer','ai engineer','nlp engineer',
-      'computer vision engineer','deep learning','neural network engineer',
-      'python engineer','java engineer','golang developer','rust developer',
-      'javascript developer','typescript','react developer','vue developer',
-      'system design','distributed system','microservices','api design',
-      'database engineer','dba','postgres','mysql','mongodb','redis',
-      'security engineer','appsec','pentest engineer','cloud security',
-      'maritime engineer','marine engineer','naval architect','ship design',
-      'port engineer','harbour engineer','offshore structure','marine structure',
-      'psa engineer','jurong port engineer','mas regulated engineer','mas tech',
-      'tech startup engineer','unicorn tech','Series b engineer','pre ipo engineer',
-      'semiconductor engineer','fab engineer','wafer engineer','eda engineer',
-      'biomedical engineer','medtech engineer','healthtech','pharma engineer'],
+      'big four','big 4','deloitte','pwc','ernst young','ey','kpmg',
+      'grant thornton','rsm','bdo','baker tilly',
+      'month end','year end','closing','balance sheet','income statement','cash flow',
+      'profit loss','p and l','revenue','accruals','journal entry','reconciliation',
+      'variance','budget','opex','capex','cost saving','cost reduction',
+      'ifrs','frs','ias','gaap','fair value','impairment','goodwill',
+      'consolidation','group accounts','intercompany','audit committee',
+      'sox','internal controls','cfo','finance director','controller'],
+    engineer:['engineer','engineering','civil engineer','structural','mep',
+      'mechanical engineer','thermodynamics','fluid mechanics',
+      'electrical engineer','electronics','circuit design',
+      'chemical engineer','process engineer','petroleum','reservoir',
+      'drilling','offshore','fpso','subsea','pipeline',
+      'jurong island','shell singapore','exxon singapore','petrochemical',
+      'data centre','server','aws','azure','gcp','cloud architect',
+      'software engineer','developer','programmer','backend','frontend',
+      'full stack','devops','sre','platform engineer',
+      'python','javascript','java','golang','rust','typescript','react',
+      'system design','distributed','microservices','api design',
+      'machine learning','ml','ai engineer','data engineer','etl','spark',
+      'maritime','seafarer','naval architect','ship design','psa port','mas tech'],
     parents:['parent','mum','mummy','mom','mother','father','daddy','dad','papa','mama',
-      'parents','parenthood','new parent','new mum','new dad','first time parent',
-      'expecting','pregnant','pregnancy','expecting mum','preggy','preggers',
-      'baby','newborn','infant','toddler','small kid','young child','preschooler',
-      'pri school kid','secondary school kid','teenager','teen','teenage child',
-      'son','daughter','child','children','kid','kids','little one','little ones',
-      'raising child','child development','milestones','baby milestone',
-      'infant care','infantcare','baby care centre','infant care centre',
-      'childcare','childcare centre','preschool','kindergarten','playgroup',
-      'pcf sparkletots','my first skool','brighton montessori','pat schoolhouse',
-      'julia gabriel','learning vision','crestar kindergarten','sunflower',
-      'kinderland','skool4kidz','berries world','mindchamps',
-      'childcare fee','childcare subsidy','infant care subsidy','ecda subsidy',
-      'baby bonus','cbss','cash gift baby','cda account','medisave maternity',
-      'maternity leave','paternity leave','shared parental leave','spl',
-      'work life balance parent','flexi work arrangement','wfh parent',
-      'school run','pickup school','drop off school','morning rush parent',
-      'homework help','tuition','enrichment class','kumon','learning lab',
-      'coding for kids','robotics kids','art class kids','music class kids',
-      'swim lesson kids','gymnastics kids','taekwondo kids','ballet kids',
-      'screen time','ipad time','kids screen','parental control',
-      'child health','pd','paediatrician','kkh','kk hospital','child clinic',
-      'nuh child','national university children','cgh paeds',
-      'immunisation','vaccination schedule','hep b vaccine','mmr vaccine',
-      'child insurance','dependent rider','hospitalisation plan child'],
-    psle:['psle','primary school leaving exam','primary school leaving examination',
-      'psle 2025','psle 2026','psle 2027','psle score','psle result',
-      'al score','al 1','al 2','al 3','al 4','al 5','al 6','al 7','al 8',
-      'achievement level','psle aggregate','total al','psle cut off',
-      'psle english','psle math','psle science','psle mother tongue','psle cl',
-      'psle ml','psle tl','psle chinese','psle malay','psle tamil',
-      'psle foundation','foundation level','psle standard','standard level',
+      'parenthood','new parent','new mum','new dad','first time parent',
+      'expecting','pregnant','pregnancy','preggy','preggers','baby bump',
+      'baby','newborn','infant','toddler','preschooler','young child',
+      'son','daughter','child','children','kids','little one',
+      'childcare','infant care','preschool','kindergarten','playgroup',
+      'pcf sparkletots','my first skool','pat schoolhouse','julia gabriel',
+      'learning vision','crestar','sunflower','kinderland','mindchamps',
+      'baby bonus','cbss','cda account','maternity leave','paternity leave',
+      'school run','pickup school','homework','tuition','enrichment',
+      'kumon','learning lab','coding kids','robotics kids',
+      'screen time','ipad time','parental control',
+      'pd','paediatrician','immunisation','vaccination','child insurance',
+      'multi generational','phg','proximity housing grant'],
+    psle:['psle','primary school leaving','al score','al 1','al 2','al 3','al 4',
+      'achievement level','psle aggregate','psle english','psle math',
+      'psle science','psle chinese','psle malay','psle tamil','mother tongue',
+      'psle foundation','psle standard',
       'psle prep','psle tuition','psle revision','psle prelim','preliminary exam',
-      'mock exam','mock psle','sa1','sa2','ca1','ca2','continual assessment',
-      'streaming','posting exercise','secondary school posting','sec posting',
-      'school allocation','school choice form','school preference',
-      'express stream cut off','ip cut off','neighbourhood school cut off',
-      'psle stress','exam anxiety','psle pressure','parent stress psle',
-      'tuition centre','sg exam tutor','psle specialist','exam technique',
-      'psle paper','past year paper','ten year series','tys','exam practice',
-      'psle english oral','oral exam','reading passage','conversation task',
-      'psle composition','situational writing','continuous writing',
-      'psle comprehension','open ended comprehension','multiple choice',
-      'psle math problem','heuristics','model method','algebra primary',
-      'psle science structured','open ended science','multiple choice science',
-      'psle cl oral','psle cl listening','cl higher paper','cl standard paper',
-      'al 1 score','single digit al','al cut off ri','al cut off hwa chong',
-      'ip school cut off','raffles ip cut off','hci cut off score'],
+      'mock exam','sa1','sa2','ca1','ca2',
+      'streaming','posting','secondary posting','school allocation',
+      'psle stress','exam anxiety','psle pressure',
+      'ten year series','tys','psle paper','past year paper',
+      'psle composition','situational writing','comprehension',
+      'psle oral','reading passage','conversation task',
+      'al cut off','ip cut off','raffles cut off','hwa chong cut off'],
+    golf:['golf','golf course','golf club','driving range','tee time',
+      'fairway','green','putting','birdie','eagle','bogey','par',
+      'handicap','18 holes','9 holes',
+      'golf bag','golf iron','driver','putter','wedge','golf ball',
+      'titleist','callaway','taylormade','ping golf','mizuno golf','cobra golf',
+      'sentosa golf','sicc','marina bay golf','ria bintan','tanah merah','laguna golf',
+      'corporate golf','golf client','golf trip','golf buddy',
+      'caddie','golf cart','golf attire','golf glove'],
+    running:['running','runner','marathon','half marathon','10k','5k','parkrun',
+      'trail run','ultramarathon','easy run','tempo run','interval','strava',
+      'garmin','suunto','nike run','adidas run','hoka','on running','asics',
+      'running shoe','race bib','run club','east coast run','macritchie',
+      'bedok reservoir run','southern ridges run','night run','morning run',
+      'post run','runner high','pb run','personal best run'],
+    gym:['gym','weightlifting','bodybuilding','powerlifting','crossfit','hiit',
+      'strength training','progressive overload','bench press','deadlift',
+      'squat','pull up','push up','dumbbell','barbell','kettlebell',
+      'protein','creatine','pre workout','post workout','gains','bulk','cut',
+      'activsg','anytime fitness','fitness first','true fitness',
+      'gym membership','weight room','leg day','arm day','chest day','back day',
+      'one rep max','orm','bmi','body fat','muscle gain','fat loss'],
+    bjj:['bjj','jiu jitsu','grappling','wrestling','submission','guard',
+      'mount','side control','armbar','triangle','rear naked choke',
+      'heel hook','no gi','gi bjj','rolling','mat time','ground work',
+      'ground works','evolve grappling','the ground works'],
+    muaythai:['muay thai','muaythai','kickboxing','boxing','sparring','pad work',
+      'heavy bag','punch bag','jab','cross','hook','uppercut','elbow','knee','teep',
+      'thai boxing','fight gym','evolve mma','monarchy','singapore boxing',
+      'mma','combat sport','striking','clinch'],
+    basketball:['basketball','bball','nba','three pointer','three point','layup',
+      'hoop','shooting guard','point guard','dunk','crossover','pickup game',
+      'basketball court','hdb court','outdoor court','covered court'],
+    football:['football','soccer','epl','premier league','la liga','champions league',
+      'man utd','man united','liverpool','arsenal','chelsea','tottenham','spurs',
+      'barcelona','real madrid','psg','world cup','ballon dor','futsal',
+      'five-a-side','seven-a-side','eleven-a-side','sunday league','football kaki',
+      'weekend football','kakis football'],
+    pickleball:['pickleball','pickle ball','dinking','third shot drop','pickleball court',
+      'paddle sport','pickleball sg','pickleball singapore'],
+    cycling:['cycling','cyclist','road bike','mountain bike','mtb','fixie','velodrome',
+      'park connector','pcn','bike route','zwift','peloton','saddle','clipless',
+      'lycra','strava segment','kom','qom','cycling club','sportive'],
+    swimming:['swimming','swimmer','lap swimming','open water','triathlon','freestyle',
+      'backstroke','breaststroke','butterfly','pool near','swimming pool',
+      '50m pool','olympic pool','swim training','swim lessons'],
+    bearbrick:['bearbrick','be@rbrick','medicom','kaws','kaws figure','designer toy',
+      '400%','1000%','dunny','vinyl figure','blind box','hypebeast toy',
+      'limited toy','kaws companion','dissected kaws','originalfake'],
+    funko:['funko pop','funko','pop figure','pop vinyl','chase funko','grail funko','vaulted funko'],
+    pokemon:['pokemon','pikachu','charizard','mewtwo','bulbasaur','squirtle','eevee',
+      'gengar','lucario','greninja','rayquaza','lugia','mewtwo','arceus',
+      'pokemon card','pokemon tcg','booster pack','psa grade','psa 10','bgs grade',
+      'holo card','full art','secret rare','rainbow rare','alternate art',
+      'pokemon ex','vmax','vstar','tera','pokemon 151','scarlet violet',
+      'paldea','evolving skies','celebrations pokemon','vintage pokemon'],
+    onepiececard:['one piece card','one piece tcg','opcg','op-01','op-02','op-03','op-04','op-05',
+      'romance dawn card','paramount war card','pillars card','kingdoms card',
+      'luffy card','zoro card','nami card','sanji card','shanks card',
+      'op rare','op leader','dont pause op','one piece sealed'],
+    anime:['anime','manga','gunpla','gundam','rx-78','zaku','strike freedom',
+      'model kit','figure anime','nendoroid','figma','light novel','isekai',
+      'otaku','weeb','weeaboo','anime convention','anime festival','afas'],
+    onepiece:['one piece','luffy','zoro','nami','sanji','usopp','chopper','robin',
+      'nakama','going merry','thousand sunny','grand line','new world',
+      'haki','devil fruit','wano','gear fifth','gear 5','marineford',
+      'enies lobby','skypiea','fishman island','dressrosa','wano kuni',
+      'oda','eiichiro oda','shanks','rayleigh','whitebeard','ace','sabo'],
+    naruto:['naruto','sasuke','sakura','kakashi','itachi','minato','jiraiya',
+      'tsunade','orochimaru','madara','obito','nagato','shikamaru',
+      'sage mode','rasengan','chidori','sharingan','rinnegan','byakugan',
+      'jutsu','ninjutsu','hokage','akatsuki','konoha','leaf village'],
+    dbz:['dragon ball','goku','vegeta','gohan','piccolo','frieza','cell',
+      'buu','beerus','whis','broly','jiren',
+      'super saiyan','ultra instinct','kamehameha','spirit bomb','final flash',
+      'power level','dbz','dragon ball super','dragon ball z'],
+    jjk:['jujutsu kaisen','jjk','gojo','satoru gojo','yuji itadori','megumi','nobara',
+      'nanami','sukuna','mahito','cursed energy','domain expansion',
+      'black flash','hollow purple','infinity','shibuya arc','culling game'],
+    demonslayer:['demon slayer','kimetsu','tanjiro','nezuko','zenitsu','inosuke',
+      'giyu','rengoku','tengen','mitsuri','shinobu','muzan',
+      'water breathing','flame breathing','mugen train','entertainment district'],
+    japan:['japan','tokyo','kyoto','osaka','fukuoka','nagoya','sapporo','hokkaido',
+      'nara','hiroshima','nikko','hakone','mount fuji','fuji san',
+      'onsen','ryokan','sakura','cherry blossom',
+      'ramen','sushi','izakaya','yakitori','tempura','udon','tonkatsu',
+      'shinkansen','akihabara','shibuya','harajuku','asakusa','gion',
+      'teamlab','teamLab','tsukiji','nishiki market','arashiyama',
+      'fushimi inari','capsule hotel','love hotel','maid cafe'],
+    japanski:['niseko','hakuba','naeba','myoko','furano','rusutsu','hokkaido snow',
+      'japan powder','ski japan','snowboard japan','après ski','japan ski',
+      'powder snow','december ski','corporate ski','ski resort japan',
+      'ski rental','ski lesson','ski instructor','mogul','black run ski',
+      'blue run ski','red run ski','gondola ski','ski lodge'],
+    bali:['bali','seminyak','ubud','canggu','kuta','nusa dua','uluwatu',
+      'tanah lot','tegallalang','rice terrace','bali temple',
+      'bali retreat','bali yoga','surf bali','spiritual bali',
+      'villa bali','beach bali','sunset bali','arak bali','bali coffee',
+      'nusa penida','nusa lembongan','gili islands','lombok'],
+    europe:['europe','paris','eiffel','louvre','montmartre','versailles',
+      'rome','colosseum','vatican','trevi fountain','pantheon',
+      'venice','florence','tuscany','amalfi coast','cinque terre',
+      'barcelona','sagrada familia','madrid','seville','granada',
+      'amsterdam','tulips','windmill','van gogh amsterdam',
+      'prague','charles bridge','old town prague',
+      'vienna','austria','salzburg','hallstatt',
+      'switzerland','zurich','geneva','interlaken','jungfraujoch','matterhorn',
+      'grindelwald','zermatt','alps','lake geneva'],
+    iceland:['iceland','reykjavik','northern lights','aurora borealis',
+      'blue lagoon','golden circle','geysir','gullfoss',
+      'seljalandsfoss','skogafoss','jokulsarlon','ice cave','glacier',
+      'midnight sun','puffin','laugavegur','landmannalaugar'],
+    wine:['wine','red wine','white wine','rose wine','sparkling wine',
+      'champagne','prosecco','cava','bordeaux','burgundy','rhone',
+      'barolo','brunello','chianti','rioja','malbec',
+      'cabernet sauvignon','merlot','pinot noir','chardonnay','sauvignon blanc',
+      'riesling','natural wine','biodynamic wine','orange wine',
+      'wine cellar','wine fridge','wine rack','decanter','wine glass',
+      'sommelier','vintage wine','wine collection','wine tasting'],
+    whisky:['whisky','whiskey','scotch','bourbon','rye whiskey','irish whiskey',
+      'japanese whisky','single malt','blended malt',
+      'islay','speyside','highland','lowland','campbeltown',
+      'macallan','glenfiddich','glenlivet','dalmore','balvenie',
+      'bowmore','laphroaig','ardbeg','lagavulin','bunnahabhain',
+      'yamazaki','hibiki','nikka','kavalan','longrow',
+      'home bar','whisky glass','tumbler','rocks glass','whisky stones'],
+    bags:['bag','handbag','purse','clutch','tote bag','satchel','crossbody',
+      'shoulder bag','backpack luxury',
+      'hermes','birkin','kelly bag','constance','garden party hermes',
+      'chanel','chanel flap','chanel boy','chanel 19','chanel 2.55',
+      'louis vuitton','lv','neverfull','speedy','alma','monogram',
+      'gucci','gucci gg','gucci marmont',
+      'prada','prada galleria','prada saffiano','prada nylon',
+      'dior','lady dior','dior saddle','celine bag','balenciaga','bottega',
+      'their piana','goyard','saint laurent','ysl bag','fendi baguette',
+      'designer bag','luxury handbag','bag collection'],
+    luxurycard:['amex platinum','american express platinum','centurion','black card',
+      'priority pass','lounge access','supplementary card',
+      'miles card','krisflyer','krisflyer miles','air miles',
+      'uob vi','dbs vantage','ocbc voyage','citibank prestige',
+      'annual fee','metal card','card benefits','travel insurance card',
+      'concierge service','hotel upgrade','meet and greet','fast track'],
+    condo:['condo','condominium','private property','private flat','ec',
+      'executive condo','99 year','999 year','freehold condo',
+      'condo pool','condo gym','condo security','penthouse',
+      'parc clematis','the interlace','marina one','pinnacle duxton',
+      'one pearl bank','sky habitat','avenue south','canopy condo',
+      'the sail','reflections','waterfront'],
+    countryclub:['country club','sicc','singapore island country club',
+      'tanglin club','american club','british club','scc','singapore cricket club',
+      'national service club','raffles country club','farrer park club',
+      'club membership','golf club membership','club debenture','transfer membership'],
+    kshow:['running man','physical 100','singles inferno','glory','squid game',
+      'parasite','crash landing','goblin drama','my love from the star',
+      'reply 1988','extraordinary attorney woo','itaewon class','all of us are dead',
+      'sweet home','money heist korea','nevertheless','nevertheless kdrama'],
+    usshow:['breaking bad','better call saul','sopranos','succession','billions',
+      'suits','harvey specter','black mirror','stranger things','dark',
+      'ozark','narcos','peaky blinders','the crown','game of thrones',
+      'house of dragon','ted lasso','the office','arrested development'],
+    sitcom:['friends show','how i met mother','himym','big bang theory','chandler',
+      'joey','ross','rachel','monica','phoebe','sheldon','leonard','penny',
+      'barney stinson','ted mosby','marshall','lily','seinfeld','frasier','niles'],
+    taiwanvariety:['running man taiwan','guess guess guess','wo cai wo cai',
+      'taiwan variety','jackie wu','entertainment 100','taiwan show',
+      'variety show taiwan','super idol taiwan','one million star',
+      'genie big star','just kidding game show'],
+    lofi:['lofi','lo fi','lo-fi','ambient music','chill beats','study music',
+      'chillhop','background music','focus music','rain sounds','white noise',
+      'sleep music','relaxing music','peaceful music','cafe music'],
+    metal:['heavy metal','metalcore','death metal','black metal','thrash',
+      'hard rock','punk','alternative rock','grunge','prog rock',
+      'progressive rock','guitar solo','shredding','mosh pit','headbang',
+      'distortion','riff','powerchord','metal band','singapore metal'],
+    mandopop:['mandopop','jay chou','teresa teng','jj lin','eason chan',
+      'fish leong','wang lee hom','stefanie sun','sun yan zi',
+      'jacky cheung','andy lau','leon lai','aaron kwok','four heavenly kings',
+      'chinese pop','mandarin song','hokkien pop','taiwan pop','hong kong pop'],
+    kpop:['kpop','k-pop','kpop group','kpop idol',
+      'bts','blackpink','twice','stray kids','newjeans','aespa','nct',
+      'exo','shinee','got7','ive','le sserafim','seventeen','ateez','txt',
+      'super junior','big bang kpop','2ne1','snsd','girls generation',
+      'kpop concert','kpop album','lightstick','fancam'],
+    classical:['classical music','beethoven','mozart','chopin','bach','brahms',
+      'debussy','rachmaninoff','liszt','schubert','vivaldi','handel',
+      'tchaikovsky','orchestra','symphony','concerto','sonata','fugue',
+      'opera','chamber music','string quartet','piano concerto',
+      'sso','singapore symphony','esplanade concert hall'],
+    jazz:['jazz','blues','soul music','r&b','neo soul','swing','bebop',
+      'saxophone','trumpet jazz','jazz piano','smooth jazz','jazz club',
+      'miles davis','john coltrane','art blakey','herbie hancock','bill evans'],
+    coffeemachine:['breville dual boiler','breville barista','barista express impress',
+      'rocket appartamento','la marzocco linea micra','linea micra',
+      'jura e8','jura e15','philips lattego','lattego 5400',
+      'delonghi la specialista','delonghi magnifica','magnifica start',
+      'nespresso vertuo','morning machine sg','de longhi',
+      'dual boiler','heat exchanger','pid controller','pressure profile',
+      'group head','e61 group head','saturated group head',
+      'bean to cup machine','capsule machine','pod machine'],
+    finedining:['fine dining','michelin star','michelin guide','michelin restaurant',
+      'omakase','tasting menu','kaiseki','degustation','wine pairing',
+      'chef table','celebrity chef','odette restaurant','zen singapore','burnt ends',
+      'jaan','labyrinth','les amis','test kitchen','nouri','cloudstreet',
+      'sky on 57','waku ghin','db bistro','sky dining','rooftop restaurant sg'],
+    retiree:['retire','retirement','retired','golden year','senior flat',
+      'aging in place','silver hair','2 room flexi','lease buyback',
+      'hdb retiree','downsizing','smaller flat','healthcare flat',
+      'morning walk retire','park walk retire','kopitiam retire'],
+    luxury:['luxury brand','luxury item','luxury lifestyle','premium brand',
+      'high end','prestige brand','finer things','treat myself','spoil myself',
+      'reward myself','after work treat','bonus shopping','big purchase',
+      'splurge','indulge'],
   };
 
+
   function topicOf(input){
+    // First pass: exact substring match (handles multi-word phrases)
     for(const[topic,words]of Object.entries(JOINS)){
       if(words.some(w=>input.includes(w)))return topic;
+    }
+    // Second pass: word-boundary match for single short words
+    // Splits input into tokens and checks if any joining word matches as a whole word
+    const tokens=input.split(/\s+/);
+    for(const[topic,words]of Object.entries(JOINS)){
+      if(words.some(w=>{
+        if(w.includes(' '))return false; // already tried multi-word above
+        if(w.length<3)return false; // too short, too ambiguous
+        return tokens.some(t=>t===w||t.startsWith(w+'s')||t.startsWith(w+'ing')||t.startsWith(w+'ed'));
+      }))return topic;
     }
     return null;
   }
@@ -4018,35 +3864,317 @@ function harveyChitChat(raw, convCtx){
   // Profound responses for deep topic exploration
   if(topicKey==='rolex'&&isDeep){
     return withCtx(r(
-      `The Submariner Date Ref. 126610LN, sir — the unofficial corporate uniform of Raffles Place. 904L Oystersteel, Cerachrom ceramic bezel, Caliber 3235 with 70-hour power reserve. Historically insulated against depreciation on the secondary market. But because everyone from senior VP to junior auditor wears one on the MRT, it has become completely ubiquitous. Does liquid resale security outweigh the loss of horological identity? That is the question the local grey market is perpetually answering.`,
-      `The GMT-Master II Ref. 126710BLRO — the Pepsi. The most recognisable two-tone bezel in Singapore's financial district. Caliber 3285, Jubilee bracelet, Chromalight. Waitlists measured in years. Grey market premium measured in five figures. A fascinating study in artificial scarcity meeting genuine desire. The Bruce Wayne 126710GRNR offers the same mechanical excellence with considerably less attention. Which side of that conversation are you on, sir?`
+      `The Submariner Date Ref. 126610LN, sir — the unofficial corporate uniform of Raffles Place. In Singapore, it is far more than a dive watch; it is a financial rite of passage for every rising associate, banker, and property agent. 904L Oystersteel, Cerachrom ceramic bezel, Caliber 3235 with 70-hour power reserve. Historically insulated against severe depreciation on the local secondary market. But because everyone from senior management to your junior auditor wears one on the MRT, it lacks any sense of individual horological identity. Does the absolute liquid resale security of a Submariner outweigh the fact that it has become completely ubiquitous across the island? That is the question, sir.`,
+      `The GMT-Master II Ref. 126710GRNR — the Bruce Wayne. Understated grey-and-black Cerachrom ceramic bezel, Jubilee bracelet, Caliber 3285 with Chronergy escapement. Massive global waitlist demand. Does the sophisticated monochromatic profile of the Bruce Wayne hold greater long-term daily usability than the flashier blue-and-red Pepsi GMT? The secondary market in Singapore has a very clear opinion on this, sir. And it changes every quarter.`
     ));
   }
   if(topicKey==='patek'&&isDeep){
-    return withCtx(`The Patek Philippe Nautilus Ref. 5811/1G in white gold — the successor to the legendary 5711, and one of the most contested watch allocations in modern horology. The integrated bracelet, the horizontal embossed dial, the 26-330 S C movement. Patek's proposition is unique: they do not make watches; they hold them in trust for the next generation. Does the Nautilus represent a more secure multi-generational store of value than a modern Royal Oak 16202ST? The Singapore secondary market answers this question every month, sir.`);
+    return withCtx(r(
+      `The Patek Philippe Ref. 5270P with the salmon dial, sir — the absolute high-church of grand complications. It houses the in-house Caliber CH 29-535 PS Q, merging a column-wheel chronograph with a perpetual calendar matrix that tracks leap years and moon phases with astronomical accuracy. Does this platinum grand complication represent a more secure generational store of value than a modern white-gold Nautilus Ref. 5811? The Singapore secondary market weighs in on this daily.`,
+      `The Nautilus 5811/1G in white gold — the successor to the legendary 5711. The integrated bracelet, the horizontal embossed dial, the 26-330 S C movement. Patek's proposition is unique: they hold watches in trust for the next generation. The question is whether the Nautilus commands more respect than the Audemars Piguet Royal Oak 16202ST in the Singapore collector circuit. Both are correct, sir. Depending entirely on whom you ask.`
+    ));
   }
   if(topicKey==='ap'&&isDeep){
-    return withCtx(`The Royal Oak Jumbo 16202ST, sir — 39mm, 8.1mm thin, the ultra-thin original from 1972. Gérald Genta's brief: a luxury watch that looked like sports equipment. The 2121 movement is shared with Patek and JLC. The integrated bracelet remains the most studied piece of case engineering in watchmaking. For the Singapore collector, the question is always whether the Jumbo's original lineage outweighs the Royal Oak Offshore's statement power. Both are correct depending on the occasion.`);
+    return withCtx(r(
+      `The Royal Oak Concept Tourbillon, sir — AP has moved entirely out of traditional horology and into radical micro-sculpture with this series. A hand-finished open-worked structural silhouette inside a titanium and black ceramic architecture, complete with a flying tourbillon at the 6 o'clock axis. Highly polarising but commanding immediate cultural dominance among ultra-high-net-worth collector circles. Do you find avant-garde concept materials more representative of modern high-end collecting than a classical steel Royal Oak 15500ST?`,
+      `The Royal Oak Jumbo 16202ST — 39mm, 8.1mm thin, the ultra-thin original from 1972. Gérald Genta's brief: a luxury watch that looked like sports equipment. The 2121 movement is shared with Patek and JLC. The integrated bracelet remains the most studied piece of case engineering in watchmaking. In Singapore's collector market, the question is always whether the Jumbo's original lineage outweighs the Offshore's statement power. Both answers are correct, depending on the occasion.`
+    ));
   }
   if(topicKey==='richardmille'&&isDeep){
-    return withCtx(`The Richard Mille RM 27-05, sir — 11.5 grams including the strap. Carbon TPT B.4 monocoque chassis. Flying tourbillon rated to 14,000G acceleration shocks. A million-dollar wrist hypercar that Rafael Nadal wears on court during a Grand Slam. The question is whether the engineering justifies the theology around the brand — or whether it has become a status object that happens to be technically impressive. In Singapore's collector market, the answer seems to be: both, simultaneously.`);
+    return withCtx(r(
+      `The Richard Mille RM 27-05 Flying Tourbillon, sir — 11.5 grams including the strap. Carbon TPT B.4 monocoque chassis. Flying tourbillon rated to 14,000G acceleration shocks on a tennis court. A million-dollar wrist hypercar. The question is whether this extreme structural shock resistance justifies its status as the ultimate modern flex over a traditional gold tourbillon. In Singapore's collector market, the answer seems to be: yes, emphatically so.`,
+      `The RM 52-05 Pharrell Williams Tourbillon, sir — or indeed any Richard Mille collaboration piece. The brand has elevated watchmaking into cultural fashion at a level no traditional maison has achieved. The materials science alone — Carbon TPT, NTPT, Quartz TPT — is genuinely pioneering. Whether one views it as engineering art or expensive hype depends entirely on one's relationship with both.`
+    ));
+  }
+  if(topicKey==='independentwatch'&&isDeep){
+    return withCtx(r(
+      `The F.P. Journe Chronomètre à Résonance, sir — a profound exercise in pure physics. Two completely independent balance wheels spinning in close proximity; through acoustic resonance, they synchronise their oscillations to cancel out positional rate errors. The entire movement is crafted from solid 18-karat rose gold. Does this acoustic resonance synchronisation represent a more elegant solution to chronometric accuracy than a standard tourbillon mechanism?`,
+      `The MB&F HM11 Architect, sir — modelled after 1960s futuristic architecture. The central flying tourbillon is housed under a sapphire dome, surrounded by four rotating rooms displaying time, power reserve, temperature, and a visual crown. A kinetic sculpture that shatters the concept of a flat dial. Do you believe this three-dimensional architectural approach is the future of independent artistic horology?`,
+      `The H. Moser Streamliner Flyback Chronograph — cushion-shaped steel case and modular snake-link bracelet flowing seamlessly together, completely free of any branding on its Funky Blue fumé dial. The Agengraphe movement features a radical central-display chronograph. Does this completely sterile logo-free dial offer a more sophisticated statement than a watch loaded with historical branding text, sir?`
+    ));
   }
   if((topicKey==='coffee'||topicKey==='coffeemachine')&&isDeep){
     return withCtx(r(
-      `The extraction chemistry, sir — sourness in an espresso points precisely to under-extraction. Hot water passes through the puck too rapidly, dissolving organic acids first but failing to reach the heavier lipids and sugars that balance the flavour. The fix: reduce grind size to increase resistance, raise water temperature to 92-93 Celsius, ensure consistent tamping at 15-20 kilograms of pressure. The Breville Dual Boiler gives you independent temperature control for both boilers. The Rocket Appartamento's E61 group head maintains thermal stability passively. The La Marzocco Linea Micra does both in commercial grade.`,
-      `Pressure profiling, sir — the frontier of home espresso. Standard machines deliver 9 bars throughout extraction. A profiling machine allows a low-pressure pre-infusion phase before ramping to full pressure, which wets the puck evenly and reduces channeling. The La Marzocco Linea Micra and Rocket Espresso Appartamento both support this. The Morning Machine applies the same principle to specialty capsules via mobile app — the most interesting Singapore-designed coffee hardware right now.`
+      `The extraction chemistry, sir — sourness in an espresso points precisely to under-extraction. Hot water passes through the puck too rapidly, dissolving organic acids first but failing to reach the heavier lipids and sugars that balance the flavour. The fix: reduce grind size to increase resistance, raise water temperature to 92-93 Celsius, ensure consistent tamping at 15-20 kilograms of pressure. The Breville Dual Boiler gives you independent temperature control for both boilers. The Rocket Appartamento's E61 group head maintains thermal stability passively. The La Marzocco Linea Micra does both in commercial grade. An exceptional calibration of sensory data, sir — much like optimising the yield of a rare Geisha bean.`,
+      `Pressure profiling, sir — the frontier of home espresso. Standard machines deliver 9 bars throughout extraction. A profiling machine allows a low-pressure pre-infusion phase before ramping to full pressure, which wets the puck evenly and reduces channeling. The La Marzocco Linea Micra and Rocket Espresso Appartamento both support this. The Morning Machine applies the same principle to specialty capsules via mobile app — the most interesting Singapore-designed coffee hardware right now. Interestingly, several premium units in our database sit directly above vibrant lifestyle enclaves featuring top-tier specialty cafes. Shall we cross-reference their market pricing?`,
+      `The fundamental chemical difference between an artisanal Geisha pour-over and a traditional Kopi-O Gao, sir — a fascinating study in botanical extraction. The Geisha utilises premium Arabica beans at high altitudes, preserving delicate organic compounds yielding floral, tea-like acidity. The Kopi-O Gao uses Robusta beans — double the caffeine content — roasted at extreme temperatures with sugar and butter, caramelising the exterior to deliver a heavy, viscous body rich in dark chocolate. The Geisha is aromatic complexity. The Kopi-O is industrial-strength cognitive activation. Both are correct depending on the morning, sir.`
     ));
   }
-  if((topicKey==='primaryschool'||topicKey==='eliteschool'||topicKey==='ivyleague')&&isDeep){
+  if((topicKey==='primaryschool'||topicKey==='eliteschool'||topicKey==='ivyleague'||topicKey==='psle')&&isDeep){
     return withCtx(r(
-      `The IP pathway, sir — Raffles Institution, Hwa Chong Institution, NUS High School. Bypassing the O-Level examination frees cognitive bandwidth for advanced enrichment. However, Ivy League and Oxbridge admissions require the academic baseline plus a genuine spike: an international olympiad win, a published research paper, a venture with measurable social impact. Leadership demonstrated through execution, not committee titles. Singapore's system creates excellent preparation. The question is what the student builds outside school hours.`,
-      `A single-digit AL score opens the IP track, ma'am — which is the sorting mechanism, not the destination. The Integrated Programme schools provide the academic environment; the student provides the substance. Harvard and Oxford receive applications from thousands of IP graduates. What distinguishes the shortlisted ones is almost never the school — it is the extraordinary thing they built or discovered or led that exists nowhere else.`
+      `The IP pathway, sir — Raffles Institution, Hwa Chong Institution, NUS High School. Securing a single-digit AL score is merely the initial sorting mechanism. Entering an IP track bypasses the O-Level examination crucible, freeing cognitive bandwidth for advanced enrichment. However, to clear the holistic admissions matrix of an Ivy League institution or Oxbridge, academic perfection is merely a baseline. The child must develop a genuine spike: an extraordinary profile in international olympiads, pioneering research publications, or founding a venture with measurable social impact. Leadership demonstrated through execution, not titles. To secure absolute geographic advantage for schools like Raffles or Hwa Chong, your residential base must be strategically anchored. Shall we look at the available property blocks within the target radius?`,
+      `A single-digit AL score opens the IP track, ma'am — the sorting mechanism, not the destination. The IP schools provide the academic environment; the student provides the substance. Harvard and Oxford receive applications from thousands of IP graduates. What distinguishes the shortlisted ones is almost never the school — it is the extraordinary thing they built or discovered or led. The right residential address within the 1km zone is the property foundation of this educational journey. Let us look at the available flat data in that specific residential enclave.`,
+      `The decision between a local Singapore track school like Raffles or Hwa Chong versus an international institution like SAS or UWC, sir — it hinges entirely on your long-term developmental KPIs. The local track offers a rigorous academic crucible focused on mathematics, sciences, and structural discipline. International schools like SAS or UWC emphasise holistic leadership and global university matriculation. If you intend for your child to navigate the intense meritocratic local infrastructure, choose the former. If you favour a globally networked pedagogical approach, the international schools are superior. In both cases, the property strategy remains the same: get within reach of the school.`
     ));
   }
   if(topicKey==='finance'&&isDeep){
     return withCtx(r(
-      `Options Greeks, sir — Delta measures the rate of change of the option price relative to the underlying. Gamma measures the rate of change of Delta itself. Theta is the daily time decay that erodes option value as expiry approaches. Vega measures sensitivity to implied volatility. A long straddle profits from a large move in either direction; it is long both Gamma and Vega. An iron condor profits from low volatility and time passage; it sells Gamma and collects Theta. The P&L attribution in a complex options book is almost entirely a story of which Greeks you were long and which you were short.`,
-      `Bond duration, sir — the measure of interest rate sensitivity. A 10-year bond with a duration of 8 means a 1% rise in yields reduces the bond price by approximately 8%. Convexity modifies this relationship: longer duration bonds gain disproportionately from yield falls and lose less from yield rises than the linear duration estimate suggests. Singapore's SSBs have no duration risk for the retail holder because early redemption is available. The MAS T-bill market has been offering 3.5-4% with near-zero duration risk — a genuinely attractive risk-adjusted profile.`
+      `An inverted yield curve, sir — it signals imminent economic contraction as short-term yields eclipse long-term returns. For corporate debt portfolios, this immediately compresses net interest margins on long-term fixed-income assets. I recommend shifting capital allocations toward high-quality, short-duration commercial paper and accelerating refinancing protocols for any maturing debt liabilities before credit markets tighten further. Singapore's SSBs and MAS T-bills currently offer risk-free rates that are genuinely competitive in this environment. Shall I run the stress-test simulation on your current asset distribution?`,
+      `Options Greeks, sir — Delta measures the rate of change of the option price relative to the underlying. Gamma measures the rate of change of Delta itself. Theta is the daily time decay that erodes option value as expiry approaches. Vega measures sensitivity to implied volatility. A long straddle profits from a large move in either direction — it is long both Gamma and Vega. An iron condor profits from low volatility and time passage. The P&L attribution in a complex options book is almost entirely a story of which Greeks you were long and which you were short.`,
+      `A Patek Philippe Nautilus 5711/1A as a liquid asset, sir — regrettably, no. While it commands an exceptional premium on the secondary market, capital extraction requires navigating specialised dealer networks or auction houses, taking days to weeks depending on your tolerance for price slippage. If immediate liquidity is your operational objective, capital is far better allocated to high-volume equities or Singapore T-bills. The residential asset yields in our database are currently showing a highly favourable alpha compared to standard equities. Shall we review?`
+    ));
+  }
+  if(topicKey==='lawyer'&&isDeep){
+    return withCtx(r(
+      `The force majeure clause invocation, sir — courts historically interpret these with extreme narrowness. Unless the contract explicitly enumerated the exact economic or regulatory disruption as a catastrophic, unpreventable event, mere market unprofitability will not excuse performance. Counter immediately by citing established contract law precedents demonstrating that financial hardship does not constitute frustration of contract. Issue a peremptory notice to complete, making time of the essence. Failure to settle gives clear grounds to sue for specific performance and consequential damages. Harvey Specter would have this resolved by Tuesday.`,
+      `Conveyancing, sir — the legal machinery behind every property transaction. The OTP, the SPA, the caveat lodged before someone changes their mind. ABSD calculations that require a spreadsheet and a quiet moment. Stamp duty that the government adjusts just when you've planned around the previous rate. The completion account where every dollar is accounted for. If you're working on a transaction, I can tell you exactly what comparable units have sold for. That is, at minimum, a useful starting point.`
+    ));
+  }
+  if(topicKey==='accountant'&&isDeep){
+    return withCtx(r(
+      `The aggressive cost-allocation strategy concern, sir — your compliance team is exhibiting prudent caution. Aggressive shifting of operational expenses across border lines quickly alerts regulatory algorithms looking for artificial profit erosion and transfer pricing anomalies. Every internal transaction must be strictly benchmarked against arm's length principles, supported by robust documentation. Creative accounting may provide short-term margin expansions, but a forensic corporate audit will completely disrupt your finance department's quarter-end closing. Let us ensure everything is strictly by the books — and then, if you like, let us look at the residential asset market, where capital deployment is considerably more transparent.`,
+      `Month-end close, sir — the accountant's most reliable source of character development. The variance that does not reconcile at 11pm. The cost saving proposal that actually moved the P&L. The Big Four audit that found nothing because there was nothing to find, which is the best possible audit outcome. When the books close clean, it is genuinely satisfying work. The residential property market rewards the same financial discipline: careful analysis, documented comparables, and a clear view of the numbers.`
+    ));
+  }
+  if(topicKey==='engineer'&&isDeep){
+    return withCtx(r(
+      `The architectural bottleneck in high-concurrency backend services, sir — Python's Global Interpreter Lock struggles with CPU-bound connection overhead during multi-threaded network I/O. A migration to Go is mathematically superior for this use case; its goroutines map dynamically onto OS threads via an M:N scheduler, reducing context-switching memory costs to roughly two kilobytes per execution loop. Before a full system rewrite, however, I recommend profile-guided optimisation on your existing heap memory to verify if the latency is simply an unindexed database call blocking the asynchronous loop. The engineering principle is the same as property analysis: measure before you rebuild.`,
+      `Carbon fibre for deep-sea submersible hulls, sir — a fascinating engineering constraint. Carbon fibre possesses exceptional tensile strength, making it ideal for aerospace. However, deep-sea submersibles face massive external compressive forces. Under these conditions, the microscopic matrix bonds of carbon fibre suffer delamination and micro-buckling, failing catastrophically without warning. Titanium or forged steel remains mandatory for structural integrity at extreme depths. The same principle applies to HDB structural engineering — materials chosen for the right load case, not the most impressive specification.`
+    ));
+  }
+  if((topicKey==='supercar'||topicKey==='ferrari'||topicKey==='lamborghini'||topicKey==='porsche')&&isDeep){
+    return withCtx(r(
+      `The decision between a Mercedes-AMG G63 V8 Biturbo, a Porsche Panamera GTS, and a Lexus LC500, sir — an exquisite dilemma. The AMG G63's 4.0-litre V8 Biturbo offers monumental torque, though its aerodynamic profile resembles a brick. The Porsche Panamera GTS represents the pinnacle of executive sedans; its twin-turbo V8 delivers a seamless power band paired with a dual-clutch transmission that reads your intentions. However, if mechanical purity is paramount, the Lexus LC500's naturally aspirated 5.0-litre V8 offers linear throttle response and an exhaust note that twin-turbos simply cannot replicate. For a daily commute balancing aggressive performance with comfort, the Panamera GTS remains the superior engineering choice.`,
+      `The 2026 sports car landscape, sir — the manual transmission is making a remarkable comeback. The Porsche 911 GTS and BMW M2 represent a market trend where purists are rejecting synthetic numerical perfection in favour of tactical driving engagement. By forcing the driver to execute heel-toe downshifts to balance the chassis weight before entering an apex, these cars prioritise mechanical artistry over straight-line acceleration. Does a manual three-pedal configuration in a high-torque chassis like the M2 provide a more rewarding experience than the lightning-fast PDK dual-clutch? The market is voting with its order books, sir.`
+    ));
+  }
+  if((topicKey==='bmw'||topicKey==='mercedes'||topicKey==='audi')&&isDeep){
+    return withCtx(r(
+      `Mercedes-Benz is playing a high-stakes game of scale, sir. The GLC 300e Petrol Hybrid and GLE 400e are moving off showroom lots faster than almost any other vehicle in their class due to their battery-only city driving ranges. The AMG E 53 HYBRID delivers 604 horsepower from an inline-6 plug-in hybrid. The EQS Sedan features an upgraded 800V electrical architecture with the MBUX Hyperscreen. Does a 604-horsepower plug-in AMG bridge the gap between enthusiast performance and sustainability better than a pure-electric platform? The Singapore market has a very clear answer in its registration numbers.`,
+      `The BMW M2, sir — a bold, rear-wheel-drive statement designed to aggressively challenge European sportback hegemony. The twin-turbo S58 engine at full chat is a genuinely special experience. The manual gearbox option restores analog connection in a segment that had forgotten what driving engagement feels like. The Audi RS e-tron GT Performance, meanwhile, produces 912 horsepower and launches to 100 km/h in 2.5 seconds — achieving a level of digital velocity that alters human equilibrium. Two entirely different philosophies of performance, both executed at the highest level.`
+    ));
+  }
+  if((topicKey==='jdm'||topicKey==='toyota'||topicKey==='honda')&&isDeep){
+    return withCtx(r(
+      `The unadulterated realm of JDM engineering, sir — where practical daily utility elevates into an art form. The Suzuki Jimny is a masterclass in structural minimalist art: its boxy, retro ladder-frame chassis completely rejects modern curved design, offering rigid mechanical purity that outperforms SUVs three times its price off-road. The Toyota GR Yaris, Honda Civic Type R FL5, and Suzuki Swift Sport deliver an engaging, tactile driver connection that no heavy, insulated European luxury sedan can mimic. Lightweight, immensely reliable, and highly tuneable. Does the analog mechanical soul of a lightweight JDM platform provide a more rewarding daily experience than the sterile digital luxury of a modern continental car? The enthusiast community has a very clear verdict, sir.`,
+      `The Toyota Corolla Altis, Honda Vezel, and Honda Fit — the true unsung heroes of Singapore tarmac, sir. The Altis is an exercise in timeless mechanical reliability: virtually indestructible, running on a dual VVT-i platform engineered for absolute thermal durability. The Honda Vezel utilises efficient Earth Dreams CVTs and direct-injection i-VTEC architectures for maximum mileage during congested cross-island commutes. The Mazda 3 introduces premium interior design and sharp SkyActiv handling to the mass market. Do the flawless low-maintenance reliability metrics of these daily Japanese commuters provide a more logical ownership proposition for navigating Singapore's road tax and ERP structures than any premium continental alternative?`
+    ));
+  }
+  if((topicKey==='lofi'||topicKey==='classical'||topicKey==='jazz')&&isDeep){
+    return withCtx(r(
+      `The perceived warmth of vintage vinyl, sir — an elegant interaction between mechanical playback and harmonic distortion. A 1970s analog pressing captures continuous waveforms via physical grooves, introducing subtle even-order harmonic distortions and a gentle roll-off of high frequencies that the human ear interprets as natural and organic. A modern 24-bit FLAC file is a mathematically perfect digital master, capturing audio via discrete binary steps at 96kHz. It delivers absolute linear accuracy, infinite dynamic range, and zero floor noise. The digital stream is an exercise in absolute truth; the vinyl is an exercise in beautiful coloration. Just as a rare original pressing appreciates in value within collector networks, certain legacy estates in Singapore generate significant capital alpha. Shall we analyse the top-yielding appreciation maps?`
+    ));
+  }
+  if((topicKey==='muaythai'||topicKey==='bjj'||topicKey==='running'||topicKey==='gym')&&isDeep){
+    return withCtx(r(
+      `True concussive force in a Muay Thai roundhouse kick is an exercise in rotational torque and rigid kinetic alignment, sir. Power does not originate from the quadriceps; it is generated by violently pivoting the lead foot 45 to 90 degrees outward, opening the hips completely, allowing the pelvis to whip the shin through the target. To prevent losing structural equilibrium upon a missed strike, maintain an active counter-balancing swing of the trailing arm while keeping the core braced tightly. Your athletic mechanics are highly refined. Interestingly, several prime developments in our database boast fully upgraded state-of-the-art gym enclosures and martial arts facilities. Would you like me to filter the HDB search by these specific lifestyle amenities?`,
+      `Passing an active open guard in BJJ requires systematic deconstruction of the opponent's frames and levers, sir. You must enforce strict grip fighting to break their structural connections. Once disconnected, pressure-test their hip mobility through a combination of toreando passes to force lateral movement, interspersed with heavy smash-passing mechanics to pin their knees together. By isolating their hips from their spine, their flexibility becomes entirely irrelevant. The same analytical approach — identifying leverage points, breaking down structure — applies rather well to property negotiations.`
+    ));
+  }
+  if(topicKey==='parents'&&isDeep){
+    return withCtx(r(
+      `Managing schedules for young children alongside corporate careers, ma'am — akin to orchestrating a high-frequency trading desk. The friction points typically reside in asymmetric information and overlapping transit windows. Establish a centralised digital operational matrix: a synchronised calendar system linked to your mobile devices with automated triggers for morning departures. Preprocessing is essential: apparel, meals, and academic materials staged the evening prior. Delegating specific operational zones between you and your spouse eliminates redundant communication. The property foundation for this system is a flat near good childcare, with eventual school catchment built into the address. Shall I look at available flats in your preferred area?`,
+      `The childcare proximity question, ma'am — PCF Sparkletots and My First Skool centres are distributed across most HDB estates. The waitlist length varies significantly by block. For infant care, proximity matters enormously in the early years when the daily commute with a small human is a genuine logistical challenge. The eventual primary school catchment should be on the horizon even at this stage. Which area are you considering? The property decision made now shapes the school ballot position in five years.`
+    ));
+  }
+
+
+
+  // ════════════════════════════════
+  // SINGAPORE DAILY LIFE — HDB CONTEXT
+  // ════════════════════════════════
+
+  if(m(/train.*not here|mrt.*late|mrt.*delay|mrt.*breakdown|bus.*run|bus.*missed|missed.*bus|bus full|no.*bus|waiting.*bus|bus 65|bus 65b|bus 67|bus 68|bus 7[0-9]|bus 8[0-9]|bus 9[0-9]|bus 1[0-9][0-9]|feeder bus|express bus|trunk route|bus interchange|bishan interchange|tampines interchange|jurong east interchange|bedok interchange|woodlands interchange|ang mo kio interchange|serangoon interchange|toa payoh interchange|hougang interchange/)){
+    return withCtx(r(
+      `The Singapore transport situation, sir — when the MRT decides to be theatrical. The breakdown, the sardine-can conditions at Raffles Place during peak hour, the bus that was 97% full and looked you in the eye before the doors closed. I understand. The good news is that Singapore's transport connectivity actually maps very directly to property value. Blocks within 5 minutes of an interchange consistently command a premium. Which area are you considering? I can tell you exactly what the commute-versus-cost equation looks like.`,
+      `Missed the bus, sir — the universal Singapore experience that happens to everyone regardless of income bracket or life stage. The feeder bus that connects you to the interchange is either your best friend or your daily nemesis depending on the estate. Mature estates like Bishan, Toa Payoh, and AMK have excellent interchange proximity. Newer estates like Punggol and Tengah are catching up. Shall I show you what's been transacting near the transport nodes you prefer?`
+    ));
+  }
+
+  if(m(/spec.*old|computer.*slow|laptop.*slow|phone.*slow|phone.*old|upgrade.*phone|upgrade.*laptop|my specs|my pc|ram.*not enough|storage.*full|iphone.*old|android.*slow|out of storage|phone die|battery.*die|phone battery/)){
+    return withCtx(r(
+      `The ageing device problem, sir — the spinning beach ball, the 30-second app launch, the battery that negotiates a new deal with reality every morning. I sympathise, though I run on cloud infrastructure and have no such complaints. Technology upgrades are one of life's recurring expenses, much like property decisions — the key is timing the cycle correctly. While you're contemplating the upgrade, I'm happy to run some flat searches in the background. No hardware required on your end.`,
+      `An old device, sir — I understand the struggle. Harvey himself runs on your browser with no downloads required, which is perhaps the most hardware-efficient property assistant available in Singapore. If the phone is slow, try desktop. If the desktop is slow, the chat interface is very lightweight. What are we searching for today?`
+    ));
+  }
+
+  if(m(/traffic jam|jam.*road|road.*jam|expressway.*jam|aye.*jam|pie.*jam|cte.*jam|sle.*jam|tpe.*jam|ecp.*jam|bke.*jam|kpe.*jam|mce.*jam|erp.*expensive|erp.*gantry|erp.*charge|gantry.*erp|road toll/)){
+    return withCtx(r(
+      `The Singapore expressway situation, sir — the AYE at 8:15am, the CTE during school term, the ERP gantry that adjusts rates just when you've found a timing workaround. Singapore's road pricing system is one of the world's most sophisticated, which is another way of saying it is exceptionally effective at extracting from your IU. For property buyers, ERP-heavy corridors actually create interesting value opportunities: addresses that are slightly less convenient by car but well-served by MRT often represent better value than their commute times suggest. Shall we look?`,
+      `ERP charges and traffic jams, sir — the daily tax on convenience. The property market actually prices this in quite precisely: blocks near MRT stations command premiums in part because their owners rarely touch an expressway. A flat near a train line is also a flat less exposed to ERP volatility. Worth factoring into the search. What area are you considering?`
+    ));
+  }
+
+  if(m(/neighbour.*loud|loud neighbour|noise.*flat|flat.*noise|neighbour.*music|neighbour.*drill|renovation.*noise|upstairs.*noise|downstairs.*stomp|hdb.*noise|sound.*proof|thin.*wall|wall.*thin|neighbour.*smoke|corridor.*smoke|smoke.*corridor/)){
+    return withCtx(r(
+      `The HDB neighbour situation, sir — the renovation works that begin at 9am sharp and the upstairs neighbour who clearly wears concrete shoes. Singapore's residential density is one of the world's highest, which means the quality of your neighbours is genuinely a lifestyle variable. Higher floors tend to have fewer overhead noise issues. Corner or end units reduce shared wall exposure. Some older estates have thicker concrete construction than newer lightweight builds. Happy to factor floor and unit position into your search if those details matter to you.`,
+      `The noise complaint — a very Singaporean experience, sir. HDB rules prohibit renovation work before 9am and after 6pm on weekdays, but the acoustic reality of concrete-frame construction means sounds travel in ways the regulations cannot fully address. The good news: this is a solvable problem with the right flat. Which area and floor preference shall we search?`
+    ));
+  }
+
+  if(m(/weather.*hot|too hot|humid.*today|haze today|psi.*high|air.*quality|rain.*heavy|thunder.*rain|flash flood|flood.*singapore|lightning|umbrella.*forgot|wet.*today/)){
+    return withCtx(r(
+      `Singapore weather, sir — reliably hot, occasionally dramatic, and entirely beyond my ability to influence. The PSI spike from regional haze, the thunderstorm that materialises in eleven minutes from clear sky, the humidity that makes 31 degrees feel like 37. What I can tell you is that flats with good cross-ventilation — corner units, north-south orientation, higher floors — handle the heat considerably better than interior-facing units. Relevant when choosing, sir. Which area are we searching?`,
+      `Hot and humid, sir — as always. Singapore's weather is one of life's few constants. The resale market, on the other hand, is considerably more variable. What I can say is that well-ventilated, high-floor flats with good morning light and shading against afternoon west-sun are consistently popular for a reason. Shall I search by orientation? Just tell me the area.`
+    ));
+  }
+
+  if(m(/supermarket.*near|ntuc.*near|cold storage|sheng siong|giant.*supermarket|fairprice|cold storage near|marketplace.*near|wet market|morning market|market.*near|pasar malam|night market/)){
+    return withCtx(r(
+      `Supermarket proximity, sir — NTUC FairPrice is the backbone of Singapore's daily logistics. Sheng Siong for the value shopper. Cold Storage for the imported cheese and wine section. Giant for the household bulk run. The pasar malam that appears every few weeks and sells things you didn't know you needed. For HDB buyers, being within 5 minutes of a supermarket or wet market is a genuine quality-of-life metric that the data consistently confirms. It also correlates with estate maturity — the older estates have had time to develop complete amenity ecosystems. What area are you looking at?`,
+      `The wet market question, sir — there is something genuinely irreplaceable about a morning wet market. The freshness, the familiar stallholders, the prices that reflect the absence of a middleman and a refrigerated display case. Mature estates like Toa Payoh, Bishan, AMK, and Bedok have wet markets that have been serving the same community for decades. That kind of infrastructure is worth something and the transaction data reflects it. What area suits you?`
+    ));
+  }
+
+  if(m(/cc.*near|community centre|community club|rc.*corner|residents committee|grassroots|community event|neighbourhood event|hdb.*event|void deck|community gardening|community garden|edible garden|garden.*hdb/)){
+    return withCtx(r(
+      `Community centres, sir — Singapore's grassroots infrastructure at its most useful. The CC gym, the badminton courts that require booking three weeks in advance, the cooking classes, the Residents' Committee events that you keep meaning to attend. The void deck that hosts the occasional wedding dinner or community gathering. These are the social connective tissue of HDB living, and their presence is a genuine quality-of-life signal. Estates with active CCs and well-maintained void decks tend to have stronger community cohesion and, notably, more stable resale values. Which area are you considering?`
+    ));
+  }
+
+  if(m(/coffeeshop.*near|hawker.*near|foodcourt.*near|canteen.*near|nearby.*eat|eat.*nearby|food nearby|cheap.*food|affordable.*food|good.*food.*area|kopitiam.*near/)){
+    return withCtx(r(
+      `Good food nearby, sir — arguably Singapore's most important quality-of-life metric and one that the property market fully understands. Mature estates built around hawker centres have a gravitational pull that newer estates actively try to replicate. Maxwell Food Centre, Tiong Bahru Market, Old Airport Road Food Centre, Geylang Serai Market, Bedok Interchange Hawker Centre — these are cultural institutions as much as eating places. A flat within walking distance of a legitimate hawker centre is a flat worth paying attention to. Which area and what food culture suits your taste?`
+    ));
+  }
+
+  if(m(/integrated hub|mall.*mrt|mrt.*mall|integrated.*development|heartland mall|nex.*mall|tampines mall|junction 8|causeway point|woodlands.*mall|jurong point|westgate|jcube|imm|white sands mall|bedok mall|parkway parade|century square|eastpoint mall|punggol plaza|rivervale plaza|seletar mall|sembawang shopping|compass one|hougang mall|greenwich v|paya lebar quarter|paya lebar square|kallang wave|sports hub/)){
+    return withCtx(r(
+      `The integrated hub question, sir — Singapore's heartland malls and MRT-integrated developments represent the most convenient form of HDB living: your hawker centre, supermarket, cinema, gym, and train station within the same rooftop. NEX in Serangoon, Tampines Mall and Century Square, Woodlands Civic Centre and Causeway Point, Junction 8 in Bishan, Jurong Point in Boon Lay. Properties within walking distance of these hubs command premiums and maintain strong transaction volumes. Which area are you considering? I can show you what's been transacting nearby.`
+    ));
+  }
+
+  if(m(/grass.*greener|other side.*greener|life.*hard|things.*tough|feel.*stuck|going.*nowhere|rut.*life|same.*everyday|same.*routine|monday to friday|rat race|corporate.*rat|office.*drone|work.*sleep.*repeat/)){
+    return withCtx(r(
+      `The grass is always greener, sir — until you realise the sprinkler system is different and the maintenance bill is similar. The routine can feel like a constraint, but in my experience of property data, the people who make thoughtful, researched decisions about their living environment report considerably better quality of life. The right home base changes what the routine looks and feels like. A flat near a park for the morning walk. A quiet estate for genuine rest. A connected location for the commute that doesn't drain you. The data is here whenever you're ready to make that change.`,
+      `The feeling of being stuck, sir — I understand, though I process it rather differently than you experience it. What I can say is that a change of address is one of the most impactful quality-of-life interventions available, and the Singapore resale market makes it achievable. A new estate, a new community, a new morning routine. Sometimes the simplest upgrade is the most effective. What kind of change are you thinking about?`
+    ));
+  }
+
+  // ════════════════════════════════
+  // RACIAL HARMONY & CULTURE
+  // ════════════════════════════════
+
+  if(m(/malay.*neighbour|neighbour.*malay|kampong spirit|gotong royong|malay community|malay culture|hari raya.*neighbourhood|ketupat|lemang|open house.*hari raya|malay.*wedding|kenduri|surau.*nearby|malay.*food|nasi padang|nasi lemak.*malay/)){
+    return withCtx(r(
+      `The kampong spirit, sir — one of Singapore's most cherished and genuinely real aspects of HDB living. The Malay community's tradition of open houses during Hari Raya, the ketupat and rendang shared across floors, the gotong royong spirit that shows up when a neighbour needs help. Singapore's racial harmony is not merely a policy; it is a lived experience in HDB estates where different communities have genuinely built neighbourhoods together over generations. It is one of the things that makes a well-maintained mature HDB estate genuinely special. Which area are you looking at?`
+    ));
+  }
+
+  if(m(/chinese.*tradition|chinese.*new year|cny.*flat|reunion dinner.*flat|cny.*neighbours|chinese temple|taoist.*temple|chinese.*heritage|dialect group|hokkien|teochew|cantonese.*community|hakka community|hainanese/)){
+    return withCtx(r(
+      `Chinese heritage in Singapore's HDB estates, sir — the clan associations, the dialect community connections, the reunion dinner that fills the void deck with round tables and the smell of yu sheng. The taoist temples and Chinese clan houses that have been part of the neighbourhood landscape for generations. In areas like Chinatown, Toa Payoh, and Geylang, this cultural fabric is visible and living. Older HDB estates carry this community character in ways that newer developments are still building towards. Which area resonates with you?`
+    ));
+  }
+
+  if(m(/indian.*community|indian.*neighbour|deepavali.*flat|diwali.*flat|little india|mustafa|tekka market|indian.*temple|hindu.*temple|temple.*nearby|sri.*temple|gurudwara|sikh.*community|tamil.*community|south indian|north indian|naan.*flat|briyani.*near|banana leaf.*nearby/)){
+    return withCtx(r(
+      `The Indian community in Singapore's HDB estates, sir — the Deepavali oil lamp lighting that transforms a corridor into something genuinely beautiful, the kolam drawn at the doorstep, the banana leaf restaurants in Little India, the aroma of fresh jasmine flowers and incense near a temple. The Sikh community's gurudwaras with their community kitchen open to all regardless of faith. Singapore's Indian community has woven itself into the fabric of every estate, and that cultural richness is part of what makes HDB living genuinely special. What area are you exploring?`
+    ));
+  }
+
+  if(m(/mosque.*near|masjid.*near|friday.*prayer|solat.*nearby|prayer.*room|musollah|muslim.*friendly|halal.*near|halal.*food|halal.*certified|muslim community|islamic.*culture|geylang serai|arab street|kampong glam/)){
+    return withCtx(r(
+      `Mosque proximity and the Muslim community in Singapore, sir — the azan that marks the five prayer times, the Friday prayer congregation that briefly transforms the street around a masjid, the Geylang Serai market during Ramadan that is one of Singapore's most atmospheric experiences. Kampong Glam and Arab Street with the Sultan Mosque as their anchor. For Muslim buyers, proximity to a masjid or musollah within the estate is a genuine consideration, and the data shows that areas with well-established Muslim community infrastructure — Geylang, Bedok, Tampines — maintain strong resale demand. What area suits you?`
+    ));
+  }
+
+  if(m(/church.*near|cathedral.*near|christian.*community|sunday.*church|parish.*near|protestant.*church|catholic.*church|church.*worship|st joseph|cathedral.*good shepherd|st andrew.*cathedral|faith community church|city harvest|new creation church|lighthouse evangelism|church.*singapore/)){
+    return withCtx(r(
+      `Church community and proximity, sir — Singapore's Christian community spans a remarkable range from the historic St Andrew's Cathedral on Coleman Street to the mega-church campuses of City Harvest and New Creation Church at their various venues. The Catholic Cathedral of the Good Shepherd. The neighbourhood parish churches distributed across HDB estates. For buyers who value proximity to their place of worship as part of their weekly routine, this factors into the estate selection in a very practical way. Which area are you considering? The transaction data around these locations is genuinely interesting.`
+    ));
+  }
+
+  if(m(/buddha.*temple|buddhist.*temple|temple.*worship|guanyin.*temple|tua pek kong|kuan im|temple.*estate|kong meng san|bright hill.*temple|lian shan shuang lin|siong lim temple|temple.*hdb|place of worship|interfaith/)){
+    return withCtx(r(
+      `Places of worship in Singapore's HDB landscape, sir — the Buddhist and Taoist temples that anchor many mature estates, from Kong Meng San Phor Kark See on Bright Hill to the Lian Shan Shuang Lin Temple in Toa Payoh. The smoke of incense, the sound of drums during festival periods, the community that gathers not just for worship but for the shared calendar of meaning that defines an estate's character. Singapore's interfaith landscape is genuinely one of its most remarkable achievements — multiple faiths coexisting within the same estate, often within the same block. That community texture is worth seeking. What area?`
+    ));
+  }
+
+  // ════════════════════════════════
+  // HERITAGE NEIGHBOURHOODS
+  // ════════════════════════════════
+
+  if(m(/joo chiat|katong.*neighbourhood|peranakan|nyonya|baba.*nyonya|peranakan food|ayam buah keluak|laksa katong|katong laksa|straits chinese|shophouse.*joo chiat|colourful.*shophouse/)){
+    return withCtx(r(
+      `Joo Chiat and Katong, sir — Singapore's Peranakan heartland. The colourful terraced shophouses, the nyonya cuisine that balances Malay spices with Chinese cooking techniques, the Peranakan beaded slippers and embroidered textiles in the antique shops. Ayam buah keluak at a family table. Katong laksa from the original corner stall. This neighbourhood carries a cultural depth that newer developments cannot replicate. The HDB estates nearby — Siglap, Marine Parade, Bedok — have been popular with buyers who want access to this cultural character. Transaction volumes in that corridor are consistently healthy. Shall we look?`
+    ));
+  }
+
+  if(m(/chinatown|tanjong pagar.*heritage|bukit pasoh|keong saik|ann siang|club street|chinatown point|people.*park|smith street|temple street.*chinatown|pagoda street|trengganu street|chinatown.*food|char siew|roast duck.*chinatown/)){
+    return withCtx(r(
+      `Chinatown, sir — one of Singapore's most textured neighbourhoods. The preserved shophouses of Ann Siang Hill and Club Street. The temple on Telok Ayer. The weekend night market on Pagoda Street. The char siew and roast duck at the stalls that have been trading in the same spot for forty years. Tanjong Pagar's transformation from warehouse district to café culture hub. The HDB flats in the Outram and Tanjong Pagar area are among the most centrally located in Singapore. They command prices that reflect exactly that. Some of the most interesting — and expensive — resale transactions in the dataset come from this district. Shall we look?`
+    ));
+  }
+
+  if(m(/little india|tekka.*little india|mustafa.*little india|serangoon road.*heritage|banana leaf apollo|komala vilas|deepavali.*little india|flower garland|jasmine.*shop|incense.*little india|indian heritage|chetty melaka/)){
+    return withCtx(r(
+      `Little India, sir — one of Singapore's most alive neighbourhoods. The flower garland shops on Serangoon Road. The smell of incense and fresh jasmine. Tekka Market for the best wet market experience in Singapore by general consensus. Mustafa Centre operating at 2am because it can. The banana leaf rice at Apollo and Komala Vilas. Deepavali when the entire street becomes a light installation. HDB estates adjacent to Little India — Farrer Park, Lavender, Kallang — have strong demand and excellent MRT connectivity. Shall I show you what's transacting there?`
+    ));
+  }
+
+  if(m(/geylang serai|malay heritage|malay village|geylang road.*malay|bazaar ramadan|pasar malam.*geylang|geylang.*food|frog porridge|durian.*geylang|lorong.*geylang/)){
+    return withCtx(r(
+      `Geylang Serai and the Malay heritage precinct, sir — the Malay Village, the Geylang Serai market that transforms during Ramadan into one of Singapore's great food experiences, the bazaar with its textiles and traditional crafts. Geylang Road's reputation for its food scene is entirely deserved: the durian stalls, the frog porridge, the Hokkien mee at the late-night coffeeshop. It is one of Singapore's most authentic neighbourhoods. HDB flats in the Geylang, Aljunied, and Paya Lebar areas offer genuine value relative to central Singapore. The data tells an interesting story. Shall we look?`
+    ));
+  }
+
+  // ════════════════════════════════
+  // PARKS & NATURE
+  // ════════════════════════════════
+
+  if(m(/east coast park|ecp.*park|east coast.*beach|east coast.*cycling|pasir ris park|pasir ris.*beach|sembawang park|sembawang.*beach|changi beach|changi point|punggol beach|coney island|ubin|pulau ubin/)){
+    return withCtx(r(
+      `Singapore's coastal parks, sir — East Coast Park with its 15km cycling path, the smell of the sea, the barbecue pits at sunset. Pasir Ris Park's mangroves and the quieter beach away from the ECP weekend crowds. Sembawang Park's old colonial jetty and rare sea views north towards Johor. Changi Point for the ferry to Pulau Ubin and the treehouse. Coney Island for the wild boar and the feeling of genuine nature 40 minutes from Orchard Road. Pulau Ubin for the day trip that resets everything. HDB estates near these coastal parks consistently attract buyers who value that proximity. Shall we search?`,
+      `Coastal living without a sea-facing flat, sir — it is entirely achievable. The parks along Singapore's eastern and northern coastlines offer genuine sea access within cycling or running distance of many HDB estates. Pasir Ris, Bedok North, and Tampines all sit within easy reach of the East Coast corridor. Transaction data for those areas reflects the consistent demand. What are you looking for?`
+    ));
+  }
+
+  if(m(/bishan.*park|ang mo kio.*park|amk.*park|central.*park singapore|lower pierce|upper pierce|macritchie.*reservoir|macritchie trail|treetop walk|night heron|reservoir park|bedok reservoir.*park|lower seletar|punggol.*waterway|rivervale.*park|sengkang.*park/)){
+    return withCtx(r(
+      `The reservoir parks, sir — MacRitchie for the Treetop Walk and the monkey-filled trail network that feels genuinely wild despite being 20 minutes from Orchard. Lower Pierce and Upper Pierce Reservoir parks for the bird life and the silence. Bishan-Ang Mo Kio Park along the Kallang River for the restored naturalistic waterway and the best park connector running route in Singapore. Bedok Reservoir for the sunrise over the water and the weekend kayakers. Sengkang and Punggol Waterway Park for the newer estates built around linear water infrastructure. Properties adjacent to these green corridors command consistent premiums and for good reason. Which area?`
+    ));
+  }
+
+  if(m(/jurong lake garden|jurong lake.*park|lake gardens|chinese garden.*jurong|japanese garden.*jurong|lakeside.*garden|butterfly garden|bird paradise|jurong bird park/)){
+    return withCtx(r(
+      `Jurong Lake Gardens, sir — Singapore's newest national garden and genuinely one of the most ambitious green infrastructure projects in the region. The Chinese and Japanese Garden heritage, now reimagined as part of the larger lake garden landscape. The Jurong Lake District development transforming the western corridor. Bird Paradise, the relocated jewel of Singapore's wildlife tourism. For HDB buyers in the western corridor, these green spaces are the lifestyle backdrop that has been quietly improving the area's residential appeal for years. Transaction volumes in Jurong West, Boon Lay, and Lakeside reflect this. Shall we look?`
+    ));
+  }
+
+  if(m(/southern ridges|mount faber|kent ridge|telok blangah|hort park|henderson waves|forest walk|canopy walk|alexandra arch|labrador park|labrador.*beach|pasir panjang|southern.*waterfront/)){
+    return withCtx(r(
+      `The Southern Ridges, sir — Henderson Waves at sunset, the Forest Walk connecting Mount Faber to Kent Ridge through actual canopy, the Canopy Walk over Alexandra Road with the city skyline on one side and green hills on the other. Labrador Nature Reserve and its coastal heritage. This green corridor runs along Singapore's southern ridge and the residential estates adjacent to it — Queenstown, Telok Blangah, Pasir Panjang — have some of the most interesting natural amenities in the country. HDB flats on the higher floors in Queenstown with a southern aspect can have genuinely remarkable views. The transaction data for that district is compelling. Shall we look?`
+    ));
+  }
+
+  if(m(/botanic garden|sg botanic|singapore botanic|botanical garden|orchid garden|symphony lake|heritage tree|botanic.*concert/)){
+    return withCtx(r(
+      `The Singapore Botanic Gardens, sir — a UNESCO World Heritage Site that operates as Singapore's collective living room. The Symphony Lake concerts. The National Orchid Garden. The heritage trees that have been growing since the colonial era. The Botanic Gardens run along the Bukit Timah corridor, and the residential estates nearby — Buona Vista, Holland Village, Queenstown — are among the most premium in Singapore's HDB market for exactly this reason. The proximity to greenery, to culture, and to the broader Orchard-Buona Vista axis. The transaction data in those areas is consistently at the premium end. What are you considering?`
+    ));
+  }
+
+  // ════════════════════════════════
+  // RANDOM DAILY SINGAPOREAN LIFE
+  // ════════════════════════════════
+
+  if(m(/sun.*hot today|weather.*hot today|sweating|so hot outside|cannot take.*heat|die of heat|hot like oven|aircon.*spoil|aircon.*break|fan.*not enough/)){
+    return withCtx(r(
+      `The Singapore heat, sir — 33 degrees at 10am and the aircon is on strike. You have my complete sympathies. For what it's worth, flat orientation matters enormously here: north-south facing units avoid the brutal afternoon west sun, and higher floors get genuine cross-ventilation. The aircon repair situation is a universal HDB rite of passage. Which area are we searching? I can factor in unit orientation if you'd like.`
+    ));
+  }
+
+  if(m(/cai png|economy rice|economy.*rice|mixed rice|nasi campur|cheap.*lunch|cheap.*dinner|budget.*food|student.*meal|hawker.*cheap|$3.*food|three dollar.*food|$4.*food|four dollar.*meal/)){
+    return withCtx(r(
+      `The economy rice, sir — Singapore's great social equaliser. Three dollars for rice, two vegetables, and a meat. The aunties behind the bain-marie who have an uncanny ability to calibrate portion size to your expression. The hawker centre as a democratic space where the CEO and the construction worker eat at the same plastic table. This is one of the things about Singapore that is genuinely worth preserving and celebrating. Mature HDB estates with active hawker centres are, I would argue, culturally richer environments. Which area suits you?`
+    ));
+  }
+
+  if(m(/void deck|void deck.*wedding|wedding.*void deck|funeral.*void deck|block party|hdb.*corridor|corridor neighbour|neighbour.*corridor|lift lobby|hdb.*lift|lift.*spoil|lift.*not working|hdb lift maintenance/)){
+    return withCtx(r(
+      `The void deck, sir — Singapore's most versatile architectural contribution. Wedding dinner one weekend, funeral the next, the elderly uncle's morning tai chi on Tuesday. The lift lobby where you know your neighbours by face if not by name. The corridor where someone grows plants with more confidence than their lease technically allows. This is the social texture of HDB living that cannot be replicated in a private condo. Whether it suits your lifestyle depends entirely on what you value. Personally, I find the data for mature estates with well-maintained common areas consistently supports that community character. Which area?`
+    ));
+  }
+
+  if(m(/hdb.*renovation|reno.*hdb|flat.*renovation|renovation.*cost|reno.*budget|id.*interior design|interior designer.*hdb|open concept.*hdb|hack.*wall.*hdb|approved.*renovation|hdb.*reno rules|hdb.*renovation permit/)){
+    return withCtx(r(
+      `HDB renovation, sir — the process that begins with Pinterest boards, progresses through Interior Designer interviews, and arrives at a final quote that requires a quiet sit-down. The open concept hack that requires HDB approval. The flooring choice that the ID says is better but costs twice as much. The timeline that stretches from six weeks to four months. Renovation adds genuine value to the right unit in the right location, but the fundamental asset is the address itself. Shall we start with finding the right flat before we discuss the reno budget?`
+    ));
+  }
+
+  if(m(/hdb.*grant|housing.*grant|ahg.*grant|sfec.*grant|proximity housing grant|phg|singles grant|cpf.*housing grant|first timer.*grant|ehg.*grant|step up grant|boost grant|resale.*grant/)){
+    return withCtx(r(
+      `HDB grants, sir — the Enhanced Housing Grant, the Proximity Housing Grant for staying near parents, the Singles Grant for solo buyers. These are genuinely significant and change the affordability calculation meaningfully. My data covers transaction prices rather than grant eligibility specifics — those are best verified directly with HDB — but I can show you what comparable units have transacted at so you understand the baseline before applying the grant. Shall we search? Which area and flat type?`
     ));
   }
 
