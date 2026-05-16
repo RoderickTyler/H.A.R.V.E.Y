@@ -3985,41 +3985,7 @@ async function _handleInputInner(raw){
   }
 
   // EV intent
-  // ── PURE EMOTION GATE — fires before any ctx/data routing ──
-  // Detects cursing, frustration, praise as pure emotional input
-  // ONLY fires when input has NO location/data signals mixed in
-  // (mixed signals like "knn tampines expensive" still go to data path)
-  const _emoRaw=raw.toLowerCase().replace(/[^a-z0-9\s']/g,' ');
-  const _hasDataSignal=!!(ctx.town||ctx.street||ctx.block||
-    /transact|search|recent|sold|find|show|block\s*\d|floor\s*\d|\d+\s*room|estimate|valuat/i.test(raw));
-  if(!_hasDataSignal){
-    // Check pure emotion
-    const _emo=detectEmotion(raw);
-    if(_emo&&_emo.score>=2){
-      const _pool=EQ_REPLIES[_emo.emotion];
-      if(_pool&&_pool.length){
-        const _line=_pool[Math.floor(Math.random()*_pool.length)];
-        // For anger specifically — also check HOSTILE for stronger response
-        const _sent=harveyKnows.sentiment(raw);
-        let _reply=_line;
-        if(_sent.hostile){
-          _reply=rand([
-            `I do apologise if I've been of little help, sir — though I must say, I've heard worse. I hope the rest of your day treats you considerably better.`,
-            `My sincerest apologies you feel that way, sir. I shall not take it personally — I am, after all, merely a very well-dressed database. Whenever you're ready to talk HDB, I'm at your disposal.`,
-            `Noted, sir — and I hope you feel better for having said it. I bear no ill will whatsoever. What can I do for you?`,
-            `Fair enough, sir. I shan't argue. I hope your day improves — and if there's a valuation I can help with later, the offer stands.`,
-            `I understand, sir. Some days the numbers are the problem and some days the day is the problem. I'll be here either way.`,
-            `No offence taken, sir. I have processed considerably more dramatic inputs in my time. Shall we get back to it?`,
-          ]);
-        }
-        harveyMsg(_reply,[{label:'RESALE TRANSACTIONS',val:'search'},{label:'ESTIMATE VALUATION',val:'estimate value'}]);
-        speak(_reply.replace(/<[^>]*>/g,'').slice(0,200));
-        // Preserve mode — if mid-search, stay in search mode
-        if(mode!=='srch_waiting'&&mode!=='ev_waiting')mode='menu';
-        loading=false;sbEl.disabled=false;return;
-      }
-    }
-  }
+  if(ctx.isEV||/valuat|estimate|worth|value|how much|price of|check value/i.test(raw)){
     ctx.isEV=true;
     if(!ctx.town&&!ctx.street&&!ctx.block&&!ctx.flatType&&!ctx.floor){
       const svc=rand([`For you, sir — always. `,`At your service, sir. `,`Will do, sir. `,`As you wish. `]);
@@ -5270,47 +5236,6 @@ function harveyChitChat(raw, convCtx){
     return withCtx(li[topicKey]||`Lifestyle, sir. What are we discussing?`);
   }
 
-  // ── EMOTION FIRST-LEVEL HANDLERS ──
-  // These catch pure emotional inputs in chitchat mode
-  // topicKey routing handles these when detected via EMOTION_JOINS
-  if(topicKey==='anger'&&!isDeep){
-    return withCtx(r(
-      `I hear you, sir. Some days the numbers are the problem and some days the day is the problem. I'll be here either way. When you're ready, the data is loaded and waiting.`,
-      `Noted with empathy, sir. I shall not take it personally. Whenever the dust settles, I'm ready to work. What are we searching for?`,
-      `Duly noted, sir. Harvey is, amongst other things, a patient system. The data remains undisturbed by strong language. What can I help with?`,
-      `Fair enough, sir. I shan't argue. Whenever you're ready — the flat data is here and so am I.`,
-      `I understand, sir. No offence taken — I've processed considerably more dramatic inputs in my time. Shall we continue?`
-    ));
-  }
-  if(topicKey==='fear'&&!isDeep){
-    return withCtx(r(
-      `Sir, take a deep breath. Property decisions are significant — and feeling overwhelmed is entirely normal. Let the data be your anchor. Shall we look at the numbers together?`,
-      `There are still calculations required before any actual decision, sir. We are firmly in the information phase. No irreversible commitments yet. What would you like to look at?`,
-      `Every large decision feels this way, sir. The antidote is information. Shall we get some? The data is loaded and ready.`
-    ));
-  }
-  if(topicKey==='vulnerable'&&!isDeep){
-    return withCtx(r(
-      `We are having a nice conversation here — just you and me. No judgement. Let us finish what we started, shall we?`,
-      `Paiseh for nothing, sir. There are no silly questions when it comes to the largest purchase of your life.`,
-      `The fact that you are asking means you are doing this correctly. That is more than most people manage. Shall we continue?`
-    ));
-  }
-  if(topicKey==='disgust'&&!isDeep){
-    return withCtx(r(
-      `Your assessment is noted, sir. The market occasionally produces results that test one's tolerance. Shall we search elsewhere?`,
-      `Not every block earns its price tag, sir. I take your point. Shall we recalibrate and look at alternatives with more compelling fundamentals?`,
-      `A very astute observation, sir. Shall I search a different area or flat type?`
-    ));
-  }
-  if(topicKey==='sad'&&!isDeep){
-    return withCtx(r(
-      `I understand, sir. The market does not always cooperate with our hopes. But the data has more stories to tell. Shall we look at alternatives?`,
-      `Harvey hears you, sir. The right property at the right price does exist — it may simply require a different search. Shall I recalibrate?`,
-      `Sir, there are still quite a few calculations we can run. The picture may not be as grim as it appears.`
-    ));
-  }
-
   // GOSSIP MODE
   if(m(/gossip|auntie.*talk|uncle.*talk|neighbourhood.*talk|void deck.*drama|corridor.*drama|lift.*drama|block.*drama|hear.*hear|talk.*cock/)){
     return withCtx(r(
@@ -5770,7 +5695,7 @@ function harveyChitChat(raw, convCtx){
     ));
   }
 
-  if(m(/\bcoe\b|\bcar\b|\bvehicle\b|\bdriving\b|\berp\b|\bgst\b|\btax\b|\bgovernment\b|\bpolicy\b|\bbudget\b/)){
+  if(m(/coe|car|vehicle|driving|erp|gst|tax|government|policy|budget/)){
     return withCtx(r(
       `COE and ERP, sir — the twin acronyms that humble even the most confident Singaporean. My expertise is in housing rather than vehicles or fiscal policy, I'm afraid. Though if you'd like to see what that COE money could buy in the resale market instead — I have some rather compelling numbers.`,
       `Government policy, sir — always moving, always impactful. My corner of it is housing — specifically resale transactions. If there's a property angle to your question, I'm your man.`,
@@ -7247,83 +7172,31 @@ const EMOTION_JOINS = {
     'a lot of info','too much info','information overload',
   ],
 
-  // ── ANGER / FRUSTRATION — Full Singapore multilingual cursing corpus ──
+  // ── ANGER / FRUSTRATION ──
   anger: [
-    // English high-intensity
+    // High
     'enraged','furious','irate','livid','outraged','wrathful',
     'extremely angry','very angry','so angry','really angry',
-    'fucking','fucked','wtf','what the fuck','what the hell','what the heck',
-    'screw this','screw you','screw off','bullshit','crap',
-    'bloody hell','damn it','dammit','bloody useless','goddamn',
-    'piss off','pissed off','pissed','fed up','had enough',
-    'go to hell','shut up','shut the fuck up','stfu',
-    'absolute rubbish','total rubbish','complete nonsense',
-    // English moderate
+    // Moderate
     'annoyed','bitter','exasperated','frustrated','frustrating','hostility',
     'resentful','angry','not happy about','not pleased','displeased',
     'this is ridiculous','this is absurd','this makes no sense',
-    'why is this so difficult','why cant it be easier',
-    'makes me angry','drives me crazy','drives me mad',
-    'this is crazy','this is insane','ridiculous','absurd',
-    // English low
+    'why is this so difficult','why cant it be easier','why lah',
+    'why like that','why like this','makes me angry','drives me crazy',
+    'drives me mad','this is crazy','this is insane',
+    // Low
     'agitated','aggravated','edgy','grumpy','impatient','irritated','peeved',
-    'annoying','so annoying','very annoying','a bit annoying','slightly annoyed',
-    // ── SINGLISH ANGER ──
-    'knn','nabei','ccb','cb','kpkb','simi sai','si mi sai',
-    'tulan','sibei tulan','very tulan','tulan sia','damn tulan','super tulan',
-    'siao','siao lah','siow','siao ah','you siao','confirm siao',
+    'annoying','so annoying','very annoying','quite annoying',
+    'a bit annoying','slightly annoyed','mildly frustrated',
+    // Singlish
+    'knn','cb lah','nabei','sibei tulan','tulan','very tulan',
+    'tulan sia','damn tulan','siao lah','siow','siao ah',
     'bo liao','waste time','leh what','lah what','confirm fail',
     'confirm cannot','how can like that','ridiculous lah','ridiculous sia',
-    'wasting time','useless lah','not working lah','broken lah',
-    'cannot lah','cannot sia','liddat how','like dat how',
-    'liddat also cannot','always like that','every time like that',
-    'kanasai','kana sai','kannasai','kan na sai',
-    'babi lah','bodoh lah','stupid lah','dumb lah',
-    'suck lah','this sucks lah','you suck lah',
-    // ── MALAY CURSING ──
-    'bodoh','bangang','bahlul','bengong','gila','puki','babi',
-    'lancau','celaka','sial','apa ke benda','apa ni','ape ni',
-    'pergi mampus','mampus','rabak','mampuslah','pergi mampos',
-    'cilaka','bodo','pundek','sundel','kurang ajar',
-    'tak guna','tak boleh pakai','macam babi','macam sial',
-    'babi betul','gila betul','bodoh betul','siao betul',
-    'apa benda','apa jadah','jadah','pukimak','haramjadah',
-    'setan','iblis','laknat','damn betul','rabak betul',
-    'hancur','main main','semua tak betul','tak reti',
-    // ── HOKKIEN / TEOCHEW ──
-    'kan','kan ni','kan ni na','kan ni na bu','kan ni na beh',
-    'chao ah','chao chee','chao kao','lan jiao','lan pa',
-    'diu','hongkang','hong kan','hong kang','tiu','tiu nia ma',
-    'puk kai','pukkai','pok kai','ham ka chan','ham ga ling',
-    'chee bai','chee bye','cheebai','cheebyes','si ginna',
-    'wa lau','walau','wah lau','si bei','sibei','jiak liao bee',
-    'kiu kiu','sau siong','kong simi','si mi kia',
-    // ── CANTONESE ──
-    'diu','diu lei','diu lei lo mo','gau hai','hai','pok gai',
-    'sei lo','sei yan','lei go hai','fan hai','lan',
-    'ham sap','chun','bou fei gei','ham ka chan',
-    'gauyeh','ngo gau','mo liu','sei gor',
-    // ── TAMIL ──
-    'thevidiya','thevidiya paiya','otha','oothu','loosu',
-    'pundai','sunni','koothi','poda','pundek pa',
-    'naaye','naye payale','sottai',
-    // ── MANDARIN / CHINESE ──
-    'ta ma de','tamade','cao ni ma','cao','caoní','diu lei lo',
-    'qu ni de','bichi','ben dan','sha gua','zhu tou',
-    'gun kai','zi sha','niubi','sanba',
-    // ── GENERAL FRUSTRATION (non-vulgar) ──
-    'why lah','why like that','why like this',
-    'cannot like that','cannot like this',
-    'waste my time','wasting time','keep failing',
-    'confirm plus chop wrong',
-    'haiyoh','haiyah','aiyoh','aiyah','aiyo',
-    'haiz','haizz','haizzz','sigh lah',
-    'confirm die','sure die','die lah','die sia',
-    'jialat','jia lat','jialat lah','jialat sia',
-    'no hope lah','no hope sia','hopeless lah',
-    'bo hope','bo hope lah','confirm no hope',
-    'screw lah','screw sia','screw this lah',
-    'like that also can','liddat how','how lah',
+    'waste my time','wasting time','keep failing','keep getting wrong',
+    'useless lah','not working lah','broken lah','cannot lah','cannot sia',
+    'liddat how','like dat how','liddat also cannot','like that also cannot',
+    'confirm plus chop wrong','always like that','every time like that',
   ],
 
   // ── DISGUST / DISAPPOINTMENT ──
@@ -7682,9 +7555,8 @@ const harveyKnows=(()=>{
 
   // ── Hostile / rude tokens ──
   const HOSTILE=new Set([
-    // English
     'screw you','screw off','screw this','f you','fu','fck','fk you','fk off',
-    'fuck you','fuck off','fuck this','fucker','fucking','fcuk','fuck',
+    'fuck you','fuck off','fuck this','fucker','fucking','fcuk',
     'idiot','stupid','useless','rubbish','nonsense','trash','garbage',
     'dumb','dumbass','moron','retard','idiocy','incompetent',
     'terrible','awful','horrible','pathetic','disgusting','hate you',
@@ -7694,29 +7566,9 @@ const harveyKnows=(()=>{
     'bloody hell','bloody useless','sucks','this sucks','you suck',
     'hopeless','useless bot','useless ai','broken','not working',
     'waste of time','wasting my time','annoying','frustrating',
-    'liar','lying','wrong again','always wrong',
-    // Singlish
-    'knn','nabei','ccb','cb','kpkb','cb lah','chao cb','chao ah',
-    'kanasai','kana sai','kannasai','kan na sai',
-    'siao','siow','siao lah','siao ah','you siao','confirm siao',
-    'lan jiao','lan pa','chee bai','cheebai','si ginna',
-    'bo liao','jialat','jia lat','tulan','sibei tulan',
-    // Malay
-    'bodoh','bangang','bahlul','bengong','gila','puki','babi',
-    'lancau','celaka','sial','pergi mampus','mampus','rabak',
-    'cilaka','pundek','sundel','kurang ajar','tak guna',
-    'babi betul','pukimak','haramjadah','setan','iblis',
-    // Hokkien/Teochew
-    'kan ni','kan ni na','diu','hongkang','hong kan','tiu',
-    'puk kai','pukkai','ham ka chan','chee bye',
-    // Cantonese
-    'pok gai','gau hai','ham sap','bou fei gei',
-    // Tamil
-    'thevidiya','otha','oothu','loosu','pundai','poda','naaye',
-    // Mandarin
-    'ta ma de','cao ni ma','cao','qu ni de','bichi','gan ni',
-    // General Singlish frustration
-    'lanlan','chao','si mi','lj',
+    'liar','lying','wrong again','always wrong','keep getting it wrong',
+    'lanlan','siao','chao','nabei','knn','ccb','kpkb','knn','cb','lj',
+    'si mi','bodoh','bangang','bahlul','bengong','gila'
   ]);
 
   // ── Sarcasm signals — dismissive/ironic without full hostility ──
