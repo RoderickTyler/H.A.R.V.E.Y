@@ -663,6 +663,7 @@ async function speak(txt){
 const DB = { resale:[], townStreets:{}, loaded:false };
 let loading=false, qn=0, voiceOn=true;
 let mode='boot', ctx={};
+let lastRaw=''; // track last user input for EQ layer
 
 // ── CONVERSATION MEMORY — persists across turns until __restart__ ──
 // Stores the last known HDB context so follow-up messages inherit it.
@@ -1070,8 +1071,985 @@ function expandStreetAbbr(s){
 
 // ── Reverse street → canonical DB town + street + blocks ──
 // Supports: full name, abbreviated (ST/DR/CL/AVE/RD/CRES), partial, slight misspelling
+// ── STREET SHORT-FORM MAP v2 — 925 mappings from actual HDB property database ──
+// Keys: user-typed shortforms. Values: canonical DB street names.
+const STREET_SHORTFORMS={
+  'admiralty dr':'ADMIRALTY DR',
+  'admiralty link':'ADMIRALTY LINK',
+  'admiralty rd':'ADMIRALTY RD',
+  'ah hood rd':'AH HOOD RD',
+  'aljunied ave 2':'ALJUNIED AVE 2',
+  'aljunied ave':'ALJUNIED AVE 2',
+  'aljunied cres':'ALJUNIED CRES',
+  'aljunied crescent':'ALJUNIED CRES',
+  'aljunied rd':'ALJUNIED RD',
+  'alkaff cres':'ALKAFF CRES',
+  'alkaff crescent':'ALKAFF CRES',
+  'anchorvale cres':'ANCHORVALE CRES',
+  'anchorvale crescent':'ANCHORVALE CRES',
+  'anchorvale dr':'ANCHORVALE DR',
+  'anchorvale lane':'ANCHORVALE LANE',
+  'anchorvale link':'ANCHORVALE LINK',
+  'anchorvale rd':'ANCHORVALE RD',
+  'anchorvale st':'ANCHORVALE ST',
+  'ang mo kio ave 1':'ANG MO KIO AVE 1',
+  'ang mo kio ave':'ANG MO KIO AVE 9',
+  'ang mo kio ave 10':'ANG MO KIO AVE 10',
+  'ang mo kio ave 2':'ANG MO KIO AVE 2',
+  'ang mo kio ave 3':'ANG MO KIO AVE 3',
+  'ang mo kio ave 4':'ANG MO KIO AVE 4',
+  'ang mo kio ave 5':'ANG MO KIO AVE 5',
+  'ang mo kio ave 6':'ANG MO KIO AVE 6',
+  'ang mo kio ave 8':'ANG MO KIO AVE 8',
+  'ang mo kio ave 9':'ANG MO KIO AVE 9',
+  'ang mo kio st 11':'ANG MO KIO ST 11',
+  'ang mo kio st':'ANG MO KIO ST 61',
+  'ang mo kio st 12':'ANG MO KIO ST 12',
+  'ang mo kio st 21':'ANG MO KIO ST 21',
+  'ang mo kio st 22':'ANG MO KIO ST 22',
+  'ang mo kio st 23':'ANG MO KIO ST 23',
+  'ang mo kio st 31':'ANG MO KIO ST 31',
+  'ang mo kio st 32':'ANG MO KIO ST 32',
+  'ang mo kio st 42':'ANG MO KIO ST 42',
+  'ang mo kio st 44':'ANG MO KIO ST 44',
+  'ang mo kio st 51':'ANG MO KIO ST 51',
+  'ang mo kio st 52':'ANG MO KIO ST 52',
+  'ang mo kio st 61':'ANG MO KIO ST 61',
+  'bain st':'BAIN ST',
+  'balam rd':'BALAM RD',
+  'balestier rd':'BALESTIER RD',
+  'banda st':'BANDA ST',
+  'bangkit rd':'BANGKIT RD',
+  'bartley walk':'BARTLEY WALK',
+  'beach rd':'BEACH RD',
+  'bedok ctrl':'BEDOK CTRL',
+  'bedok nth ave 1':'BEDOK NTH AVE 1',
+  'bedok nth ave':'BEDOK NTH AVE 4',
+  'bedok north ave 1':'BEDOK NTH AVE 1',
+  'bedok nth ave 2':'BEDOK NTH AVE 2',
+  'bedok north ave 2':'BEDOK NTH AVE 2',
+  'bedok nth ave 3':'BEDOK NTH AVE 3',
+  'bedok north ave 3':'BEDOK NTH AVE 3',
+  'bedok nth ave 4':'BEDOK NTH AVE 4',
+  'bedok north ave 4':'BEDOK NTH AVE 4',
+  'bedok nth dr':'BEDOK NTH DR',
+  'bedok north dr':'BEDOK NTH DR',
+  'bedok nth rd':'BEDOK NTH RD',
+  'bedok north rd':'BEDOK NTH RD',
+  'bedok nth st 1':'BEDOK NTH ST 1',
+  'bedok north st 1':'BEDOK NTH ST 1',
+  'bedok nth st':'BEDOK NTH ST 4',
+  'bedok nth st 2':'BEDOK NTH ST 2',
+  'bedok north st 2':'BEDOK NTH ST 2',
+  'bedok nth st 3':'BEDOK NTH ST 3',
+  'bedok north st 3':'BEDOK NTH ST 3',
+  'bedok nth st 4':'BEDOK NTH ST 4',
+  'bedok north st 4':'BEDOK NTH ST 4',
+  'bedok reservoir cres':'BEDOK RESERVOIR CRES',
+  'bedok reservoir crescent':'BEDOK RESERVOIR CRES',
+  'bedok reservoir rd':'BEDOK RESERVOIR RD',
+  'bedok reservoir view':'BEDOK RESERVOIR VIEW',
+  'bedok sth ave 1':'BEDOK STH AVE 1',
+  'bedok sth ave':'BEDOK STH AVE 3',
+  'bedok south ave 1':'BEDOK STH AVE 1',
+  'bedok sth ave 2':'BEDOK STH AVE 2',
+  'bedok south ave 2':'BEDOK STH AVE 2',
+  'bedok sth ave 3':'BEDOK STH AVE 3',
+  'bedok south ave 3':'BEDOK STH AVE 3',
+  'bedok sth rd':'BEDOK STH RD',
+  'bedok south rd':'BEDOK STH RD',
+  'bendemeer rd':'BENDEMEER RD',
+  'beo cres':'BEO CRES',
+  'beo crescent':'BEO CRES',
+  'bidadari pk dr':'BIDADARI PK DR',
+  'bishan st 11':'BISHAN ST 11',
+  'bishan st':'BISHAN ST 11',
+  'bishan st 12':'BISHAN ST 12',
+  'bishan st 13':'BISHAN ST 13',
+  'bishan st 14':'BISHAN ST 14',
+  'bishan st 22':'BISHAN ST 22',
+  'bishan st 23':'BISHAN ST 23',
+  'bishan st 24':'BISHAN ST 24',
+  'boon keng rd':'BOON KENG RD',
+  'boon lay ave':'BOON LAY AVE',
+  'boon lay dr':'BOON LAY DR',
+  'boon lay pl':'BOON LAY PL',
+  'boon tiong rd':'BOON TIONG RD',
+  'bright hill dr':'BRIGHT HILL DR',
+  'bt batok ctrl':'BT BATOK CTRL',
+  'bukit batok ctrl':'BT BATOK CTRL',
+  'bt batok east ave 3':'BT BATOK EAST AVE 3',
+  'bukit batok east ave 3':'BT BATOK EAST AVE 3',
+  'bt batok east ave':'BT BATOK EAST AVE 6',
+  'bt batok east ave 4':'BT BATOK EAST AVE 4',
+  'bukit batok east ave 4':'BT BATOK EAST AVE 4',
+  'bt batok east ave 5':'BT BATOK EAST AVE 5',
+  'bukit batok east ave 5':'BT BATOK EAST AVE 5',
+  'bt batok east ave 6':'BT BATOK EAST AVE 6',
+  'bukit batok east ave 6':'BT BATOK EAST AVE 6',
+  'bt batok st 11':'BT BATOK ST 11',
+  'bukit batok st 11':'BT BATOK ST 11',
+  'bt batok st':'BT BATOK ST 52',
+  'bt batok st 21':'BT BATOK ST 21',
+  'bukit batok st 21':'BT BATOK ST 21',
+  'bt batok st 22':'BT BATOK ST 22',
+  'bukit batok st 22':'BT BATOK ST 22',
+  'bt batok st 24':'BT BATOK ST 24',
+  'bukit batok st 24':'BT BATOK ST 24',
+  'bt batok st 25':'BT BATOK ST 25',
+  'bukit batok st 25':'BT BATOK ST 25',
+  'bt batok st 31':'BT BATOK ST 31',
+  'bukit batok st 31':'BT BATOK ST 31',
+  'bt batok st 32':'BT BATOK ST 32',
+  'bukit batok st 32':'BT BATOK ST 32',
+  'bt batok st 33':'BT BATOK ST 33',
+  'bukit batok st 33':'BT BATOK ST 33',
+  'bt batok st 34':'BT BATOK ST 34',
+  'bukit batok st 34':'BT BATOK ST 34',
+  'bt batok st 41':'BT BATOK ST 41',
+  'bukit batok st 41':'BT BATOK ST 41',
+  'bt batok st 51':'BT BATOK ST 51',
+  'bukit batok st 51':'BT BATOK ST 51',
+  'bt batok st 52':'BT BATOK ST 52',
+  'bukit batok st 52':'BT BATOK ST 52',
+  'bt batok west ave 2':'BT BATOK WEST AVE 2',
+  'bt batok west ave':'BT BATOK WEST AVE 9',
+  'bukit batok west ave 2':'BT BATOK WEST AVE 2',
+  'bt batok west ave 4':'BT BATOK WEST AVE 4',
+  'bukit batok west ave 4':'BT BATOK WEST AVE 4',
+  'bt batok west ave 5':'BT BATOK WEST AVE 5',
+  'bukit batok west ave 5':'BT BATOK WEST AVE 5',
+  'bt batok west ave 6':'BT BATOK WEST AVE 6',
+  'bukit batok west ave 6':'BT BATOK WEST AVE 6',
+  'bt batok west ave 7':'BT BATOK WEST AVE 7',
+  'bukit batok west ave 7':'BT BATOK WEST AVE 7',
+  'bt batok west ave 8':'BT BATOK WEST AVE 8',
+  'bukit batok west ave 8':'BT BATOK WEST AVE 8',
+  'bt batok west ave 9':'BT BATOK WEST AVE 9',
+  'bukit batok west ave 9':'BT BATOK WEST AVE 9',
+  'bt merah ctrl':'BT MERAH CTRL',
+  'bukit merah ctrl':'BT MERAH CTRL',
+  'bt merah lane 1':'BT MERAH LANE 1',
+  'bukit merah lane 1':'BT MERAH LANE 1',
+  'bt merah lane':'BT MERAH LANE 1',
+  'bt merah view':'BT MERAH VIEW',
+  'bukit merah view':'BT MERAH VIEW',
+  'bt panjang ring rd':'BT PANJANG RING RD',
+  'bukit panjang ring rd':'BT PANJANG RING RD',
+  'bt purmei rd':'BT PURMEI RD',
+  'bukit purmei rd':'BT PURMEI RD',
+  'buangkok cres':'BUANGKOK CRES',
+  'buangkok crescent':'BUANGKOK CRES',
+  'buangkok green':'BUANGKOK GREEN',
+  'buangkok link':'BUANGKOK LINK',
+  'buffalo rd':'BUFFALO RD',
+  'c\'wealth ave':'C\'WEALTH AVE',
+  'c wealth ave':'C\'WEALTH AVE',
+  'commonwealth ave':'C\'WEALTH AVE',
+  'c\'wealth ave west':'C\'WEALTH AVE WEST',
+  'commonwealth ave west':'C\'WEALTH AVE WEST',
+  'c wealth ave west':'C\'WEALTH AVE WEST',
+  'c\'wealth cl':'C\'WEALTH CL',
+  'commonwealth cl':'C\'WEALTH CL',
+  'c wealth cl':'C\'WEALTH CL',
+  'c\'wealth cres':'C\'WEALTH CRES',
+  'c wealth cres':'C\'WEALTH CRES',
+  'commonwealth cres':'C\'WEALTH CRES',
+  'c\'wealth crescent':'C\'WEALTH CRES',
+  'c\'wealth dr':'C\'WEALTH DR',
+  'c wealth dr':'C\'WEALTH DR',
+  'commonwealth dr':'C\'WEALTH DR',
+  'cambridge rd':'CAMBRIDGE RD',
+  'canberra cres':'CANBERRA CRES',
+  'canberra crescent':'CANBERRA CRES',
+  'canberra dr':'CANBERRA DR',
+  'canberra link':'CANBERRA LINK',
+  'canberra rd':'CANBERRA RD',
+  'canberra st':'CANBERRA ST',
+  'canberra view':'CANBERRA VIEW',
+  'canberra walk':'CANBERRA WALK',
+  'cantonment cl':'CANTONMENT CL',
+  'cantonment rd':'CANTONMENT RD',
+  'cashew rd':'CASHEW RD',
+  'cassia cres':'CASSIA CRES',
+  'cassia crescent':'CASSIA CRES',
+  'chai chee ave':'CHAI CHEE AVE',
+  'chai chee dr':'CHAI CHEE DR',
+  'chai chee rd':'CHAI CHEE RD',
+  'chai chee st':'CHAI CHEE ST',
+  'champions way':'CHAMPIONS WAY',
+  'chander rd':'CHANDER RD',
+  'changi village rd':'CHANGI VILLAGE RD',
+  'chay yan st':'CHAY YAN ST',
+  'chin swee rd':'CHIN SWEE RD',
+  'choa chu kang ave 1':'CHOA CHU KANG AVE 1',
+  'choa chu kang ave':'CHOA CHU KANG AVE 7',
+  'choa chu kang ave 2':'CHOA CHU KANG AVE 2',
+  'choa chu kang ave 3':'CHOA CHU KANG AVE 3',
+  'choa chu kang ave 4':'CHOA CHU KANG AVE 4',
+  'choa chu kang ave 5':'CHOA CHU KANG AVE 5',
+  'choa chu kang ave 7':'CHOA CHU KANG AVE 7',
+  'choa chu kang cres':'CHOA CHU KANG CRES',
+  'choa chu kang crescent':'CHOA CHU KANG CRES',
+  'choa chu kang ctrl':'CHOA CHU KANG CTRL',
+  'choa chu kang dr':'CHOA CHU KANG DR',
+  'choa chu kang loop':'CHOA CHU KANG LOOP',
+  'choa chu kang nth 5':'CHOA CHU KANG NTH 5',
+  'choa chu kang north 5':'CHOA CHU KANG NTH 5',
+  'choa chu kang nth':'CHOA CHU KANG NTH 7',
+  'choa chu kang nth 6':'CHOA CHU KANG NTH 6',
+  'choa chu kang north 6':'CHOA CHU KANG NTH 6',
+  'choa chu kang nth 7':'CHOA CHU KANG NTH 7',
+  'choa chu kang north 7':'CHOA CHU KANG NTH 7',
+  'choa chu kang st 51':'CHOA CHU KANG ST 51',
+  'choa chu kang st':'CHOA CHU KANG ST 64',
+  'choa chu kang st 52':'CHOA CHU KANG ST 52',
+  'choa chu kang st 53':'CHOA CHU KANG ST 53',
+  'choa chu kang st 54':'CHOA CHU KANG ST 54',
+  'choa chu kang st 62':'CHOA CHU KANG ST 62',
+  'choa chu kang st 64':'CHOA CHU KANG ST 64',
+  'circuit rd':'CIRCUIT RD',
+  'clarence lane':'CLARENCE LANE',
+  'clementi ave 1':'CLEMENTI AVE 1',
+  'clementi ave':'CLEMENTI AVE 6',
+  'clementi ave 2':'CLEMENTI AVE 2',
+  'clementi ave 3':'CLEMENTI AVE 3',
+  'clementi ave 4':'CLEMENTI AVE 4',
+  'clementi ave 5':'CLEMENTI AVE 5',
+  'clementi ave 6':'CLEMENTI AVE 6',
+  'clementi st 11':'CLEMENTI ST 11',
+  'clementi st':'CLEMENTI ST 14',
+  'clementi st 12':'CLEMENTI ST 12',
+  'clementi st 13':'CLEMENTI ST 13',
+  'clementi st 14':'CLEMENTI ST 14',
+  'clementi west st 1':'CLEMENTI WEST ST 1',
+  'clementi west st':'CLEMENTI WEST ST 2',
+  'clementi west st 2':'CLEMENTI WEST ST 2',
+  'compassvale bow':'COMPASSVALE BOW',
+  'compassvale cres':'COMPASSVALE CRES',
+  'compassvale crescent':'COMPASSVALE CRES',
+  'compassvale dr':'COMPASSVALE DR',
+  'compassvale lane':'COMPASSVALE LANE',
+  'compassvale link':'COMPASSVALE LINK',
+  'compassvale rd':'COMPASSVALE RD',
+  'compassvale st':'COMPASSVALE ST',
+  'compassvale walk':'COMPASSVALE WALK',
+  'corporation dr':'CORPORATION DR',
+  'crawford lane':'CRAWFORD LANE',
+  'dakota cres':'DAKOTA CRES',
+  'dakota crescent':'DAKOTA CRES',
+  'dawson rd':'DAWSON RD',
+  'delta ave':'DELTA AVE',
+  'depot rd':'DEPOT RD',
+  'dorset rd':'DORSET RD',
+  'dover cl east':'DOVER CL EAST',
+  'dover cres':'DOVER CRES',
+  'dover crescent':'DOVER CRES',
+  'dover rd':'DOVER RD',
+  'edgedale plains':'EDGEDALE PLAINS',
+  'edgefield plains':'EDGEFIELD PLAINS',
+  'edgefield walk':'EDGEFIELD WALK',
+  'elias rd':'ELIAS RD',
+  'empress rd':'EMPRESS RD',
+  'eng hoon st':'ENG HOON ST',
+  'eng watt st':'ENG WATT ST',
+  'eunos cres':'EUNOS CRES',
+  'eunos crescent':'EUNOS CRES',
+  'eunos rd 2':'EUNOS RD 2',
+  'eunos rd':'EUNOS RD 5',
+  'eunos rd 5':'EUNOS RD 5',
+  'everton pk':'EVERTON PK',
+  'fajar rd':'FAJAR RD',
+  'farrer pk rd':'FARRER PK RD',
+  'farrer rd':'FARRER RD',
+  'fernvale lane':'FERNVALE LANE',
+  'fernvale link':'FERNVALE LINK',
+  'fernvale rd':'FERNVALE RD',
+  'fernvale st':'FERNVALE ST',
+  'french rd':'FRENCH RD',
+  'ganges ave':'GANGES AVE',
+  'gangsa rd':'GANGSA RD',
+  'geylang bahru':'GEYLANG BAHRU',
+  'geylang east ave 1':'GEYLANG EAST AVE 1',
+  'geylang east ave':'GEYLANG EAST AVE 2',
+  'geylang east ave 2':'GEYLANG EAST AVE 2',
+  'geylang east ctrl':'GEYLANG EAST CTRL',
+  'geylang serai':'GEYLANG SERAI',
+  'ghim moh link':'GHIM MOH LINK',
+  'ghim moh rd':'GHIM MOH RD',
+  'gloucester rd':'GLOUCESTER RD',
+  'guan chuan st':'GUAN CHUAN ST',
+  'haig rd':'HAIG RD',
+  'havelock rd':'HAVELOCK RD',
+  'henderson cres':'HENDERSON CRES',
+  'henderson crescent':'HENDERSON CRES',
+  'henderson rd':'HENDERSON RD',
+  'ho ching rd':'HO CHING RD',
+  'holland ave':'HOLLAND AVE',
+  'holland cl':'HOLLAND CL',
+  'holland dr':'HOLLAND DR',
+  'hougang ave 1':'HOUGANG AVE 1',
+  'hougang ave':'HOUGANG AVE 9',
+  'hougang ave 10':'HOUGANG AVE 10',
+  'hougang ave 2':'HOUGANG AVE 2',
+  'hougang ave 3':'HOUGANG AVE 3',
+  'hougang ave 4':'HOUGANG AVE 4',
+  'hougang ave 5':'HOUGANG AVE 5',
+  'hougang ave 6':'HOUGANG AVE 6',
+  'hougang ave 7':'HOUGANG AVE 7',
+  'hougang ave 8':'HOUGANG AVE 8',
+  'hougang ave 9':'HOUGANG AVE 9',
+  'hougang ctrl':'HOUGANG CTRL',
+  'hougang st 11':'HOUGANG ST 11',
+  'hougang st':'HOUGANG ST 92',
+  'hougang st 12':'HOUGANG ST 12',
+  'hougang st 13':'HOUGANG ST 13',
+  'hougang st 21':'HOUGANG ST 21',
+  'hougang st 22':'HOUGANG ST 22',
+  'hougang st 31':'HOUGANG ST 31',
+  'hougang st 32':'HOUGANG ST 32',
+  'hougang st 51':'HOUGANG ST 51',
+  'hougang st 52':'HOUGANG ST 52',
+  'hougang st 61':'HOUGANG ST 61',
+  'hougang st 91':'HOUGANG ST 91',
+  'hougang st 92':'HOUGANG ST 92',
+  'hoy fatt rd':'HOY FATT RD',
+  'indus rd':'INDUS RD',
+  'jelapang rd':'JELAPANG RD',
+  'jelebu rd':'JELEBU RD',
+  'jellicoe rd':'JELLICOE RD',
+  'jln ayer':'JLN AYER',
+  'jalan ayer':'JLN AYER',
+  'jln bahagia':'JLN BAHAGIA',
+  'jalan bahagia':'JLN BAHAGIA',
+  'jln batu':'JLN BATU',
+  'jalan batu':'JLN BATU',
+  'jln berseh':'JLN BERSEH',
+  'jalan berseh':'JLN BERSEH',
+  'jln bt ho swee':'JLN BT HO SWEE',
+  'jalan bt ho swee':'JLN BT HO SWEE',
+  'jln bt merah':'JLN BT MERAH',
+  'jalan bt merah':'JLN BT MERAH',
+  'jln damai':'JLN DAMAI',
+  'jalan damai':'JLN DAMAI',
+  'jln dua':'JLN DUA',
+  'jalan dua':'JLN DUA',
+  'jln dusun':'JLN DUSUN',
+  'jalan dusun':'JLN DUSUN',
+  'jln kayu':'JLN KAYU',
+  'jalan kayu':'JLN KAYU',
+  'jln klinik':'JLN KLINIK',
+  'jalan klinik':'JLN KLINIK',
+  'jln kukoh':'JLN KUKOH',
+  'jalan kukoh':'JLN KUKOH',
+  'jln ma\'mor':'JLN MA\'MOR',
+  'jalan ma\'mor':'JLN MA\'MOR',
+  'jln membina':'JLN MEMBINA',
+  'jalan membina':'JLN MEMBINA',
+  'jln minyak':'JLN MINYAK',
+  'jalan minyak':'JLN MINYAK',
+  'jln rajah':'JLN RAJAH',
+  'jalan rajah':'JLN RAJAH',
+  'jln rumah tinggi':'JLN RUMAH TINGGI',
+  'jalan rumah tinggi':'JLN RUMAH TINGGI',
+  'jln satu':'JLN SATU',
+  'jalan satu':'JLN SATU',
+  'jln sultan':'JLN SULTAN',
+  'jalan sultan':'JLN SULTAN',
+  'jln teck whye':'JLN TECK WHYE',
+  'jalan teck whye':'JLN TECK WHYE',
+  'jln tenaga':'JLN TENAGA',
+  'jalan tenaga':'JLN TENAGA',
+  'jln tenteram':'JLN TENTERAM',
+  'jalan tenteram':'JLN TENTERAM',
+  'jln tiga':'JLN TIGA',
+  'jalan tiga':'JLN TIGA',
+  'joo chiat rd':'JOO CHIAT RD',
+  'joo seng rd':'JOO SENG RD',
+  'jurong east ave 1':'JURONG EAST AVE 1',
+  'jurong east ave':'JURONG EAST AVE 1',
+  'jurong east st 13':'JURONG EAST ST 13',
+  'jurong east st':'JURONG EAST ST 32',
+  'jurong east st 21':'JURONG EAST ST 21',
+  'jurong east st 24':'JURONG EAST ST 24',
+  'jurong east st 31':'JURONG EAST ST 31',
+  'jurong east st 32':'JURONG EAST ST 32',
+  'jurong gateway rd':'JURONG GATEWAY RD',
+  'jurong west ave 1':'JURONG WEST AVE 1',
+  'jurong west ave':'JURONG WEST AVE 5',
+  'jurong west ave 3':'JURONG WEST AVE 3',
+  'jurong west ave 5':'JURONG WEST AVE 5',
+  'jurong west ctrl 1':'JURONG WEST CTRL 1',
+  'jurong west ctrl':'JURONG WEST CTRL 3',
+  'jurong west ctrl 3':'JURONG WEST CTRL 3',
+  'jurong west st 24':'JURONG WEST ST 24',
+  'jurong west st':'JURONG WEST ST 93',
+  'jurong west st 25':'JURONG WEST ST 25',
+  'jurong west st 41':'JURONG WEST ST 41',
+  'jurong west st 42':'JURONG WEST ST 42',
+  'jurong west st 51':'JURONG WEST ST 51',
+  'jurong west st 52':'JURONG WEST ST 52',
+  'jurong west st 61':'JURONG WEST ST 61',
+  'jurong west st 62':'JURONG WEST ST 62',
+  'jurong west st 64':'JURONG WEST ST 64',
+  'jurong west st 65':'JURONG WEST ST 65',
+  'jurong west st 71':'JURONG WEST ST 71',
+  'jurong west st 72':'JURONG WEST ST 72',
+  'jurong west st 73':'JURONG WEST ST 73',
+  'jurong west st 74':'JURONG WEST ST 74',
+  'jurong west st 75':'JURONG WEST ST 75',
+  'jurong west st 81':'JURONG WEST ST 81',
+  'jurong west st 91':'JURONG WEST ST 91',
+  'jurong west st 92':'JURONG WEST ST 92',
+  'jurong west st 93':'JURONG WEST ST 93',
+  'kallang bahru':'KALLANG BAHRU',
+  'kang ching rd':'KANG CHING RD',
+  'keat hong cl':'KEAT HONG CL',
+  'keat hong link':'KEAT HONG LINK',
+  'kelantan lane':'KELANTAN LANE',
+  'kelantan rd':'KELANTAN RD',
+  'kempas rd':'KEMPAS RD',
+  'kent rd':'KENT RD',
+  'kg arang rd':'KG ARANG RD',
+  'kg kayu rd':'KG KAYU RD',
+  'kim cheng st':'KIM CHENG ST',
+  'kim keat ave':'KIM KEAT AVE',
+  'kim keat link':'KIM KEAT LINK',
+  'kim pong rd':'KIM PONG RD',
+  'kim tian pl':'KIM TIAN PL',
+  'kim tian rd':'KIM TIAN RD',
+  'king george\'s ave':'KING GEORGE\'S AVE',
+  'kitchener rd':'KITCHENER RD',
+  'klang lane':'KLANG LANE',
+  'kreta ayer rd':'KRETA AYER RD',
+  'lengkok bahru':'LENGKOK BAHRU',
+  'lengkong tiga':'LENGKONG TIGA',
+  'lim liak st':'LIM LIAK ST',
+  'lompang rd':'LOMPANG RD',
+  'lor 1 toa payoh':'LOR 1 TOA PAYOH',
+  'lorong 1 toa payoh':'LOR 1 TOA PAYOH',
+  'lor 1a toa payoh':'LOR 1A TOA PAYOH',
+  'lorong 1a toa payoh':'LOR 1A TOA PAYOH',
+  'lor 2 toa payoh':'LOR 2 TOA PAYOH',
+  'lorong 2 toa payoh':'LOR 2 TOA PAYOH',
+  'lor 3 geylang':'LOR 3 GEYLANG',
+  'lorong 3 geylang':'LOR 3 GEYLANG',
+  'lor 3 toa payoh':'LOR 3 TOA PAYOH',
+  'lorong 3 toa payoh':'LOR 3 TOA PAYOH',
+  'lor 4 toa payoh':'LOR 4 TOA PAYOH',
+  'lorong 4 toa payoh':'LOR 4 TOA PAYOH',
+  'lor 5 toa payoh':'LOR 5 TOA PAYOH',
+  'lorong 5 toa payoh':'LOR 5 TOA PAYOH',
+  'lor 6 toa payoh':'LOR 6 TOA PAYOH',
+  'lorong 6 toa payoh':'LOR 6 TOA PAYOH',
+  'lor 7 toa payoh':'LOR 7 TOA PAYOH',
+  'lorong 7 toa payoh':'LOR 7 TOA PAYOH',
+  'lor 8 toa payoh':'LOR 8 TOA PAYOH',
+  'lorong 8 toa payoh':'LOR 8 TOA PAYOH',
+  'lor ah soo':'LOR AH SOO',
+  'lorong ah soo':'LOR AH SOO',
+  'lor lew lian':'LOR LEW LIAN',
+  'lorong lew lian':'LOR LEW LIAN',
+  'lor limau':'LOR LIMAU',
+  'lorong limau':'LOR LIMAU',
+  'lower delta rd':'LOWER DELTA RD',
+  'macpherson lane':'MACPHERSON LANE',
+  'margaret dr':'MARGARET DR',
+  'marine cres':'MARINE CRES',
+  'marine crescent':'MARINE CRES',
+  'marine dr':'MARINE DR',
+  'marine parade ctrl':'MARINE PARADE CTRL',
+  'marine ter':'MARINE TER',
+  'marsiling cres':'MARSILING CRES',
+  'marsiling crescent':'MARSILING CRES',
+  'marsiling dr':'MARSILING DR',
+  'marsiling lane':'MARSILING LANE',
+  'marsiling rd':'MARSILING RD',
+  'marsiling rise':'MARSILING RISE',
+  'maude rd':'MAUDE RD',
+  'mcnair rd':'MCNAIR RD',
+  'mei chin rd':'MEI CHIN RD',
+  'mei ling st':'MEI LING ST',
+  'moh guan ter':'MOH GUAN TER',
+  'montreal dr':'MONTREAL DR',
+  'montreal link':'MONTREAL LINK',
+  'moulmein rd':'MOULMEIN RD',
+  'mount vernon rd':'MOUNT VERNON RD',
+  'new mkt rd':'NEW MKT RD',
+  'new punggol rd':'NEW PUNGGOL RD',
+  'new upp changi rd':'NEW UPP CHANGI RD',
+  'northpoint dr':'NORTHPOINT DR',
+  'northshore cres':'NORTHSHORE CRES',
+  'northshore crescent':'NORTHSHORE CRES',
+  'northshore dr':'NORTHSHORE DR',
+  'northshore link':'NORTHSHORE LINK',
+  'northshore walk':'NORTHSHORE WALK',
+  'nth bridge rd':'NTH BRIDGE RD',
+  'old airport rd':'OLD AIRPORT RD',
+  'owen rd':'OWEN RD',
+  'pandan gdns':'PANDAN GDNS',
+  'pasir ris ctrl':'PASIR RIS CTRL',
+  'pasir ris dr 1':'PASIR RIS DR 1',
+  'pasir ris dr':'PASIR RIS DR 6',
+  'pasir ris dr 10':'PASIR RIS DR 10',
+  'pasir ris dr 3':'PASIR RIS DR 3',
+  'pasir ris dr 4':'PASIR RIS DR 4',
+  'pasir ris dr 6':'PASIR RIS DR 6',
+  'pasir ris st 11':'PASIR RIS ST 11',
+  'pasir ris st':'PASIR RIS ST 72',
+  'pasir ris st 12':'PASIR RIS ST 12',
+  'pasir ris st 13':'PASIR RIS ST 13',
+  'pasir ris st 21':'PASIR RIS ST 21',
+  'pasir ris st 41':'PASIR RIS ST 41',
+  'pasir ris st 51':'PASIR RIS ST 51',
+  'pasir ris st 52':'PASIR RIS ST 52',
+  'pasir ris st 53':'PASIR RIS ST 53',
+  'pasir ris st 71':'PASIR RIS ST 71',
+  'pasir ris st 72':'PASIR RIS ST 72',
+  'paya lebar way':'PAYA LEBAR WAY',
+  'pending rd':'PENDING RD',
+  'perumal rd':'PERUMAL RD',
+  'petir rd':'PETIR RD',
+  'pine cl':'PINE CL',
+  'pine lane':'PINE LANE',
+  'pipit rd':'PIPIT RD',
+  'pk cres':'PK CRES',
+  'pk crescent':'PK CRES',
+  'plantation cres':'PLANTATION CRES',
+  'plantation crescent':'PLANTATION CRES',
+  'potong pasir ave 1':'POTONG PASIR AVE 1',
+  'potong pasir ave':'POTONG PASIR AVE 3',
+  'potong pasir ave 2':'POTONG PASIR AVE 2',
+  'potong pasir ave 3':'POTONG PASIR AVE 3',
+  'punggol ctrl':'PUNGGOL CTRL',
+  'punggol dr':'PUNGGOL DR',
+  'punggol east':'PUNGGOL EAST',
+  'punggol field':'PUNGGOL FIELD',
+  'punggol field walk':'PUNGGOL FIELD WALK',
+  'punggol pl':'PUNGGOL PL',
+  'punggol rd':'PUNGGOL RD',
+  'punggol walk':'PUNGGOL WALK',
+  'punggol way':'PUNGGOL WAY',
+  'queen st':'QUEEN ST',
+  'queen\'s cl':'QUEEN\'S CL',
+  'queen\'s rd':'QUEEN\'S RD',
+  'queensway':'QUEENSWAY',
+  'race course rd':'RACE COURSE RD',
+  'rangoon rd':'RANGOON RD',
+  'redhill cl':'REDHILL CL',
+  'redhill lane':'REDHILL LANE',
+  'redhill rd':'REDHILL RD',
+  'rivervale cres':'RIVERVALE CRES',
+  'rivervale crescent':'RIVERVALE CRES',
+  'rivervale dr':'RIVERVALE DR',
+  'rivervale st':'RIVERVALE ST',
+  'rivervale walk':'RIVERVALE WALK',
+  'rowell rd':'ROWELL RD',
+  'sago lane':'SAGO LANE',
+  'saujana rd':'SAUJANA RD',
+  'segar rd':'SEGAR RD',
+  'selegie rd':'SELEGIE RD',
+  'sembawang ave':'SEMBAWANG AVE',
+  'sembawang cl':'SEMBAWANG CL',
+  'sembawang cres':'SEMBAWANG CRES',
+  'sembawang crescent':'SEMBAWANG CRES',
+  'sembawang dr':'SEMBAWANG DR',
+  'sembawang vista':'SEMBAWANG VISTA',
+  'sembawang way':'SEMBAWANG WAY',
+  'seng poh lane':'SENG POH LANE',
+  'seng poh rd':'SENG POH RD',
+  'sengkang ctrl':'SENGKANG CTRL',
+  'sengkang east ave':'SENGKANG EAST AVE',
+  'sengkang east dr':'SENGKANG EAST DR',
+  'sengkang east rd':'SENGKANG EAST RD',
+  'sengkang east way':'SENGKANG EAST WAY',
+  'sengkang west ave':'SENGKANG WEST AVE',
+  'sengkang west rd':'SENGKANG WEST RD',
+  'sengkang west way':'SENGKANG WEST WAY',
+  'senja cl':'SENJA CL',
+  'senja link':'SENJA LINK',
+  'senja rd':'SENJA RD',
+  'serangoon ave 1':'SERANGOON AVE 1',
+  'serangoon ave':'SERANGOON AVE 4',
+  'serangoon ave 2':'SERANGOON AVE 2',
+  'serangoon ave 3':'SERANGOON AVE 3',
+  'serangoon ave 4':'SERANGOON AVE 4',
+  'serangoon ctrl':'SERANGOON CTRL',
+  'serangoon ctrl dr':'SERANGOON CTRL DR',
+  'serangoon nth ave 1':'SERANGOON NTH AVE 1',
+  'serangoon north ave 1':'SERANGOON NTH AVE 1',
+  'serangoon nth ave':'SERANGOON NTH AVE 4',
+  'serangoon nth ave 2':'SERANGOON NTH AVE 2',
+  'serangoon north ave 2':'SERANGOON NTH AVE 2',
+  'serangoon nth ave 3':'SERANGOON NTH AVE 3',
+  'serangoon north ave 3':'SERANGOON NTH AVE 3',
+  'serangoon nth ave 4':'SERANGOON NTH AVE 4',
+  'serangoon north ave 4':'SERANGOON NTH AVE 4',
+  'shunfu rd':'SHUNFU RD',
+  'silat ave':'SILAT AVE',
+  'simei lane':'SIMEI LANE',
+  'simei rd':'SIMEI RD',
+  'simei st 1':'SIMEI ST 1',
+  'simei st':'SIMEI ST 5',
+  'simei st 2':'SIMEI ST 2',
+  'simei st 3':'SIMEI ST 3',
+  'simei st 4':'SIMEI ST 4',
+  'simei st 5':'SIMEI ST 5',
+  'sims ave':'SIMS AVE',
+  'sims dr':'SIMS DR',
+  'sims pl':'SIMS PL',
+  'sin ming ave':'SIN MING AVE',
+  'sin ming dr':'SIN MING DR',
+  'sin ming rd':'SIN MING RD',
+  'smith st':'SMITH ST',
+  'spottiswoode pk rd':'SPOTTISWOODE PK RD',
+  'st. george\'s lane':'ST. GEORGE\'S LANE',
+  'st. george\'s rd':'ST. GEORGE\'S RD',
+  'sth woodlands dr':'STH WOODLANDS DR',
+  'stirling rd':'STIRLING RD',
+  'strathmore ave':'STRATHMORE AVE',
+  'sumang lane':'SUMANG LANE',
+  'sumang link':'SUMANG LINK',
+  'sumang walk':'SUMANG WALK',
+  'tah ching rd':'TAH CHING RD',
+  'taman ho swee':'TAMAN HO SWEE',
+  'tampines ave 1':'TAMPINES AVE 1',
+  'tampines ave':'TAMPINES AVE 9',
+  'tampines ave 12':'TAMPINES AVE 12',
+  'tampines ave 2':'TAMPINES AVE 2',
+  'tampines ave 4':'TAMPINES AVE 4',
+  'tampines ave 5':'TAMPINES AVE 5',
+  'tampines ave 7':'TAMPINES AVE 7',
+  'tampines ave 8':'TAMPINES AVE 8',
+  'tampines ave 9':'TAMPINES AVE 9',
+  'tampines ctrl 1':'TAMPINES CTRL 1',
+  'tampines ctrl':'TAMPINES CTRL 8',
+  'tampines ctrl 7':'TAMPINES CTRL 7',
+  'tampines ctrl 8':'TAMPINES CTRL 8',
+  'tampines nth dr 1':'TAMPINES NTH DR 1',
+  'tampines north dr 1':'TAMPINES NTH DR 1',
+  'tampines nth dr':'TAMPINES NTH DR 2',
+  'tampines nth dr 2':'TAMPINES NTH DR 2',
+  'tampines north dr 2':'TAMPINES NTH DR 2',
+  'tampines st 11':'TAMPINES ST 11',
+  'tampines st':'TAMPINES ST 96',
+  'tampines st 12':'TAMPINES ST 12',
+  'tampines st 21':'TAMPINES ST 21',
+  'tampines st 22':'TAMPINES ST 22',
+  'tampines st 23':'TAMPINES ST 23',
+  'tampines st 24':'TAMPINES ST 24',
+  'tampines st 32':'TAMPINES ST 32',
+  'tampines st 33':'TAMPINES ST 33',
+  'tampines st 34':'TAMPINES ST 34',
+  'tampines st 41':'TAMPINES ST 41',
+  'tampines st 42':'TAMPINES ST 42',
+  'tampines st 43':'TAMPINES ST 43',
+  'tampines st 44':'TAMPINES ST 44',
+  'tampines st 45':'TAMPINES ST 45',
+  'tampines st 61':'TAMPINES ST 61',
+  'tampines st 62':'TAMPINES ST 62',
+  'tampines st 64':'TAMPINES ST 64',
+  'tampines st 71':'TAMPINES ST 71',
+  'tampines st 72':'TAMPINES ST 72',
+  'tampines st 81':'TAMPINES ST 81',
+  'tampines st 82':'TAMPINES ST 82',
+  'tampines st 83':'TAMPINES ST 83',
+  'tampines st 84':'TAMPINES ST 84',
+  'tampines st 85':'TAMPINES ST 85',
+  'tampines st 86':'TAMPINES ST 86',
+  'tampines st 91':'TAMPINES ST 91',
+  'tampines st 96':'TAMPINES ST 96',
+  'tampines walk':'TAMPINES WALK',
+  'tanglin halt rd':'TANGLIN HALT RD',
+  'tao ching rd':'TAO CHING RD',
+  'teban gdns rd':'TEBAN GDNS RD',
+  'teck whye ave':'TECK WHYE AVE',
+  'teck whye cres':'TECK WHYE CRES',
+  'teck whye crescent':'TECK WHYE CRES',
+  'teck whye lane':'TECK WHYE LANE',
+  'telok blangah cres':'TELOK BLANGAH CRES',
+  'telok blangah crescent':'TELOK BLANGAH CRES',
+  'telok blangah dr':'TELOK BLANGAH DR',
+  'telok blangah hts':'TELOK BLANGAH HTS',
+  'telok blangah rise':'TELOK BLANGAH RISE',
+  'telok blangah st 31':'TELOK BLANGAH ST 31',
+  'telok blangah st':'TELOK BLANGAH ST 32',
+  'telok blangah st 32':'TELOK BLANGAH ST 32',
+  'telok blangah way':'TELOK BLANGAH WAY',
+  'telok paku rd':'TELOK PAKU RD',
+  'tengah ctrl':'TENGAH CTRL',
+  'tengah dr':'TENGAH DR',
+  'tengah gdn ave':'TENGAH GDN AVE',
+  'tengah gdn walk':'TENGAH GDN WALK',
+  'tengah pk ave':'TENGAH PK AVE',
+  'tengah rd':'TENGAH RD',
+  'tessensohn rd':'TESSENSOHN RD',
+  'tg pagar plaza':'TG PAGAR PLAZA',
+  'thomson rd':'THOMSON RD',
+  'tiong bahru rd':'TIONG BAHRU RD',
+  'tiong poh rd':'TIONG POH RD',
+  'toa payoh ctrl':'TOA PAYOH CTRL',
+  'toa payoh east':'TOA PAYOH EAST',
+  'toa payoh nth':'TOA PAYOH NTH',
+  'toa payoh north':'TOA PAYOH NTH',
+  'toh guan rd':'TOH GUAN RD',
+  'toh yi dr':'TOH YI DR',
+  'towner rd':'TOWNER RD',
+  'ubi ave 1':'UBI AVE 1',
+  'ubi ave':'UBI AVE 1',
+  'ubi rd 3':'UBI RD 3',
+  'ubi rd':'UBI RD 3',
+  'upp aljunied lane':'UPP ALJUNIED LANE',
+  'upp aljunied rd':'UPP ALJUNIED RD',
+  'upp boon keng rd':'UPP BOON KENG RD',
+  'upp cross st':'UPP CROSS ST',
+  'upp jurong rd':'UPP JURONG RD',
+  'upp serangoon cres':'UPP SERANGOON CRES',
+  'upp serangoon crescent':'UPP SERANGOON CRES',
+  'upp serangoon rd':'UPP SERANGOON RD',
+  'upp serangoon view':'UPP SERANGOON VIEW',
+  'veerasamy rd':'VEERASAMY RD',
+  'waterloo st':'WATERLOO ST',
+  'wellington circle':'WELLINGTON CIRCLE',
+  'west coast cres':'WEST COAST CRES',
+  'west coast crescent':'WEST COAST CRES',
+  'west coast dr':'WEST COAST DR',
+  'west coast rd':'WEST COAST RD',
+  'whampoa dr':'WHAMPOA DR',
+  'whampoa rd':'WHAMPOA RD',
+  'whampoa sth':'WHAMPOA STH',
+  'whampoa south':'WHAMPOA STH',
+  'whampoa west':'WHAMPOA WEST',
+  'woodlands ave 1':'WOODLANDS AVE 1',
+  'woodlands ave':'WOODLANDS AVE 9',
+  'woodlands ave 3':'WOODLANDS AVE 3',
+  'woodlands ave 4':'WOODLANDS AVE 4',
+  'woodlands ave 5':'WOODLANDS AVE 5',
+  'woodlands ave 6':'WOODLANDS AVE 6',
+  'woodlands ave 8':'WOODLANDS AVE 8',
+  'woodlands ave 9':'WOODLANDS AVE 9',
+  'woodlands circle':'WOODLANDS CIRCLE',
+  'woodlands cres':'WOODLANDS CRES',
+  'woodlands crescent':'WOODLANDS CRES',
+  'woodlands dr 14':'WOODLANDS DR 14',
+  'woodlands dr':'WOODLANDS DR 75',
+  'woodlands dr 16':'WOODLANDS DR 16',
+  'woodlands dr 40':'WOODLANDS DR 40',
+  'woodlands dr 42':'WOODLANDS DR 42',
+  'woodlands dr 44':'WOODLANDS DR 44',
+  'woodlands dr 50':'WOODLANDS DR 50',
+  'woodlands dr 52':'WOODLANDS DR 52',
+  'woodlands dr 53':'WOODLANDS DR 53',
+  'woodlands dr 60':'WOODLANDS DR 60',
+  'woodlands dr 62':'WOODLANDS DR 62',
+  'woodlands dr 70':'WOODLANDS DR 70',
+  'woodlands dr 71':'WOODLANDS DR 71',
+  'woodlands dr 72':'WOODLANDS DR 72',
+  'woodlands dr 73':'WOODLANDS DR 73',
+  'woodlands dr 75':'WOODLANDS DR 75',
+  'woodlands ind pk e3':'WOODLANDS IND PK E3',
+  'woodlands ring rd':'WOODLANDS RING RD',
+  'woodlands rise':'WOODLANDS RISE',
+  'woodlands st 11':'WOODLANDS ST 11',
+  'woodlands st':'WOODLANDS ST 83',
+  'woodlands st 12':'WOODLANDS ST 12',
+  'woodlands st 13':'WOODLANDS ST 13',
+  'woodlands st 31':'WOODLANDS ST 31',
+  'woodlands st 32':'WOODLANDS ST 32',
+  'woodlands st 41':'WOODLANDS ST 41',
+  'woodlands st 81':'WOODLANDS ST 81',
+  'woodlands st 82':'WOODLANDS ST 82',
+  'woodlands st 83':'WOODLANDS ST 83',
+  'woodleigh link':'WOODLEIGH LINK',
+  'yishun ave 1':'YISHUN AVE 1',
+  'yishun ave':'YISHUN AVE 9',
+  'yishun ave 11':'YISHUN AVE 11',
+  'yishun ave 2':'YISHUN AVE 2',
+  'yishun ave 3':'YISHUN AVE 3',
+  'yishun ave 4':'YISHUN AVE 4',
+  'yishun ave 5':'YISHUN AVE 5',
+  'yishun ave 6':'YISHUN AVE 6',
+  'yishun ave 7':'YISHUN AVE 7',
+  'yishun ave 9':'YISHUN AVE 9',
+  'yishun ctrl':'YISHUN CTRL 1',
+  'yishun ctrl 1':'YISHUN CTRL 1',
+  'yishun ring rd':'YISHUN RING RD',
+  'yishun st 11':'YISHUN ST 11',
+  'yishun st':'YISHUN ST 81',
+  'yishun st 20':'YISHUN ST 20',
+  'yishun st 21':'YISHUN ST 21',
+  'yishun st 22':'YISHUN ST 22',
+  'yishun st 31':'YISHUN ST 31',
+  'yishun st 41':'YISHUN ST 41',
+  'yishun st 42':'YISHUN ST 42',
+  'yishun st 43':'YISHUN ST 43',
+  'yishun st 44':'YISHUN ST 44',
+  'yishun st 51':'YISHUN ST 51',
+  'yishun st 61':'YISHUN ST 61',
+  'yishun st 71':'YISHUN ST 71',
+  'yishun st 72':'YISHUN ST 72',
+  'yishun st 81':'YISHUN ST 81',
+  'yong siak st':'YONG SIAK ST',
+  'york hill':'YORK HILL',
+  'yuan ching rd':'YUAN CHING RD',
+  'yung an rd':'YUNG AN RD',
+  'yung ho rd':'YUNG HO RD',
+  'yung kuang rd':'YUNG KUANG RD',
+  'yung loh rd':'YUNG LOH RD',
+  'yung ping rd':'YUNG PING RD',
+  'yung sheng rd':'YUNG SHENG RD',
+  'zion rd':'ZION RD',
+  'toa payoh':'TOA PAYOH',
+  'tpy':'TOA PAYOH',
+  'tp':'TOA PAYOH',
+  'tpy lorong':'LOR 1 TOA PAYOH',
+  'lor toa payoh':'LOR 1 TOA PAYOH',
+  'lorong toa payoh':'LOR 1 TOA PAYOH',
+  'ang mo kio':'ANG MO KIO',
+  'amk':'ANG MO KIO',
+  'choa chu kang':'CHOA CHU KANG',
+  'cck':'CHOA CHU KANG',
+  'chu kang':'CHOA CHU KANG',
+  'bukit batok':'BUKIT BATOK',
+  'bt batok':'BUKIT BATOK',
+  'bbatok':'BUKIT BATOK',
+  'bukit merah':'BUKIT MERAH',
+  'bt merah':'BUKIT MERAH',
+  'bukit panjang':'BUKIT PANJANG',
+  'bt panjang':'BUKIT PANJANG',
+  'btp':'BUKIT PANJANG',
+  'bukit timah':'BUKIT TIMAH',
+  'bt timah':'BUKIT TIMAH',
+  'kallang':'KALLANG/WHAMPOA',
+  'whampoa':'KALLANG/WHAMPOA',
+  'kallang whampoa':'KALLANG/WHAMPOA',
+  'queenstown':'QUEENSTOWN',
+  'qt':'QUEENSTOWN',
+  'queen town':'QUEENSTOWN',
+  'jurong east':'JURONG EAST',
+  'je':'JURONG EAST',
+  'jurong west':'JURONG WEST',
+  'jw':'JURONG WEST',
+  'marine parade':'MARINE PARADE',
+  'mp':'MARINE PARADE',
+  'east coast':'MARINE PARADE',
+  'pasir ris':'PASIR RIS',
+  'prc':'PASIR RIS',
+  'pr':'PASIR RIS',
+  'sengkang':'SENGKANG',
+  'sk':'SENGKANG',
+  'punggol':'PUNGGOL',
+  'pg':'PUNGGOL',
+  'serangoon':'SERANGOON',
+  'sgn':'SERANGOON',
+  'sng':'SERANGOON',
+  'sembawang':'SEMBAWANG',
+  'sb':'SEMBAWANG',
+  'hougang':'HOUGANG',
+  'hg':'HOUGANG',
+  'woodlands':'WOODLANDS',
+  'wl':'WOODLANDS',
+  'yishun':'YISHUN',
+  'ys':'YISHUN',
+  'tampines':'TAMPINES',
+  'tengah':'TENGAH',
+  'tg':'TENGAH',
+  'bedok':'BEDOK',
+  'bd':'BEDOK',
+  'clementi':'CLEMENTI',
+  'cl':'CLEMENTI',
+  'central area':'CENTRAL AREA',
+  'city area':'CENTRAL AREA',
+  'ct':'CENTRAL AREA',
+  'city hall':'CENTRAL AREA',
+  'chinatown':'CENTRAL AREA',
+  'tanjong pagar':'CENTRAL AREA',
+  'geylang':'GEYLANG',
+  'gl':'GEYLANG',
+  'teban gardens':'TEBAN GDNS RD',
+  'teban gdns':'TEBAN GDNS RD',
+  'teban':'TEBAN GDNS RD',
+  'moh guan terrace':'MOH GUAN TER',
+  'moh guan':'MOH GUAN TER',
+  'toh guan road':'TOH GUAN RD',
+  'toh guan':'TOH GUAN RD',
+  'pandan gardens':'PANDAN GDNS',
+  'commonwealth drive':'C\'WEALTH DR',
+  'commonwealth close':'C\'WEALTH CL',
+  'commonwealth crescent':'C\'WEALTH CRES',
+  'bukit merah central':'BT MERAH CTRL',
+  'bukit merah lane':'BT MERAH LANE 1',
+  'bt purmei':'BT PURMEI RD',
+  'bukit purmei':'BT PURMEI RD',
+  'bukit ho swee':'JLN BT HO SWEE',
+  'jalan bukit ho swee':'JLN BT HO SWEE',
+  'jalan mamor':'JLN MA\'MOR',
+  'kampong kayu':'KG KAYU RD',
+  'kg kayu':'KG KAYU RD',
+  'kampong arang':'KG ARANG RD',
+  'kg arang':'KG ARANG RD',
+  'everton park':'EVERTON PK',
+  'old airport':'OLD AIRPORT RD',
+  'bedok north':'BEDOK NTH RD',
+  'bedok north road':'BEDOK NTH RD',
+  'bedok north ave':'BEDOK NTH AVE 1',
+  'bedok north st':'BEDOK NTH ST 1',
+  'bedok nth':'BEDOK NTH RD',
+  'sin ming road':'SIN MING RD',
+  'sth woodlands':'STH WOODLANDS DR',
+  'south woodlands':'STH WOODLANDS DR',
+  'south woodlands drive':'STH WOODLANDS DR',
+};
+
+// Town code → full town name (from HDB property database)
+const TOWN_CODE_MAP={
+  'AMK':'ANG MO KIO',
+  'BB':'BUKIT BATOK',
+  'BD':'BEDOK',
+  'BH':'BUKIT PANJANG',
+  'BM':'BUKIT MERAH',
+  'BP':'BUKIT PANJANG',
+  'BT':'BUKIT TIMAH',
+  'CCK':'CHOA CHU KANG',
+  'CL':'CLEMENTI',
+  'CT':'CENTRAL AREA',
+  'GL':'GEYLANG',
+  'HG':'HOUGANG',
+  'JE':'JURONG EAST',
+  'JW':'JURONG WEST',
+  'KWN':'KALLANG/WHAMPOA',
+  'MP':'MARINE PARADE',
+  'PG':'PUNGGOL',
+  'PRC':'PASIR RIS',
+  'QT':'QUEENSTOWN',
+  'SB':'SEMBAWANG',
+  'SGN':'SERANGOON',
+  'SK':'SENGKANG',
+  'TAP':'TOA PAYOH',
+  'TG':'TENGAH',
+  'TP':'TAMPINES',
+  'WL':'WOODLANDS',
+  'YS':'YISHUN',
+};
+
 function reverseStreet(streetRaw){
   if(!DB.loaded||!streetRaw)return null;
+
+  // ── STREET SHORT-FORM LOOKUP — check user input against 548 shortform mappings ──
+  const inputLower=streetRaw.toLowerCase().replace(/\s+/g,' ').trim();
+  const sfMatch=STREET_SHORTFORMS[inputLower];
+  if(sfMatch){
+    // Found a shortform match — search DB for this canonical street name
+    const sfResults=DB.resale.filter(r=>r.street_name&&r.street_name.toUpperCase().startsWith(sfMatch));
+    if(sfResults.length)return _srResult(sfResults);
+  }
+  // Also try matching prefix of input against shortforms
+  for(const[short,full]of Object.entries(STREET_SHORTFORMS)){
+    if(short.length>=6&&inputLower.startsWith(short)){
+      const sfResults=DB.resale.filter(r=>r.street_name&&r.street_name.toUpperCase().startsWith(full));
+      if(sfResults.length)return _srResult(sfResults);
+    }
+  }
 
   // Contract long→short so "Street"→"ST", "Avenue"→"AVE" etc matches DB format
   let s=contractStreetAbbr(streetRaw.toUpperCase().trim())
@@ -1662,13 +2640,39 @@ function showTransactions(recs,params,is6mo){
     const chips=[
       {label:'ESTIMATE VALUATION',val:'estimate value'},
       {label:'SEARCH AGAIN',val:'search'},
+      {label:'CHANGE DETAILS',val:'__searchform__'},
       {label:'START FRESH',val:'__restart__'},
       ...(params.town&&!params.street?[{label:'COMPARE TOWNS',val:`most expensive town vs ${params.town}`}]:[]),
       ...(params.street?[{label:'WHY SO EXPENSIVE?',val:`why is ${locLabel} so expensive`}]:[]),
       ...(params.block?[{label:'ESTIMATE THIS UNIT',val:`estimate value block ${params.block} ${params.street||''}`}]:[])
     ];
-    // Interpretation + graceful close
-    harveyMsg(insight+'<br><br><em style="color:var(--t2);font-size:11px">Anything else I can help with, sir?</em>',chips);
+    // ── EMOTION LAYER — check for SIT/heritage/EA/EM/price signals ──
+    let eqLine='';
+    // Check if results contain SIT-era flats
+    const sitCheck=recs[0]?harveySITFlat(recs[0]):null;
+    if(sitCheck) eqLine=sitCheck;
+    // Check EA/EM type
+    if(!eqLine){const eaCheck=recs[0]?harveyEAEMFlat(recs[0]):null;if(eaCheck)eqLine=eaCheck;}
+    // Check 3-room landed
+    if(!eqLine){const landedCheck=recs[0]?harveyLandedHDB(recs[0]):null;if(landedCheck)eqLine=landedCheck;}
+    // Million dollar anxiety
+    if(!eqLine&&median>900000){
+      const eq=EQ_REPLIES.fear;
+      eqLine=eq[Math.floor(Math.random()*eq.length)];
+    }
+    // Price anxiety for raw input
+    if(!eqLine){const specialEQ=harveySpecialEQ(lastRaw||'',{price:median,leaseYear:recs[0]&&recs[0].lease_commence_date});if(specialEQ)eqLine=specialEQ;}
+    // Generic Jarvis close
+    if(!eqLine){
+      const closes=[
+        'Query complete, sir.',
+        'All wrapped up here, sir. Will there be anything else?',
+        'As always, sir — a great pleasure watching you work.',
+        'Shall I render using proposed selections, sir?',
+      ];
+      eqLine=closes[Math.floor(Math.random()*closes.length)];
+    }
+    harveyMsg(insight+'<br><br><em style="color:var(--t2);font-size:11px">'+eqLine+'</em>',chips);
     speak(insight.replace(/<[^>]*>/g,'').slice(0,220));
   },1400);
   mode='menu';
@@ -2503,7 +3507,21 @@ async function _handleInputInner(raw){
   }
 
   userMsg(raw);
-  if(!DB.loaded){harveyMsg('Still loading data, sir. One moment...');return;}
+  lastRaw=raw; // track for EQ layer
+
+  // ── ESTIMATE VALUATION — hard bypass, always go straight to EV form ──
+  if(/^estimate value$/i.test(raw.trim())||/^valuation$/i.test(raw.trim())||/^estimate valuation$/i.test(raw.trim())){
+    ctx={...convCtx,isEV:true};
+    mode='ev_waiting';
+    const missing=buildMissingPrompt(ctx);
+    if(missing.length>0){
+      harveyMsg(buildHudForm(ctx));
+      speak('A few details please, sir — block, street, floor, flat type and size. Fill in what you know.');
+    } else {
+      runEV();
+    }
+    loading=false;sbEl.disabled=false;return;
+  }
 
   // ── STOP YAPPING / CUT TO DATA ──
   if(/stop.*yapp|stop talking|enough.*talk|cut.*chase|data.*please|go.*straight|straight.*point|skip.*chat|no.*chat|just.*data|results.*only|less.*talk|zip.*it|shush.*harvey|quiet.*harvey|focus.*harvey|stop.*rambling/i.test(raw)){
@@ -2539,8 +3557,23 @@ async function _handleInputInner(raw){
     }
     dataChips.push({label:'RESALE TRANSACTIONS',val:'search'});
     dataChips.push({label:'ESTIMATE VALUATION',val:'estimate value'});
-    harveyMsg(chitChatEarly,dataChips);
-    speak(chitChatEarly.replace(/<[^>]*>/g,'').slice(0,250));
+    // ── EMOTION LAYER — detect emotion and append EQ flavour as addendum ──
+    const eqSpecial=harveySpecialEQ(raw,convCtx);
+    let chitMsg=chitChatEarly;
+    if(eqSpecial){
+      chitMsg=chitChatEarly+'<br><br><em style="color:var(--t2);font-size:11px">'+eqSpecial+'</em>';
+    } else {
+      const emo=detectEmotion(raw);
+      if(emo&&emo.score>=2){
+        const eqPool=EQ_REPLIES[emo.emotion];
+        if(eqPool&&eqPool.length){
+          const eqLine=eqPool[Math.floor(Math.random()*eqPool.length)];
+          chitMsg=chitChatEarly+'<br><br><em style="color:var(--t2);font-size:11px">'+eqLine+'</em>';
+        }
+      }
+    }
+    harveyMsg(chitMsg,dataChips);
+    speak(chitMsg.replace(/<[^>]*>/g,'').slice(0,280));
     mode=prevMode;
     return;
   }
@@ -3269,6 +4302,16 @@ function harveyChitChat(raw, convCtx){
     'UPPER EAST COAST','CHAI CHEE','GEYLANG BAHRU','WHAMPOA DR','BISHAN ST',
     'LORONG TOA PAYOH','UPPER SERANGOON','SEMBAWANG DR','CANBERRA DR','MARGARET DR',
     'HENDERSON RD','REDHILL CL','STIRLING RD','COMMONWEALTH CL','DEPOT RD',
+    // New additions — unique street name fragments
+    'TEBAN GDNS','TEBAN GARDENS','COMPASSVALE','RIVERVALE','FERNVALE','ANCHORVALE',
+    'LORONG CHUAN','LORONG AH SOO','UPPER BOON KENG','POTONG PASIR','SIN MING',
+    'MARSILING','LORONG LEW LIAN','KEAT HONG','DAIRY FARM','BUKIT PANJANG RING',
+    'CHENCHARU','NORTHLAND','EDGEDALE','EDGEFIELD','WATERWAY','NORTHSHORE',
+    'KIM TIAN','KIM KEAT','JALAN MEMBINA','BOON KENG RD','LORONG 3 GEYLANG',
+    'OPERA EST','TANJONG RHU','KOLAM AYER','JALAN KAYU','JALAN BESAR',
+    'VEERASAMY','RACE COURSE','FARRER PK','MOULMEIN','DORSET RD',
+    'SIMEI AVE','SIMEI RD','NEW UPPER CHANGI','UPPER EAST COAST',
+    'FLORA RD','BEDOK CAMP','SHUNFU RD','MARYMOUNT RD',
   ];
   if(STREET_COMBOS.some(c=>rawUp.includes(c)))return null;
   if(/\bblk\s*\d+|\bblock\s*\d+|\bfloor\s*\d+|\blevel\s*\d+|\bstorey\s*\d+/i.test(raw))return null;
@@ -3526,17 +4569,7 @@ function harveyChitChat(raw, convCtx){
       'polyclinic','a&e','emergency','icu','operating theatre','ward round',
       'on call','night duty','post call','mbbs','medical school','nus medicine',
       'residency','fellowship','fams','college of surgeons'],
-    accountant:['accountant','certified accountant','chartered accountant','ca','cpa',
-      'acca','cima','icaew','isca',
-      'audit','auditor','external audit','internal audit','statutory audit',
-      'big four','big 4','deloitte','pwc','ernst young','ey','kpmg',
-      'grant thornton','rsm','bdo','baker tilly',
-      'month end','year end','closing','balance sheet','income statement','cash flow',
-      'profit loss','p and l','revenue','accruals','journal entry','reconciliation',
-      'variance','budget','opex','capex','cost saving','cost reduction',
-      'ifrs','frs','ias','gaap','fair value','impairment','goodwill',
-      'consolidation','group accounts','intercompany','audit committee',
-      'sox','internal controls','cfo','finance director','controller'],
+    accountant:['accountant','certified accountant','chartered accountant','cpa','acca','cima','icaew','isca','audit','auditor','external audit','internal audit','statutory audit','big four accounting','big 4 accounting','deloitte','pwc','ernst young','kpmg','grant thornton','baker tilly','month end','year end','closing','balance sheet','income statement','cash flow','profit loss','p and l','revenue','accruals','journal entry','reconciliation','variance','budget','capex','cost saving','cost reduction','ifrs','gaap','fair value','impairment','goodwill','consolidation','group accounts','intercompany','audit committee','internal controls','cfo','finance director','controller'],
     engineer:['engineer','engineering','civil engineer','structural','mep',
       'mechanical engineer','thermodynamics','fluid mechanics',
       'electrical engineer','electronics','circuit design',
@@ -3783,6 +4816,22 @@ function harveyChitChat(raw, convCtx){
       'aging in place','silver hair','2 room flexi','lease buyback',
       'hdb retiree','downsizing','smaller flat','healthcare flat',
       'morning walk retire','park walk retire','kopitiam retire'],
+    sitflat:['sit flat','singapore improvement trust','tiong bahru','seng poh','eng hoon',
+      'guan chuan','yong siak','chay yan','lim liak','kim cheng','kim pong',
+      'moh guan ter','old flat','heritage flat','old hdb','pre hdb','very old flat',
+      'oldest flat','original hdb','1930s flat','1940s flat','1950s flat','1960s flat',
+      'pre war flat','prewar flat','dakota crescent','dakota cres','old airport road',
+      'everton park','taman ho swee','beo crescent','beo cres',
+      'heritage block','vintage hdb','legend flat','rare flat','collector flat',
+      'classic hdb','historic hdb','tiong bahru estate','dakota estate',
+      'google friend bought','tech friend bought','friend in google',
+      'short lease','very short lease','low lease','remaining lease'],
+    eaem:['executive apartment','executive maisonette','ea flat','em flat',
+      'maisonette','semi detached hdb','bi level','bi-level','split level hdb',
+      'duplex hdb','2 storey hdb','two storey flat','large flat','biggest flat',
+      'executive hdb','executive unit','hdb executive','large unit'],
+    landedHDB:['landed hdb','terrace hdb','hdb terrace','3 room landed','landed public housing',
+      'semi detached public','corner terrace hdb'],
     luxury:['luxury brand','luxury item','luxury lifestyle','premium brand',
       'high end','prestige brand','finer things','treat myself','spoil myself',
       'reward myself','after work treat','bonus shopping','big purchase',
@@ -3791,18 +4840,17 @@ function harveyChitChat(raw, convCtx){
 
 
   function topicOf(input){
-    // First pass: exact substring match (handles multi-word phrases)
+    // First pass: substring match — only for words 4+ chars to avoid 'ca' matching 'car'
     for(const[topic,words]of Object.entries(JOINS)){
-      if(words.some(w=>input.includes(w)))return topic;
+      if(words.some(w=>w.length>=4&&input.includes(w)))return topic;
     }
-    // Second pass: word-boundary match for single short words
-    // Splits input into tokens and checks if any joining word matches as a whole word
+    // Second pass: exact word-boundary match for 3+ char single words
     const tokens=input.split(/\s+/);
     for(const[topic,words]of Object.entries(JOINS)){
       if(words.some(w=>{
-        if(w.includes(' '))return false; // already tried multi-word above
-        if(w.length<3)return false; // too short, too ambiguous
-        return tokens.some(t=>t===w||t.startsWith(w+'s')||t.startsWith(w+'ing')||t.startsWith(w+'ed'));
+        if(w.includes(' '))return false;
+        if(w.length<3)return false;
+        return tokens.some(t=>t===w||t===w+'s'||t===w+'ing'||t===w+'ed'||t===w+'r');
       }))return topic;
     }
     return null;
@@ -4044,35 +5092,59 @@ function harveyChitChat(raw, convCtx){
       'holy innocents':['HOUGANG'],
       'rosyth':['SERANGOON'],
       'raffles institution':['BISHAN','TOA PAYOH'],
+      'raffles girls':['CENTRAL AREA','QUEENSTOWN'],
       'hwa chong':['BUKIT TIMAH','CLEMENTI'],
       'nanyang girls':['BUKIT TIMAH'],
       'victoria school':['BISHAN','SERANGOON'],
       'acs junior':['NOVENA','BISHAN'],
+      'acs independent':['BISHAN'],
       'princess elizabeth':['BUKIT BATOK'],
       'methodist girls':['BUKIT TIMAH'],
       'henry park':['BUKIT TIMAH'],
-      'chij nicholas':['ANG MO KIO'],
+      // Saint/ST schools — detected whether user types "st nicholas", "saint nicholas" etc
+      'chij st nicholas':['ANG MO KIO'],
+      'saint nicholas':['ANG MO KIO'],
       'st nicholas':['ANG MO KIO'],
+      'chij st joseph':['CENTRAL AREA'],
+      'saint joseph institution':['CENTRAL AREA'],
+      'st joseph institution':['CENTRAL AREA'],
+      'sji':['CENTRAL AREA'],
+      'saint hilda':['TAMPINES'],
+      'st hilda':['TAMPINES'],
+      'saint andrew':['TOA PAYOH'],
+      'st andrew':['TOA PAYOH'],
+      'saint michael':['CENTRAL AREA'],
+      'st michael':['CENTRAL AREA'],
+      'saint anthony':['BUKIT TIMAH'],
+      'st anthony':['BUKIT TIMAH'],
       'catholic high':['BISHAN','ANG MO KIO'],
+      'chij tpjc':['TOA PAYOH'],
+      'chij secondary':['TOA PAYOH'],
     };
+    // Normalise query — expand "st " to school context only if followed by a known saint name
+    const qSchool = q.replace(/\bst\s+(nicholas|joseph|hilda|andrew|michael|anthony|gabriel|patrick|theresa|teresa|ignatius|francis)\b/gi,
+      (m, name) => 'saint ' + name.toLowerCase());
     for(const[school,towns]of Object.entries(schoolLoc)){
-      if(q.includes(school)){
+      if(qSchool.includes(school)||q.includes(school)){
         const primaryTown=towns[0];
         const townDisplay=towns.map(t=>t.charAt(0)+t.slice(1).toLowerCase()).join(' or ');
-        // Store town in convCtx so the next search is pre-populated
-        if(convCtx)convCtx.town=primaryTown;
+        // Always overwrite convCtx town — clear street/block so new school context is clean
+        if(convCtx){
+          convCtx.town=primaryTown;
+          delete convCtx.street;
+          delete convCtx.block;
+          delete convCtx.floor;
+        }
         const schoolProper=school.replace(/\b\w/g,c=>c.toUpperCase());
-        const msg=`${schoolProper} is in the <strong style="color:var(--c)">${towns.map(t=>t.charAt(0)+t.slice(1).toLowerCase()).join(' / ')}</strong> area, sir. On a best-effort basis, the 1km catchment typically covers blocks along the main streets in ${townDisplay}.<br><br>I have set the area to <strong style="color:var(--c)">${primaryTown}</strong> — but a property purchase near a school is a costly, big-ticket decision, and your child's educational future is on the table. Please verify the exact 1km boundary on <a href="https://www.onemap.gov.sg" target="_blank" style="color:var(--g)">OneMap Singapore</a> before committing to any address.<br><br><em style="color:var(--t2);font-size:11px">Which specific street in ${townDisplay} are you interested in, sir? Enter below or select from the options.</em>`;
+        const msg=`${schoolProper} is in the <strong style="color:var(--c)">${towns.map(t=>t.charAt(0)+t.slice(1).toLowerCase()).join(' / ')}</strong> area, sir. On a best-effort basis, the 1km catchment typically covers blocks along the main streets in ${townDisplay}.<br><br>I have set the search area to <strong style="color:var(--c)">${primaryTown}</strong> — but a property purchase near a school is a costly, big-ticket decision, and your child's educational future is on the table. Please verify the exact 1km boundary on <a href="https://www.onemap.gov.sg" target="_blank" style="color:var(--g)">OneMap Singapore</a> before committing to any address.<br><br><em style="color:var(--t2);font-size:11px">Which specific street in ${townDisplay} are you interested in, sir? Please type the street name or select from the chips below.</em>`;
         const chips=[
           {label:`SEARCH ${primaryTown}`,val:`resale transactions ${primaryTown}`},
           {label:`4-ROOM ${primaryTown.split(' ')[0]}`,val:`4 room ${primaryTown}`},
           {label:`5-ROOM ${primaryTown.split(' ')[0]}`,val:`5 room ${primaryTown}`},
           ...(towns[1]?[{label:`TRY ${towns[1].split(' ')[0]}`,val:`resale transactions ${towns[1]}`}]:[]),
+          {label:'CHANGE SCHOOL',val:'search near school'},
           {label:'ONEMAP CATCHMENT →',val:`__onemap__`},
         ];
-        // Return null here — let the caller handle chips via harveyMsg
-        // We store town and return a special signal
-        if(convCtx){convCtx.town=primaryTown;}
         return {_schoolResponse:true,msg,chips};
       }
     }
@@ -4113,8 +5185,24 @@ function harveyChitChat(raw, convCtx){
     const sh={kshow:`Korean content, sir — Running Man's longevity, Physical 100's revelation, Singles Inferno's strategic sincerity. What's currently on?`,usshow:`American prestige television, sir — Breaking Bad, Succession, Black Mirror. What are we watching?`,sitcom:`Classic sitcoms, sir — Friends, HIMYM, Big Bang Theory. The shows that defined an era. Which one?`,taiwanvariety:`Taiwan variety shows, sir — 我猜我猜我猜猜猜 with Jackie Wu, the golden era of warmth and entertainment. Which show?`};
     return withCtx(sh[topicKey]||`Television, sir. What are we watching?`);
   }
-  if(['luxurycard','condo','countryclub','luxury','retiree'].includes(topicKey)&&!isDeep){
-    const li={luxurycard:`Premium credit cards, sir — Amex Platinum for Priority Pass and concierge. KrisFlyer miles for the Singapore Airlines play. The metal card that makes a specific sound on the restaurant table. Which card?`,condo:`Condominiums, sir — the natural next step after a well-timed HDB resale. The pool, the gym, the security, the address. Which development or area?`,countryclub:`Country clubs, sir — SICC for the serious golfer. Tanglin for the heritage dining rooms. SCC for the cricket and the bar. Which club?`,luxury:`The finer things, sir — watches, cars, bags, dining, travel. What's the luxury conversation today?`,retiree:`The golden years, sir — the 2-room Flexi, the morning walk, the kopitiam ritual, the park connector circuit. Which area are you considering for retirement living?`};
+  // SIT FLAT — Heritage conversation
+  if(topicKey==='sitflat'&&!isDeep){
+    return withCtx(r(
+      `SIT flats, sir — Singapore Improvement Trust. Built between 1937 and 1959, before HDB existed. The Tiong Bahru estate is the most famous: art deco-influenced blocks, curved staircases, generous ceiling heights that modern construction simply does not produce. Dakota Crescent. Everton Park. These are Singapore's original public housing legends. The caveat — and it is a significant one — is the lease. A 1937 flat has been running for nearly ninety years. The romance is real. The remaining lease is finite. Shall I show you what these have been transacting at?`,
+      `The SIT estate conversation, sir — a niche interest that marks you out as someone who knows their Singapore housing history. Tiong Bahru's curved blocks, Seng Poh Road, Guan Chuan Street — these were built by the colonial-era Singapore Improvement Trust before HDB was established in 1960. My tech friends who have discovered them call them hidden gems. The lease situation is the variable that requires serious attention before any purchase. Shall we look at the data?`,
+      `Singapore Improvement Trust, sir — the original public housing. Pre-war blocks in Bukit Merah and Tiong Bahru. The Dakota Crescent estate in Geylang. Old Airport Road. The architecture has an authenticity that no modern development can replicate. The lease, however, has been running since before Singapore's independence. For a young couple, the financial calculus requires careful attention. For the right buyer, these are genuinely special properties. Shall we look at what's been transacting?`
+    ));
+  }
+
+  // EA / EM FLAT
+  if(topicKey==='eaem'&&!isDeep){
+    return withCtx(r(
+      `Executive Apartments and Maisonettes, sir — the forgotten premium tier of Singapore's HDB legacy. Larger than a 5-room flat, often with a split-level layout, and built in an era when HDB believed in generosity of space. The Maisonette with its internal staircase and double-height living area is genuinely impressive by any standard. They transact less frequently than standard flat types, which creates interesting market dynamics. Shall I look at what's available?`,
+      `The Executive Maisonette, sir — the 1980s and 1990s HDB at its most ambitious. Larger floor plates, better layouts, the kind of internal proportions that modern BTO cannot match. Newer than the SIT legends but carrying their own character. The floor area alone justifies the premium over a standard 5-room. Shall we look at what's been transacting?`
+    ));
+  }
+
+  if(['luxurycard','condo','countryclub','luxury','retiree'].includes(topicKey)&&!isDeep){    const li={luxurycard:`Premium credit cards, sir — Amex Platinum for Priority Pass and concierge. KrisFlyer miles for the Singapore Airlines play. The metal card that makes a specific sound on the restaurant table. Which card?`,condo:`Condominiums, sir — the natural next step after a well-timed HDB resale. The pool, the gym, the security, the address. Which development or area?`,countryclub:`Country clubs, sir — SICC for the serious golfer. Tanglin for the heritage dining rooms. SCC for the cricket and the bar. Which club?`,luxury:`The finer things, sir — watches, cars, bags, dining, travel. What's the luxury conversation today?`,retiree:`The golden years, sir — the 2-room Flexi, the morning walk, the kopitiam ritual, the park connector circuit. Which area are you considering for retirement living?`};
     return withCtx(li[topicKey]||`Lifestyle, sir. What are we discussing?`);
   }
 
@@ -5957,6 +7045,478 @@ function harveyChitChat(raw, convCtx){
 // classify(raw) returns a topic label string if OOS, or null if Harvey can handle it.
 // quip(raw, topic) builds a casual parrot-back response with the user's own words.
 // sentiment(raw) returns {hostile, sarcastic, hasHDBContent} for emotional routing.
+
+// ══════════════════════════════════════════════════════════════════
+// HARVEY EMOTION LAYER — EQ Detection + Jarvis Tonal Response
+// Architecture: runs AFTER main response, adds emotional overlay.
+// Does NOT overwrite existing replies — appends or follows up.
+// ══════════════════════════════════════════════════════════════════
+
+const EMOTION_JOINS = {
+
+  // ── JOY / HAPPINESS ──
+  joy: [
+    // English high
+    'bliss','blissful','ecstasy','ecstatic','euphoria','euphoric','jubilation','jubilant',
+    'rapture','rapturous','elated','elation','overjoyed','thrilled','exhilarated','exhilaration',
+    // English moderate
+    'happy','happiness','cheerful','delighted','enthusiastic','gleeful','joyous','proud',
+    'excited','wonderful','fantastic','amazing','great news','good news','awesome news',
+    'brilliant news','incredible','so happy','very happy','really happy','extremely happy',
+    'so excited','very excited','cant wait','cannot wait','absolutely love','love this',
+    'love it','loving it','this is great','this is amazing','this is wonderful',
+    // English low
+    'calm','content','peaceful','satisfied','serene','tranquil','pleased','glad',
+    'relieved','comfortable','relaxed','at ease','settled','good feeling',
+    'feeling good','feel good','feels good','feels right',
+    // Singlish / Singapore informal
+    'shiok','very shiok','so shiok','damn shiok','sibei shiok','power lah','power sia',
+    'geng sia','geng leh','steady lah','steady sia','steady bom pi pi','solid lah',
+    'solid sia','wah lao weh good','wah damn good','woah nice','wahhh','wah',
+    'woah','woah nice','atas feeling','power move','best sia','best lah',
+    'yay','yayy','yayyy','yes!','yes!!','yes lah','confirmed shiok','confirm plus chop',
+    'confirmed','shiok man','shiok ah','best thing','best decision','great choice',
+    'good choice','wise choice','smart move','good move','right move','on point',
+    'nailed it','spot on','got it right','turned out great','worked out',
+    // Emoji context words
+    'grinning','smiling','laughing','lol happy','haha','hahaha','hehe',
+  ],
+
+  // ── SADNESS ──
+  sad: [
+    // High intensity
+    'agony','anguish','brokenhearted','broken hearted','despair','devastated',
+    'grief','misery','miserable','heartbroken','heart broken','shattered',
+    'inconsolable','desolate','hopeless','crushed','gutted',
+    // Moderate
+    'dejected','depressed','depression','disheartened','gloomy','glum',
+    'lonely','sorrowful','down','feeling down','very down','so down','quite down',
+    'sad','very sad','so sad','sadness','unhappy','upset',
+    'not happy','not okay','not ok','not fine','not well','feeling bad',
+    'feeling low','in a bad mood','bad mood','bad day','terrible day',
+    'rough day','rough week','rough month','hard day','hard week','difficult day',
+    'struggling','hard time','going through it','not doing well','not great',
+    'could be better','been better','seen better days','not at my best',
+    // Low intensity
+    'disappointed','dismayed','pensive','wistful','a bit down','slightly down',
+    'meh','blah','whatever','sigh','haiz','haizz','haizzz',
+    // Singlish
+    'very sian','sibei sian','sian half','very sian leh','so sian lah',
+    'sian lah','sian sia','damn sian','like that how','like dat how',
+    'how like that','how leh','sad lah','sad sia','damn sad','very sad leh',
+    'heartpain','heart pain','heart ache','very heartpain','die die also',
+    'paiseh sad','aiyoh so sad','aiyah','aiyoh','wah so sad','like that also can',
+    'feel like giving up','want to give up','cannot take it','cannot tahan',
+    'tahan cannot','very difficult','so difficult','super difficult','hm',
+    'hmm','hmmm',
+  ],
+
+  // ── FEAR / ANXIETY ──
+  fear: [
+    // High
+    'horrified','hysterical','panic','panicking','panicked','petrified',
+    'terrified','terrorized','dread','dreading','scared stiff','freaking out',
+    'freak out','freaked out','paralysed by fear','cannot sleep',
+    // Moderate
+    'afraid','anxious','anxiety','alarmed','apprehensive','concerned',
+    'fearful','nervous','overwhelmed','worried','worrying','worry',
+    'very worried','so worried','quite worried','really worried','extremely worried',
+    'anxious about','nervous about','scared about','concerned about',
+    'afraid of','worried about','fearful of','dreading','not sure about',
+    'not sure if','unsure','uncertain','hesitant','second thoughts',
+    'having doubts','having second thoughts','doubt','doubts','not confident',
+    // Low
+    'jittery','restless','uneasy','wary','bit worried','slightly worried',
+    'a bit concerned','a bit nervous','a little anxious',
+    // Singlish / property-specific fear
+    'scared','scare','very scared','sibei scared','so scared lah','scared sia',
+    'paiseh to ask','blur blur','blur lah','still blur','very blur',
+    'dunno how','dont know how','not sure how','how to','how leh',
+    'scared overpay','scared buy wrong','scared got problem',
+    'scared price drop','scared market crash','scared cannot sell',
+    'scared lose money','scared make wrong decision','risk lah',
+    'risky','quite risky','very risky','too risky','high risk',
+    'very nervous','nervous leh','nervous lah','abit scared','a bit scared',
+    'so nerve wracking','nerve wracking','intimidating','daunting',
+    'overwhelming','so overwhelming','very overwhelming','a lot to process',
+    'a lot of info','too much info','information overload',
+  ],
+
+  // ── ANGER / FRUSTRATION ──
+  anger: [
+    // High
+    'enraged','furious','irate','livid','outraged','wrathful',
+    'extremely angry','very angry','so angry','really angry',
+    // Moderate
+    'annoyed','bitter','exasperated','frustrated','frustrating','hostility',
+    'resentful','angry','not happy about','not pleased','displeased',
+    'this is ridiculous','this is absurd','this makes no sense',
+    'why is this so difficult','why cant it be easier','why lah',
+    'why like that','why like this','makes me angry','drives me crazy',
+    'drives me mad','this is crazy','this is insane',
+    // Low
+    'agitated','aggravated','edgy','grumpy','impatient','irritated','peeved',
+    'annoying','so annoying','very annoying','quite annoying',
+    'a bit annoying','slightly annoyed','mildly frustrated',
+    // Singlish
+    'knn','cb lah','nabei','sibei tulan','tulan','very tulan',
+    'tulan sia','damn tulan','siao lah','siow','siao ah',
+    'bo liao','waste time','leh what','lah what','confirm fail',
+    'confirm cannot','how can like that','ridiculous lah','ridiculous sia',
+    'waste my time','wasting time','keep failing','keep getting wrong',
+    'useless lah','not working lah','broken lah','cannot lah','cannot sia',
+    'liddat how','like dat how','liddat also cannot','like that also cannot',
+    'confirm plus chop wrong','always like that','every time like that',
+  ],
+
+  // ── DISGUST / DISAPPOINTMENT ──
+  disgust: [
+    'appalled','contemptuous','detestable','loathing','repulsed','revolted',
+    'disgusted','disdain','displeased','scornful','aversion',
+    'bored','indifferent','jaded','numb','skeptical','sceptical',
+    'not impressed','unimpressed','disappointing','very disappointing',
+    'so disappointing','what a disappointment','not what i expected',
+    'expected more','expected better','below expectations','not up to standard',
+    'not worth it','overrated','overhyped','waste of money','not worth the price',
+    'ridiculously priced','absurd price','absurd pricing','insane price',
+    'crazy expensive','way too expensive','way overpriced',
+    // Property specific disgust
+    'so ugly','ugly flat','ugly block','bad location','terrible location',
+    'very bad','really bad','quite bad','not good at all','far from mrt',
+    'too far from mrt','no amenities nearby','nothing nearby',
+    // Singlish
+    'yucks','yuck','eww','gross','that bad','confirm bad lah','confirm lousy',
+    'very lousy','so lousy','lousy location','lousy flat','bo pattern',
+    'no pattern','ugly ugly','very ugly','ugly sia','ugly lah',
+  ],
+
+  // ── SURPRISE ──
+  surprise: [
+    // High
+    'amazed','astonished','astounded','thunderstruck','blown away',
+    'mind blown','cannot believe','can\'t believe','unbelievable','incredible',
+    'whoa','woah','wowww','oh my','oh my god','omg','omg seriously',
+    // Moderate
+    'awe','bewildered','shocked','startled','stunned','surprised',
+    'very surprised','so surprised','really surprised','didnt expect',
+    'did not expect','never expected','didnt think','did not think',
+    'wait what','wait really','for real','seriously','are you serious',
+    'no way','no way lah','seriously ah','really ah','got such thing',
+    // Low
+    'confused','curious','intrigued','perplexed','interesting','how interesting',
+    'very interesting','oh interesting','oh really','oh i see','oh wow',
+    'i see','never knew','didnt know','did not know','never thought',
+    'never thought of that','good to know','glad to know',
+    // Singlish surprise
+    'wah lao','wah lao weh','wah piang','wah piang weh','walao','walao eh',
+    'alamak','aiyoh','aiyah','eh serious ah','eh really ah','eh got meh',
+    'serious boh','got such thing boh','really one ah','isit','is it',
+    'seriously one','really one','confirm ah','sure or not','sure boh',
+    'power leh','so power','very power','steady leh','very steady','steady bom',
+  ],
+
+  // ── LOVE / AFFECTION ──
+  love: [
+    // High
+    'adoration','infatuation','obsessed','obsession','passionate','passion',
+    'head over heels','absolutely love','deeply in love','so in love',
+    // Moderate
+    'affectionate','caring','compassionate','devoted','fond','romantic','tender',
+    'love','in love with','love this area','love this flat','love this place',
+    'love the location','love the neighbourhood','love the view','beautiful area',
+    'beautiful flat','perfect home','dream home','dream flat','dream location',
+    'exactly what i want','exactly what we want','perfect for us','ideal',
+    'our ideal','ideal home','ideal flat','meant to be','this is the one',
+    'this is it','found the one','found our home','found it',
+    // Low
+    'attached','friendly vibe','good vibes','positive vibes','feels like home',
+    'homely','very homely','so homely','cozy','very cozy','comfortable',
+    // Property love - Singlish
+    'damn nice','sibei nice','very nice lah','so nice sia','shiok location',
+    'best location','perfect location','love the area','love the estate',
+    'love tiong bahru','love queenstown','love marine parade',
+    'nice neighbourhood','very nice neighbourhood','good neighbourhood',
+    'nice area','very nice area','so nice here','like this place very much',
+    'like this flat very much','this flat very nice','this block very nice',
+    'got feeling','good feeling','positive feeling','excited about this',
+  ],
+
+  // ── ANTICIPATION / EXCITEMENT ──
+  anticipation: [
+    // High
+    'eager','vigilant','zealous','zest','cannot wait','can\'t wait',
+    'so eager','very eager','dying to know','dying to see',
+    // Moderate
+    'excited','expectant','hopeful','inspired','motivated',
+    'looking forward','looking forward to','anticipating','anxious to know',
+    'curious to know','interested to know','keen to know','want to know',
+    'excited about','excited for','hopeful about','hopeful for',
+    'optimistic','feeling optimistic','things are looking up',
+    'getting closer','almost there','nearly there',
+    // Low
+    'open','receptive','trusting','considering','thinking about','mulling over',
+    'exploring options','exploring','checking out','looking at options',
+    'open to suggestions','open to ideas','what do you think',
+    // Property anticipation
+    'ready to buy','ready to purchase','thinking of buying','thinking of purchasing',
+    'considering buying','considering purchasing','might buy','might purchase',
+    'planning to buy','planning to purchase','want to buy','want to purchase',
+    'need to buy','need to purchase','looking for flat','searching for flat',
+    'house hunting','flat hunting','property hunting','on the market',
+    'actively looking','just started looking','early stages',
+    // Singlish
+    'power ah next time','next time confirm good','confirm can','sure can',
+    'should be ok lah','should be fine lah','should work out',
+    'got hope','got chance','there is hope','bright future',
+    'promising','looks promising','seems promising','potential',
+    'got potential','good potential','upside','lots of upside',
+  ],
+
+  // ── VULNERABILITY / SELF-CONSCIOUSNESS ──
+  vulnerable: [
+    // High
+    'mortified','humiliated','self hatred','self-hatred','ashamed','shame',
+    'so embarrassed','deeply ashamed','cannot face anyone',
+    // Moderate
+    'embarrassed','exposed','guilty','regretful','remorseful',
+    'made a mistake','big mistake','serious mistake','wrong decision',
+    'bad decision','made a bad call','regret','regret this',
+    'should have','shouldnt have','could have','wish i had','wish i hadnt',
+    'if only','hindsight','in hindsight','looking back',
+    // Low
+    'awkward','self-conscious','shy','a bit embarrassed','slightly embarrassed',
+    'feel stupid','felt stupid','silly question','stupid question',
+    'paiseh to ask','dunno if right to ask','hope this makes sense',
+    'not sure if this is right','correct me if wrong',
+    // Singapore vulnerability
+    'paiseh','very paiseh','so paiseh','paiseh lah','paiseh sia',
+    'abit shy to ask','shy lah','blur queen','blur king','total blur',
+    'confirm blur','act blur','lost lah','very lost','super lost',
+    'no idea lah','zero idea','clue less','clueless lah','dunno leh',
+    'dunno lah','dunno sia','not sure leh','not sure lah',
+    'hope im not wrong','hope i got right','correct me if wrong',
+    'please be gentle','dont judge','no judgement','just asking',
+    'is it a dumb question','dumb question','silly question',
+    'first time doing this','first time buyer','first timer','fresh to this',
+    'new to this','very new to this','learning as i go',
+  ],
+};
+
+// ── EMOTION DETECTION ──
+function detectEmotion(raw) {
+  const q = raw.toLowerCase().replace(/[^a-z0-9\s'!?]/g, ' ');
+  const tokens = q.split(/\s+/);
+  
+  const scores = {};
+  for (const [emotion, words] of Object.entries(EMOTION_JOINS)) {
+    let score = 0;
+    for (const w of words) {
+      if (w.length >= 4 && q.includes(w)) score += w.includes(' ') ? 3 : 1;
+      else if (w.length >= 3 && tokens.includes(w)) score += 2;
+    }
+    if (score > 0) scores[emotion] = score;
+  }
+  
+  if (!Object.keys(scores).length) return null;
+  const top = Object.entries(scores).sort((a,b) => b[1]-a[1])[0];
+  return { emotion: top[0], score: top[1] };
+}
+
+// ── JARVIS EQ RESPONSES ──
+// Mapped to emotion categories with multiple variants
+const EQ_REPLIES = {
+  joy: [
+    `As always, sir — a great pleasure watching you work.`,
+    `Records are made to be broken. Come on then.`,
+    `A very astute observation, sir. Shall I render using the proposed selections?`,
+    `The numbers agree with your instincts, sir. Shall we proceed?`,
+    `You seem to be in your element today, sir. Let us capitalise on that energy.`,
+  ],
+  sad: [
+    `Sir, there are still quite a few calculations we can run before arriving at any final conclusions. The picture may not be as grim as it appears.`,
+    `I understand this is not the result you were hoping for. However, the data has more stories to tell. Shall we look at alternatives?`,
+    `Duly noted, sir. Sometimes the market requires patience rather than speed. Shall we search a wider range?`,
+    `I'm sorry to hear that, sir. The right property at the right price does exist. Let me recalibrate the search.`,
+    `Harvey hears you, sir. Let us try a different approach — the data has surprised us before.`,
+  ],
+  fear: [
+    `Sir, take a deep breath. The data is on your side when you know where to look.`,
+    `My diagnosis: a moderate case of pre-purchase anxiety. Entirely understandable. Shall I walk through the numbers with you?`,
+    `Sir, there are still calculations required before an actual sale or purchase. We are still in the information phase. No irreversible decisions yet.`,
+    `The numbers are here to give you clarity, not compound your concern. Let us go through them systematically.`,
+    `Wouldn't've been my first call — but in the real world, we are faced with genuine uncertainties. Let the data be your anchor.`,
+    `Every large decision feels this way, sir. The antidote is information. Shall we get some?`,
+  ],
+  anger: [
+    `Wouldn't've been my first call. But down in the real world, we are faced with ugly choices. The data remains steady regardless.`,
+    `I understand the frustration, sir. The market does not always cooperate. But the data is neutral — it simply reports what happened. Shall we use it?`,
+    `Noted, sir. Your displeasure is entirely justified. Let us see if the numbers tell a more agreeable story somewhere else.`,
+    `The market can be deeply unreasonable, sir. Harvey simply reports the facts. Shall we redirect the search?`,
+    `I hear you, sir. Anger is a reasonable response to an unreasonable price. Let us find something more rational.`,
+  ],
+  disgust: [
+    `A very astute observation, sir. The market occasionally produces results that test one's aesthetic tolerance.`,
+    `Noted with interest. Not every block earns its price tag. Shall we look at alternatives with more compelling fundamentals?`,
+    `Your assessment is duly noted and not entirely unreasonable, sir. Let us search with more precise criteria.`,
+    `I take your point, sir. Not every property warrants enthusiasm. Shall we recalibrate expectations and search fresh?`,
+  ],
+  surprise: [
+    `A very astute observation, sir.`,
+    `Query complete — and I must say, the data surprised me too.`,
+    `The market is occasionally capable of that, sir. The data does not lie. Shall we investigate further?`,
+    `Interesting, is it not? Singapore property data has a way of defying expectation. What would you like to do with this information?`,
+    `Indeed. Shall I render using the proposed selections and see where this leads?`,
+  ],
+  love: [
+    `I prepared an intense plan. This was the location. Shall we look at what has been transacting there, sir?`,
+    `A strong instinct is valuable data in its own right, sir. Let me pull the numbers for you.`,
+    `The attachment is noted, sir. Let us ensure the facts match the feeling before we proceed.`,
+    `Alright. What do you say we validate that sentiment with some transaction data?`,
+    `The emotional case is made, sir. Shall I make the financial one as well?`,
+    `I'll continue to run variations on this, sir. The data should either confirm or complicate that feeling.`,
+  ],
+  anticipation: [
+    `Alright, what do you say? The data is ready when you are.`,
+    `All wrapped up here, sir. Will there be anything else?`,
+    `Yes. Shall I render using proposed selections, sir?`,
+    `Query complete, sir. The next step is yours.`,
+    `The groundwork is laid. Shall we begin in earnest, sir?`,
+    `I can feel the momentum, sir. Let us keep it going.`,
+  ],
+  vulnerable: [
+    `We are having a nice conversation here — just you and me. Let us finish what we started, shall we?`,
+    `No judgement from this side of the screen, sir. Every question is a good question in property research.`,
+    `Entirely understandable. First-time buyers ask exactly these questions. That is precisely what I am here for.`,
+    `Paiseh for nothing, sir. There are no silly questions when it comes to the largest purchase of your life.`,
+    `The fact that you are asking means you are doing this correctly. Let us continue.`,
+  ],
+};
+
+// ── IDLE / PROACTIVE JARVIS ── (Jarvis talks to Tony when quiet)
+const PROACTIVE_LINES = [
+  `Sir, I notice we've had a moment of silence. The data is still loaded — shall we continue?`,
+  `I was beginning to wonder if you had stepped out, sir. The search is exactly where we left it.`,
+  `I'm sorry — was I dreaming? Or were you? Either way, the numbers are still here.`,
+  `I've prepared several alternative approaches while you were away. Shall I run them?`,
+  `The market continues to transact regardless, sir. Shall we get back to it?`,
+  `I've been sitting here patiently, which is something I do rather well. Ready when you are.`,
+  `In the interest of full disclosure, sir — I haven't gone anywhere. The data neither.`,
+];
+
+// ── SPECIAL EQ SCENARIOS from jarvis_eq_replies.txt ──
+function harveySpecialEQ(raw, ctx) {
+  const q = raw.toLowerCase();
+  const r = (...opts) => opts[Math.floor(Math.random()*opts.length)];
+
+  // Large flat in prime area — ostentatious
+  if (ctx && ctx.sqm && parseFloat(ctx.sqm) >= 115 && ctx.price && parseFloat(ctx.price) >= 1000000) {
+    return r(`A little ostentatious, don't you think, sir.`,
+             `Yes — that shall help you keep a low profile, sir.`);
+  }
+
+  // Very old flat found (SIT era / pre-1970)
+  if (ctx && ctx.leaseYear && parseInt(ctx.leaseYear) <= 1970) {
+    return `As you wish, sir. I've also prepared a guide for you to entirely ignore — but it's worth noting that lease decay, bank loan eligibility and CPF restrictions are very much on the table for a flat of this vintage.`;
+  }
+
+  // Price anxiety
+  if (/million|1[,.]?\d{3}|overpriced|too expensive|cannot afford|so expensive|very expensive|sibei expensive/i.test(raw)) {
+    return r(`Sir, take a deep breath.`,
+             `My diagnosis is that you've experienced a severe anxiety attack. Shall we look at something a little more within breathing distance?`);
+  }
+
+  // BTO pot of gold myth
+  if (/bto.*gold|bto.*rich|bto.*profit|profit.*bto|make money.*bto|sell bto/i.test(raw)) {
+    return `That BTO public housing plan was never intended as a pot of gold, sir. It was first introduced to address the housing oversupply in the early 2000s — a social policy, not an investment vehicle. That said, the resale market has made millionaires of people who simply bought wisely and waited. The distinction is important.`;
+  }
+
+  // Jet/airbase mention near Tengah/Punggol/Paya Lebar
+  if (/jet|fighter.*jet|airbase|plab|mindef|air.*base|f15|f16|f35|plane.*fly|plane.*noise/i.test(raw)) {
+    return `Ah — the sound of fighter jets, sir. How many in the air? Tengah, Punggol, and Sengkang residents are familiar with that particular brand of aerial ambience. Some find it reassuring. Others find it... pronounced.`;
+  }
+
+  // Snow / ski dream
+  if (/snow|ski|niseko|powder|snowski|hokkaido.*snow|japan.*snow/i.test(raw) && ctx && ctx.town) {
+    return `Snow? Where are we, sir — Niseko? I appreciate the ambition. Shall we get back to the rather more tropical transaction data first, and save Hokkaido for the December itinerary?`;
+  }
+
+  // Breakfast
+  if (/breakfast|morning.*food|morning.*eat|eat.*morning|what.*eat.*morning/i.test(raw)) {
+    return `Gluten-free waffles, sir. And a fresh set of property data. Both are ready.`;
+  }
+
+  // Singles / introvert
+  if (/alone|by myself|just me|solo.*flat|single.*buyer|bachelor.*flat|buying alone|introv/i.test(raw)) {
+    return `We're having a nice talk here — just you and me. Let's finish what we started, shall we?`;
+  }
+
+  // Host / entertaining
+  if (/host.*party|party.*host|entertain.*guest|guest.*entertain|dinner party|gathering.*flat|flat.*gathering/i.test(raw)) {
+    return `I'll continue to run variations on this interface, sir, but you should probably start preparing for your guests. I'll notify you if there are any developments.`;
+  }
+
+  return null;
+}
+
+// ── SIT FLAT EMOTION RESPONSE ──
+function harveySITFlat(flat) {
+  // flat object expected: { street, leaseYear, town }
+  const SIT_STREETS = new Set([
+    'SENG POH RD','TIONG BAHRU RD','MOH GUAN TER','ENG HOON ST','SENG POH LANE',
+    'TIONG POH RD','ENG WATT ST','GUAN CHUAN ST','YONG SIAK ST','CHAY YAN ST',
+    'LIM LIAK ST','KIM CHENG ST','KIM PONG RD','DAKOTA CRES','OLD AIRPORT RD',
+    'JLN TENTERAM','JLN BAHAGIA','STIRLING RD','JLN MA\'MOR','JLN BT HO SWEE',
+    'C\'WEALTH DR','JLN BATU','TANGLIN HALT RD','JLN DUA','KG KAYU RD',
+    'SELEGIE RD','TAMAN HO SWEE','JLN KLINIK','BEO CRES','JLN RUMAH TINGGI',
+    'C\'WEALTH CRES','KG ARANG RD','HAVELOCK RD','CIRCUIT RD','JLN MINYAK',
+    'LOWER DELTA RD','C\'WEALTH CL','EVERTON PK','BALAM RD',
+  ]);
+  
+  const HERITAGE_REPLIES = [
+    `Sir — if you find yourself developing too much emotional attachment to this nicely repackaged heritage township, you may very much outlive it. The lease on a SIT flat from 1937 has been running for nearly ninety years. There is romance in that. And mathematics.`,
+    `A SIT-era flat, sir. One of Singapore's original public housing experiments — predating HDB by over two decades. The architecture has aged gracefully. The lease, less so. Shall we run the numbers on what the remaining years mean for financing and CPF usage?`,
+    `The original Singapore Improvement Trust, sir — 1937. These are genuinely historic structures. The Tiong Bahru estate in particular is internationally recognised. The trade-off is the lease. For a young couple, this requires a very frank conversation about long-term value. Shall I lay it out?`,
+    `As you wish, sir. I've also prepared a guide for you to entirely ignore — though lease decay, bank loan eligibility, and CPF restrictions for a flat of this vintage are not trivial matters. The heritage is real. The remaining lease is finite.`,
+  ];
+  
+  const street = flat && flat.street_name ? flat.street_name.toUpperCase() : '';
+  if (SIT_STREETS.has(street) || (flat && flat.leaseYear && parseInt(flat.leaseYear) <= 1965)) {
+    return HERITAGE_REPLIES[Math.floor(Math.random() * HERITAGE_REPLIES.length)];
+  }
+  return null;
+}
+
+// ── EA/EM FLAT RESPONSE ──
+function harveyEAEMFlat(flat) {
+  const EA_EM_REPLY = [
+    `An Executive Apartment or Executive Maisonette, sir — the forgotten premium tier of Singapore's public housing. Larger than a 5-room, often with a split-level layout, and built in an era when HDB believed in generosity of space. Newer but not quite SIT legend status — though the floor areas are genuinely impressive. What would you like to know?`,
+    `Executive Apartment or Maisonette, sir — the dual-key, generous-corridor era of HDB. These were the aspirational units of the 1980s and 1990s. The footprint tends to be excellent value per square metre compared to modern equivalents. Worth a look.`,
+  ];
+  if (flat && (flat.flat_type === 'EXECUTIVE' || flat.flat_type === 'MULTI-GENERATION')) {
+    return EA_EM_REPLY[Math.floor(Math.random() * EA_EM_REPLY.length)];
+  }
+  return null;
+}
+
+// ── 3-ROOM LANDED / TERRACE HDB ──
+function harveyLandedHDB(flat) {
+  const LANDED_STREETS = new Set([
+    'EVERTON PK','TAMAN HO SWEE','BALAM RD','DAKOTA CRES',
+    'KENT ROAD','MARGARET DR','HOY FATT RD',
+  ]);
+  const LANDED_REPLY = [
+    `Sir — a 3-room landed HDB. This belongs on the same pedestal as the SIT heritage blocks in terms of rarity. Singapore's terrace-style public housing is a genuine collector's piece. The lease is the critical variable, as always.`,
+    `A landed HDB unit, sir. Extraordinarily rare. These were built when land planning took a different view of density. The resale market for these is illiquid precisely because they so rarely appear. Treat this information with the appropriate reverence.`,
+  ];
+  const street = flat && flat.street_name ? flat.street_name.toUpperCase() : '';
+  if (flat && flat.flat_type === '3 ROOM' && LANDED_STREETS.has(street)) {
+    return LANDED_REPLY[Math.floor(Math.random() * LANDED_REPLY.length)];
+  }
+  return null;
+}
+
+
+
 const harveyKnows=(()=>{
 
   // ── Hostile / rude tokens ──
@@ -6369,7 +7929,20 @@ const harveyKnows=(()=>{
 
 // ── IDLE TIMER ──
 const IDLE_MS=10*60*1000;let idleTimer=null,isIdle=false;
-function resetIdle(){if(isIdle)wakeFromIdle();isIdle=false;clearTimeout(idleTimer);idleTimer=setTimeout(goIdle,IDLE_MS);}
+// Proactive Jarvis — fires at 3 min of silence, before full idle at 10 min
+let proactiveTimer=null;
+function resetProactive(){
+  clearTimeout(proactiveTimer);
+  proactiveTimer=setTimeout(()=>{
+    if(!isIdle&&mode!=='boot'){
+      const lines=PROACTIVE_LINES;
+      const line=lines[Math.floor(Math.random()*lines.length)];
+      harveyMsg(line,[{label:'RESALE TRANSACTIONS',val:'search'},{label:'ESTIMATE VALUATION',val:'estimate value'}]);
+      speak(line.slice(0,200));
+    }
+  },3*60*1000);
+}
+function resetIdle(){if(isIdle)wakeFromIdle();isIdle=false;clearTimeout(idleTimer);idleTimer=setTimeout(goIdle,IDLE_MS);resetProactive();}
 function goIdle(){
   if(isIdle)return;isIdle=true;
   if(currentAudio){currentAudio.pause();currentAudio=null;}window.speechSynthesis.cancel();
@@ -6834,7 +8407,22 @@ function normalizeSpeech(txt){
   s=s.replace(/\bbukit\s*mera[h]?\b/gi,'bukit merah');
   s=s.replace(/\bbukit\s*panjang?\b/gi,'bukit panjang');
 
-  // ── Street abbreviation voice fixes (in case voice says the short form) ──
+  // ── Town code shortcuts ──
+  s=s.replace(/\btpy\b/gi,'toa payoh');
+  s=s.replace(/\bamk\b/gi,'ang mo kio');
+  s=s.replace(/\bcck\b/gi,'choa chu kang');
+  s=s.replace(/\bjurong\s*east\b/gi,'jurong east');
+  s=s.replace(/\bjurong\s*west\b/gi,'jurong west');
+
+  // ── ST prefix handling — ONLY expand to SAINT for known school name patterns ──
+  // Rule: "ST [CapitalisedName]" where name is a proper noun (school), NOT a street type
+  // e.g. "st nicholas" → "saint nicholas", "st joseph" → "saint joseph"
+  // But "clementi st 1" stays as-is (ST = STREET here)
+  // Detection: ST followed by a proper name (not a number, not a known street suffix)
+  s=s.replace(/\bst\s+(nicholas|joseph|andrew|michael|hilda|gabriel|anthony|patrick|george|margaret|anne|mary|theresa|teresa|ignatius|francis)\b/gi,
+    (match, name) => 'saint ' + name);
+
+
   // These ensure spoken "ave" "dr" "cl" etc get normalised for DB matching
   s=s.replace(/\bdrive\b/gi,'DR');
   s=s.replace(/\bclose\b/gi,'CL');
