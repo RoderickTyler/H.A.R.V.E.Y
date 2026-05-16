@@ -7681,10 +7681,9 @@ function detectEmotion(raw) {
   for (const [emotion, words] of Object.entries(EMOTION_JOINS)) {
     let score = 0;
     for (const w of words) {
-      if (w.includes(' ') && q.includes(w)) score += 3; // multi-word = strong signal
-      else if (w.length >= 4 && q.includes(w)) score += 2; // 4+ char substring
-      else if (w.length >= 3 && tokens.includes(w)) score += 2; // exact token
-      else if (w.length >= 3 && tokens.some(t=>t===w)) score += 2;
+      if (w.includes(' ') && q.includes(w)) score += 3; // multi-word phrase — substring ok
+      else if (tokens.some(t=>t===w)) score += 2;       // single word — EXACT TOKEN ONLY
+      // Note: no substring matching for single words — prevents "pensive" matching "expensive"
     }
     if (score > 0) scores[emotion] = score;
   }
@@ -8099,14 +8098,15 @@ const FOLLOWUP_CORPUS = {
   'east coast park':{topic:'running',joy:[`East Coast Park, sir — the sea breeze, the Sunday cyclists, the satay at the end. One of Singapore's great free amenities. Marine Parade, Bedok, and Siglap residents have it at their door. Shall I show you what's been transacting in those estates?`],default:[`East Coast Park is genuinely excellent, sir — 15km of cycling path, the sound of the sea. HDB blocks in that corridor reflect the premium. Shall we look at the data?`]},
   macritchie:{topic:'running',joy:[`MacRitchie, sir — the trail runner's Singapore. The Treetop Walk, the monitor lizards with exactly the right amount of confidence, the night heron colony. The Bishan and AMK corridor has this at the door. Shall I show you what's been transacting there?`],default:[`MacRitchie Reservoir and the central catchment nature reserve, sir — Singapore's green lungs. The HDB estates in the Bishan-AMK corridor have this as a morning run destination. Shall we look?`]},
   'national day':{topic:'kopi',joy:[`National Day, sir — the fireworks, the parade, the familiar sequence of emotions that Singaporeans experience every 9th August. I find the collective sentiment genuinely moving. A flat with a view of the fireworks is a legitimate aspiration. Shall we look?`],default:[`National Day and the fireworks, sir — a flat with a view of the Marina Bay display commands a premium and earns it. Shall we look at what the Queenstown and Kallang corridor offers?`]},
-  ns:{topic:'kopi',joy:[`NS, sir — a character-building experience by general consensus, if not always by unanimous enthusiasm. The discipline, the friendships, the stories. Singapore's most universal shared experience. Which area has the camp nearest to you?`],default:[`National Service, sir — the institution that binds a generation. The camp location has historically influenced where people settle. Which area are you looking at?`]},
-  bto:{topic:'kopi',joy:[`The BTO ballot, sir — Singapore's lottery with a twenty-year payout horizon. If you've missed it or waited long enough, the resale market is the direct line to what you actually want, where you actually want it. Shall we look?`],default:[`BTO versus resale, sir — the BTO is the patient choice, the resale is the direct one. Harvey deals in resale. Shall we look at what's available in your preferred area right now?`]},
+  ns:{topic:'kopi',joy:[],default:[`National Service, sir — the institution that binds a generation. The camp location has historically influenced where people settle. Which area are you looking at?`]},
+  'national service':{topic:'kopi',joy:[`NS, sir — a character-building experience by general consensus, if not always by unanimous enthusiasm. The discipline, the friendships, the stories. Singapore's most universal shared experience. Which area has the camp nearest to you?`],default:[`National Service, sir — the institution that binds a generation. The camp location has historically influenced where people settle. Which area are you looking at?`]},
+  'bto flat':{topic:'kopi',joy:[`The BTO ballot, sir — Singapore's lottery with a twenty-year payout horizon. If you've missed it or waited long enough, the resale market is the direct line to what you actually want, where you actually want it. Shall we look?`],default:[`BTO versus resale, sir — the BTO is the patient choice, the resale is the direct one. Harvey deals in resale. Shall we look at what's available in your preferred area right now?`]},
   'tiong bahru':{topic:'sitflat',joy:[`Tiong Bahru, sir — you clearly have taste. The art deco curves, the spiral staircases, the ceiling heights that modern construction will not produce. It is one of Singapore's architectural gems. The lease is the variable that requires honest attention. Shall we look at the numbers?`],default:[`Tiong Bahru carries a specific cultural weight, sir. The heritage community, the cafes, the original SIT architecture. The lease conversation is important. Shall we review the transaction data?`]},
   'dakota cres':{topic:'sitflat',joy:[`Dakota Crescent, sir — the semi-circular heritage blocks, Singapore's most architecturally distinctive public housing estate. The lease is very much a factor but the character is irreplaceable. Shall we look at the data?`],default:[`Dakota Crescent's architectural significance is well-documented, sir. The remaining lease requires careful consideration. Shall I show you what comparable units have been transacting at?`]},
   'tao nan':{topic:'primaryschool',joy:[`Tao Nan School — the prize, sir. SAP and GEP in Marine Parade. The families who have moved for that 1km zone know exactly what they are doing. The transaction data around it is consistently strong. Shall we look at what's available?`],default:[`Tao Nan's reputation is well-earned, sir. Marine Parade and Bedok are the target zones. I can show you what the nearby blocks have been transacting at — on a best-effort basis for the 1km catchment. Shall we?`]},
   raffles:{topic:'eliteschool',joy:[`Raffles Institution, sir — the school that requires no introduction. The IP pathway, the alumni network, the academic culture. Getting there starts with a PSLE score. Getting there earlier starts with an address decision. Which area?`],default:[`Raffles draws from island-wide, sir — location is less critical than at primary level. But families do cluster in Bishan, Toa Payoh, and the central estates. Shall I show you what's been transacting there?`]},
   psle:{topic:'psle',joy:[`PSLE results, sir — and I can hear from your tone how it went. Whatever the outcome, the right address for the secondary school journey is the next decision. Shall we look at what's available near the preferred school zone?`],default:[`PSLE season, sir — Singapore's annual national breath-hold. The results shape the next chapter. The property implications are significant. Which area or school are you thinking about for the next phase?`]},
-  mrt:{topic:'kopi',joy:[`MRT access, sir — the proximity to an interchange versus a station, the line coverage, the frequency during off-peak hours. These are all genuine quality-of-life variables that the property market prices in consistently. Which line matters most to your commute?`],default:[`MRT proximity is one of the most reliable premiums in Singapore property, sir. The data is very consistent on this. Which line and which stations are relevant to your daily pattern?`]},
+  'mrt station':{topic:'kopi',joy:[`MRT access, sir — the proximity to an interchange versus a station, the line coverage, the frequency during off-peak hours. These are all genuine quality-of-life variables that the property market prices in consistently. Which line matters most to your commute?`],default:[`MRT proximity is one of the most reliable premiums in Singapore property, sir. The data is very consistent on this. Which line and which stations are relevant to your daily pattern?`]},
   'hawker centre':{topic:'kopi',joy:[`A good hawker centre nearby, sir — the democratic institution of Singapore eating. Old Airport Road, Tiong Bahru Market, Maxwell, Bedok 85. The estate that has one within walking distance has an amenity that no mall can replicate. Shall we search near one?`],default:[`Hawker centre proximity is one of Harvey's favourite quality-of-life signals, sir. The mature estates have the best ones. Which area preserves the food culture you value?`]},
   renovation:{topic:'kopi',joy:[`The renovation plans, sir — the Pinterest boards, the ID interviews, the final quote that requires a quiet sit-down. The right flat is the canvas. Shall we find it first and then plan the transformation?`],default:[`HDB renovation, sir — the process that begins with inspiration and progresses through several quotes and timeline extensions. The fundamental asset is the address. Shall we find the right flat before we discuss the reno budget?`]},
   'community centre':{topic:'kopi',joy:[`The CC, sir — Singapore's grassroots infrastructure at its most useful. The badminton courts, the gym, the cooking classes, the social fabric. Mature estates with active CCs tend to have stronger community cohesion and more stable resale values. Which area?`],default:[`Community centre access, sir — the CC gym, the sports facilities, the classes. A legitimate selection criterion for the community-oriented buyer. Which area has the CC culture you're looking for?`]},
@@ -8222,7 +8222,24 @@ function detectFollowUp(raw, lastTopicKey) {
   
   // Check for known follow-up keywords
   for(const[keyword, data] of Object.entries(FOLLOWUP_CORPUS)){
-    if(q.includes(keyword.toLowerCase())){
+    const _kl=keyword.toLowerCase();
+    // Matching strategy:
+    // Long keys (>4 chars): substring match is safe — "hojicha" won't appear inside random words
+    // Short keys (<=4 chars): EXACT TOKEN match only — split on spaces+separators
+    //   Also check separator-stripped version so "mx-5" matches key "mx5", "rx-8" matches "rx8"
+    let _matched=false;
+    if(_kl.length<=4){
+      // Use raw (before [^a-z0-9] replacement) to preserve hyphens for stripping
+      const _rawLow=raw.toLowerCase();
+      const _qtokens=q.split(/\s+/).filter(t=>t.length>0);
+      // Also build separator-stripped tokens from original: "mx-5" → "mx5", "rx-8" → "rx8"
+      const _rawTokens=_rawLow.split(/\s+/).map(t=>t.replace(/[^a-z0-9]/g,''));
+      _matched=_qtokens.includes(_kl)||_rawTokens.includes(_kl);
+    } else {
+      _matched=q.includes(_kl);
+    }
+    if(!_matched) continue;
+    if(true){
       // Detect emotion in the sentence
       const emo = detectEmotion(raw);
       let responses = data.default || [];
