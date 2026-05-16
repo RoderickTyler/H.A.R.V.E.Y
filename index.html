@@ -2035,13 +2035,20 @@ const TOWN_CODE_MAP={
 function reverseStreet(streetRaw){
   if(!DB.loaded||!streetRaw)return null;
 
-  // ── STREET SHORT-FORM LOOKUP — check user input against 548 shortform mappings ──
+  // ── STREET SHORT-FORM LOOKUP — check user input against shortform mappings ──
   const inputLower=streetRaw.toLowerCase().replace(/\s+/g,' ').trim();
   const sfMatch=STREET_SHORTFORMS[inputLower];
   if(sfMatch){
-    // Found a shortform match — search DB for this canonical street name
     const sfResults=DB.resale.filter(r=>r.street_name&&r.street_name.toUpperCase().startsWith(sfMatch));
     if(sfResults.length)return _srResult(sfResults);
+    // Known street but no resale transactions — return town fallback so Harvey can still help
+    const sfTown=TOWN_CODE_MAP&&Object.entries(TOWN_CODE_MAP).find(([code,name])=>{
+      const townStreets=DB.townStreets[name]||[];
+      return townStreets.some(s=>s.toUpperCase().startsWith(sfMatch.split(' ')[0]));
+    });
+    if(sfTown){
+      return{town:sfTown[1],street:sfMatch,blocks:[],_noTxn:true};
+    }
   }
   // Also try matching prefix of input against shortforms
   for(const[short,full]of Object.entries(STREET_SHORTFORMS)){
@@ -2211,7 +2218,16 @@ function parseQuery(raw){
       .replace(/\s+/g,' ').trim();
     if(streetCandidate.length>4&&DB.loaded){
       const found=reverseStreet(streetCandidate);
-      if(found) res.street=found.street;
+      if(found){
+        if(found._noTxn){
+          // Known street but no transactions in resale DB — use town for search
+          if(found.town)res.town=found.town;
+          res._knownStreet=found.street; // keep for messaging
+        } else {
+          res.street=found.street;
+          if(found.town&&!res.town)res.town=found.town;
+        }
+      }
     }
   }
   // Price
@@ -2560,14 +2576,44 @@ async function runEvExpanded(p,labels){
 
 
 // ── RENDER ──
+// ── HARVEY FLAVOUR ENGINE ──
+// Adds a living Jarvis tonal colour to every response.
+// Does NOT change content — adds a brief situational EQ line in the Jarvis voice.
+// Only fires when there's a clear emotional signal or known trigger context.
+// Completely skipped for pure data outputs (tables, numbers, chips-only).
+let _lastFlavourTime=0;
+function harveyFlavour(html,raw){
+  if(!raw||raw.trim().length<2)return'';
+  const stripped=html.replace(/<[^>]*>/g,' ');
+  if(stripped.length<40)return'';
+  // Rate limit — one flavour per 4s to feel natural not spammy
+  const now=Date.now();
+  if(now-_lastFlavourTime<4000)return'';
+
+  // Special EQ scenarios first (price anxiety, SIT flat, jet noise etc)
+  const special=harveySpecialEQ(raw,convCtx||{});
+  if(special){_lastFlavourTime=now;return`<div style="margin-top:10px;padding-top:8px;border-top:1px solid rgba(0,229,255,.08);font-style:italic;color:var(--t2);font-size:11px;letter-spacing:.3px">${special}</div>`;}
+
+  // Emotion detection — includes singlish, praise-like joy, hostility-as-anger
+  const emo=detectEmotion(raw);
+  if(!emo||emo.score<2)return'';
+  const pool=EQ_REPLIES[emo.emotion];
+  if(!pool||!pool.length)return'';
+  const line=pool[Math.floor(Math.random()*pool.length)];
+  _lastFlavourTime=now;
+  return`<div style="margin-top:10px;padding-top:8px;border-top:1px solid rgba(0,229,255,.08);font-style:italic;color:var(--t2);font-size:11px;letter-spacing:.3px">${line}</div>`;
+}
+
 function harveyMsg(html,chips=[]){
   document.getElementById('welcome')?.remove();
   const d=document.createElement('div');d.className='msg-ai';
   const ch=chips.length?`<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">${chips.map(c=>`<span class="chip" onclick="chipClick('${c.val.replace(/'/g,"\\'")}')">▶ ${c.label}</span>`).join('')}</div>`:'';
-  // Stop + Restart buttons — inline beside message label
   const stopBtn=`<button class="stop-btn" onclick="stopSpeech()" title="Stop Harvey speaking">⏹ STOP</button>`;
   const restartBtn=`<button class="stop-btn" style="color:var(--a);background:rgba(255,170,0,.06);border-color:rgba(255,170,0,.25)" onclick="chipClick('__restart__')" title="Restart conversation">↺ NEW</button>`;
-  d.innerHTML=`<span class="mlbl" style="display:flex;align-items:center;gap:6px;justify-content:space-between"><span>// HARVEY</span><span style="display:flex;gap:4px">${stopBtn}${restartBtn}</span></span><div class="mbub">${html}${ch}</div>`;
+  // Use lastRaw for EQ — it's set immediately on userMsg so always current
+  const rawForEQ=(typeof lastRaw!=='undefined')?lastRaw:'';
+  const flavour=rawForEQ?harveyFlavour(html,rawForEQ):'';
+  d.innerHTML=`<span class="mlbl" style="display:flex;align-items:center;gap:6px;justify-content:space-between"><span>// HARVEY</span><span style="display:flex;gap:4px">${stopBtn}${restartBtn}</span></span><div class="mbub">${html}${flavour}${ch}</div>`;
   msgsEl.appendChild(d);bot();
 }
 function userMsg(text){
@@ -2646,33 +2692,19 @@ function showTransactions(recs,params,is6mo){
       ...(params.street?[{label:'WHY SO EXPENSIVE?',val:`why is ${locLabel} so expensive`}]:[]),
       ...(params.block?[{label:'ESTIMATE THIS UNIT',val:`estimate value block ${params.block} ${params.street||''}`}]:[])
     ];
-    // ── EMOTION LAYER — check for SIT/heritage/EA/EM/price signals ──
-    let eqLine='';
-    // Check if results contain SIT-era flats
+    // ── CLOSES — short contextual Jarvis line based on result type ──
+    let closeLine='';
     const sitCheck=recs[0]?harveySITFlat(recs[0]):null;
-    if(sitCheck) eqLine=sitCheck;
-    // Check EA/EM type
-    if(!eqLine){const eaCheck=recs[0]?harveyEAEMFlat(recs[0]):null;if(eaCheck)eqLine=eaCheck;}
-    // Check 3-room landed
-    if(!eqLine){const landedCheck=recs[0]?harveyLandedHDB(recs[0]):null;if(landedCheck)eqLine=landedCheck;}
-    // Million dollar anxiety
-    if(!eqLine&&median>900000){
-      const eq=EQ_REPLIES.fear;
-      eqLine=eq[Math.floor(Math.random()*eq.length)];
+    if(sitCheck)closeLine=sitCheck;
+    else if(recs[0]&&harveyEAEMFlat(recs[0]))closeLine=harveyEAEMFlat(recs[0]);
+    else if(recs[0]&&harveyLandedHDB(recs[0]))closeLine=harveyLandedHDB(recs[0]);
+    else if(median>900000)closeLine=EQ_REPLIES.fear[Math.floor(Math.random()*EQ_REPLIES.fear.length)];
+    else{
+      const closes=['Query complete, sir.','All wrapped up here, sir. Will there be anything else?',
+        'As always, sir — a great pleasure watching you work.','Shall I render using proposed selections, sir?'];
+      closeLine=closes[Math.floor(Math.random()*closes.length)];
     }
-    // Price anxiety for raw input
-    if(!eqLine){const specialEQ=harveySpecialEQ(lastRaw||'',{price:median,leaseYear:recs[0]&&recs[0].lease_commence_date});if(specialEQ)eqLine=specialEQ;}
-    // Generic Jarvis close
-    if(!eqLine){
-      const closes=[
-        'Query complete, sir.',
-        'All wrapped up here, sir. Will there be anything else?',
-        'As always, sir — a great pleasure watching you work.',
-        'Shall I render using proposed selections, sir?',
-      ];
-      eqLine=closes[Math.floor(Math.random()*closes.length)];
-    }
-    harveyMsg(insight+'<br><br><em style="color:var(--t2);font-size:11px">'+eqLine+'</em>',chips);
+    harveyMsg(insight+(closeLine?`<br><br><em style="color:var(--t2);font-size:11px">${closeLine}</em>`:''),chips);
     speak(insight.replace(/<[^>]*>/g,'').slice(0,220));
   },1400);
   mode='menu';
@@ -3291,6 +3323,20 @@ function promptMissing(ctx){
     runEV();
   } else {
     enrichCtx(ctx);
+
+    // ── Known street but no resale transactions — explain and fall to town ──
+    if(ctx._knownStreet&&ctx.town&&!ctx.street){
+      const streets=DB.townStreets[ctx.town]?DB.townStreets[ctx.town].slice(0,8):[];
+      const streetChips=streets.slice(0,5).map(s=>({label:s.split(' ').slice(0,4).join(' '),val:`${ctx.town} ${s}`}));
+      harveyMsg(`I know <strong style="color:var(--c)">${esc(ctx._knownStreet)}</strong>, sir — it is in <strong>${esc(ctx.town)}</strong>. However, there are no resale transactions recorded for that specific street in my dataset. It may be a rare or very quiet street. I have pulled up <strong>${esc(ctx.town)}</strong> instead — which street would you like to look at?`,[
+        ...streetChips,
+        {label:`ALL OF ${ctx.town.split(' ')[0]}`,val:`recent ${ctx.town}`},
+        {label:'ESTIMATE VALUATION',val:'estimate value'},
+      ]);
+      speak(`I recognise ${cleanForSpeech(ctx._knownStreet)}, sir, but there are no resale transactions for it. Shall we search ${cleanForSpeech(ctx.town)} instead?`);
+      mode='srch_waiting';loading=false;sbEl.disabled=false;return;
+    }
+
     if(!ctx.town&&!ctx.street&&!ctx.block){
       harveyMsg(`To search, sir — which town or street?<br><br>${buildSearchMissingPrompt(ctx).join('<br>')}<br><br><em style="color:var(--t2);font-size:11px">e.g. <strong style="color:var(--c)">3-room Clementi</strong> or <strong style="color:var(--c)">Clementi West Street 1</strong></em>`,flatTypeChips());
       speak('Which town or street, sir?');
@@ -3557,23 +3603,8 @@ async function _handleInputInner(raw){
     }
     dataChips.push({label:'RESALE TRANSACTIONS',val:'search'});
     dataChips.push({label:'ESTIMATE VALUATION',val:'estimate value'});
-    // ── EMOTION LAYER — detect emotion and append EQ flavour as addendum ──
-    const eqSpecial=harveySpecialEQ(raw,convCtx);
-    let chitMsg=chitChatEarly;
-    if(eqSpecial){
-      chitMsg=chitChatEarly+'<br><br><em style="color:var(--t2);font-size:11px">'+eqSpecial+'</em>';
-    } else {
-      const emo=detectEmotion(raw);
-      if(emo&&emo.score>=2){
-        const eqPool=EQ_REPLIES[emo.emotion];
-        if(eqPool&&eqPool.length){
-          const eqLine=eqPool[Math.floor(Math.random()*eqPool.length)];
-          chitMsg=chitChatEarly+'<br><br><em style="color:var(--t2);font-size:11px">'+eqLine+'</em>';
-        }
-      }
-    }
-    harveyMsg(chitMsg,dataChips);
-    speak(chitMsg.replace(/<[^>]*>/g,'').slice(0,280));
+    harveyMsg(chitChatEarly,dataChips);
+    speak(chitChatEarly.replace(/<[^>]*>/g,'').slice(0,280));
     mode=prevMode;
     return;
   }
@@ -3922,22 +3953,21 @@ async function _handleInputInner(raw){
 
   if(harveyKnows.isPraise(raw)){
     const jr=rand([
-      // Weighted favourite — appears 4x
       `You're far too kind, sir. I was merely doing what I was built for — though I must admit, I do it rather well.`,
       `You're far too kind, sir. I was merely doing what I was built for — though I must admit, I do it rather well.`,
       `You're far too kind, sir. I was merely doing what I was built for — though I must admit, I do it rather well.`,
-      `You're far too kind, sir. I was merely doing what I was built for — though I must admit, I do it rather well.`,
-      // Rest of the pool
       `Much appreciated, sir. I'll add that to my growing list of accomplishments, right after "found a 5-room flat in Tampines at 3am."`,
       `Thank you, sir. I do try. Shall we find something else worth your praise?`,
-      `Flattery noted and logged, sir. I assure you, it will in no way affect my objectivity. Now then — anything else?`,
+      `Flattery noted and logged, sir. It will in no way affect my objectivity. Now then — anything else?`,
       `Most kind, sir. I live to serve. Quite literally. What else can I do for you?`,
       `I appreciate that, sir. Though between us — the database does most of the heavy lifting. I merely present it with style.`,
-      `Noted with gratitude, sir. I shall forward your compliments to my engineers. Now, shall we press on?`,
-      `Always here for you, sir. Always.`,
+      `Noted with gratitude, sir. Now, shall we press on?`,
+      `Always here for you, sir. Always. What's next?`,
       `As always, sir — a great pleasure watching you work.`,
-      `That means a great deal, sir. Shall we keep going?`,
-      `Always there for you, sir. Now, what's next?`
+      `Records are made to be broken. Come on then.`,
+      `A very astute observation, sir. Shall I render the next search?`,
+      `I was made for exactly this, sir. Shall we continue?`,
+      `That means a great deal coming from you, sir. What shall we tackle next?`,
     ]);
     harveyMsg(jr,[{label:'RESALE TRANSACTIONS',val:'search'},{label:'ESTIMATE VALUATION',val:'estimate value'}]);
     speak(jr.replace(/<[^>]*>/g,''));mode='menu';return;
@@ -7311,14 +7341,18 @@ function detectEmotion(raw) {
   for (const [emotion, words] of Object.entries(EMOTION_JOINS)) {
     let score = 0;
     for (const w of words) {
-      if (w.length >= 4 && q.includes(w)) score += w.includes(' ') ? 3 : 1;
-      else if (w.length >= 3 && tokens.includes(w)) score += 2;
+      if (w.includes(' ') && q.includes(w)) score += 3; // multi-word = strong signal
+      else if (w.length >= 4 && q.includes(w)) score += 2; // 4+ char substring
+      else if (w.length >= 3 && tokens.includes(w)) score += 2; // exact token
+      else if (w.length >= 3 && tokens.some(t=>t===w)) score += 2;
     }
     if (score > 0) scores[emotion] = score;
   }
   
   if (!Object.keys(scores).length) return null;
+  // Lower threshold: score >= 1 to catch single strong signals like 'ccb', 'shiok', 'paiseh'
   const top = Object.entries(scores).sort((a,b) => b[1]-a[1])[0];
+  if(top[1] < 1) return null;
   return { emotion: top[0], score: top[1] };
 }
 
@@ -7735,16 +7769,12 @@ const harveyKnows=(()=>{
   // Casual quip templates — Jamie-style (HDB chatbot) but with Jarvis wit
   // Inspired by Ask Jamie / HDB Help chatbot: acknowledge, redirect, keep it warm
   const QUIPS=[
-    // Jamie-style: acknowledge the topic, be warm, redirect clearly
-    (topic,raw)=>`I see you're asking about <strong>${topic}</strong>, sir. That's a little outside my area — I'm specifically built for HDB resale transactions and property valuations. For ${topic}, I'd suggest reaching out to someone better equipped to help. <a href="https://wa.me/6597531657" target="_blank" style="color:var(--g)">WhatsApp us here →</a><div style="margin-top:8px;font-family:var(--mono);font-size:9px;color:var(--t3)">I'm Harvey — HDB Resale & Valuation. For everything else, there's a human.</div>`,
-    // Jarvis wit: parrot it back, light-hearted
-    (topic,raw)=>`Ha — <em>"${esc(raw.length>55?raw.slice(0,52)+'…':raw)}"</em>, sir? I appreciate the spirit of enquiry, truly. But ${topic} is well outside my remit. I deal in blocks, flat types, and resale prices — not the finer things in life. Let me point you to someone who can: <a href="https://wa.me/6597531657" target="_blank" style="color:var(--g)">WhatsApp us here →</a>`,
-    // Jamie-style: polite decline, offer alternative
-    (topic,raw)=>`I'm not able to assist with ${topic}, sir — that falls outside what I was designed to do. My expertise is HDB resale data and valuations. If that's something you need, I'm all yours. Otherwise, do feel free to reach out to a professional: <a href="https://wa.me/6597531657" target="_blank" style="color:var(--g)">WhatsApp us →</a>`,
-    // Jarvis: self-aware humour
+    (topic,raw)=>`I see you're asking about <strong>${topic}</strong>, sir. That's a little outside my area — I'm specifically built for HDB resale transactions and property valuations. For ${topic}, I'd suggest reaching out to someone better equipped. <a href="https://wa.me/6597531657" target="_blank" style="color:var(--g)">WhatsApp us here →</a>`,
+    (topic,raw)=>`Ha — <em>"${esc(raw.length>55?raw.slice(0,52)+'…':raw)}"</em>, sir? I appreciate the spirit of enquiry, truly. But ${topic} is well outside my remit. I deal in blocks, flat types, and resale prices. <a href="https://wa.me/6597531657" target="_blank" style="color:var(--g)">WhatsApp us here →</a>`,
     (topic,raw)=>`${topic}, sir? That one's genuinely not in my database — and I have a rather impressive database. I'm afraid I'll have to refer you elsewhere on this one. <a href="https://wa.me/6597531657" target="_blank" style="color:var(--g)">WhatsApp us here →</a> They're considerably more well-rounded than I am.`,
-    // Jamie-style: warm, non-judgmental
-    (topic,raw)=>`That's an interesting question about ${topic}, sir — but I'm only set up to help with HDB resale transactions and valuations. For ${topic}, you'd be better served by someone with broader expertise. Do reach out: <a href="https://wa.me/6597531657" target="_blank" style="color:var(--g)">WhatsApp us here →</a>`,
+    (topic,raw)=>`That's an interesting question about ${topic}, sir — but I'm only set up to help with HDB resale transactions and valuations. Do reach out: <a href="https://wa.me/6597531657" target="_blank" style="color:var(--g)">WhatsApp us here →</a>`,
+    (topic,raw)=>`Wouldn't've been my first call, sir — but I understand the curiosity. ${topic} falls outside what I was built for. The humans at WhatsApp can help: <a href="https://wa.me/6597531657" target="_blank" style="color:var(--g)">WhatsApp us →</a>`,
+    (topic,raw)=>`${topic}? A very astute line of enquiry, sir. Unfortunately, not one I'm equipped to answer. My expertise begins and ends with Singapore HDB resale data. <a href="https://wa.me/6597531657" target="_blank" style="color:var(--g)">WhatsApp us here →</a>`,
   ];
 
   return{
@@ -8528,14 +8558,35 @@ window.addEventListener('load',async()=>{
       const timeOfDay=hr>=5&&hr<12?'morning':hr>=12&&hr<18?'afternoon':'evening';
       const timeStr=new Date().toLocaleTimeString('en-SG',{hour:'numeric',minute:'2-digit',hour12:true});
 
+      // ── Time-specific Jarvis opener ──
+      const openers={
+        morning:[
+          `Good morning, sir. It is ${timeStr}. Singapore wakes early and so do I.`,
+          `Good morning, sir. ${timeStr} — the market is already moving.`,
+          `Good morning, sir. ${timeStr} local time. Early start. I approve.`,
+        ],
+        afternoon:[
+          `Good afternoon, sir. It is ${timeStr}. The day is well underway.`,
+          `Good afternoon, sir. ${timeStr} — right in the thick of it.`,
+          `Good afternoon, sir. ${timeStr}. Shall we make good use of the remaining hours?`,
+        ],
+        evening:[
+          `Good evening, sir. It is ${timeStr}. The market never sleeps — and neither do I.`,
+          `Good evening, sir. ${timeStr} local time. A fine hour to review the numbers.`,
+          `Good evening, sir. ${timeStr}. The day's transactions are all accounted for.`,
+        ],
+      };
+      const openerPool=openers[timeOfDay];
+      const opener=openerPool[Math.floor(Math.random()*openerPool.length)];
+
       // ── Market briefing line ──
-      const briefing=`Good ${timeOfDay}, sir. It is ${timeStr} local time. The Singapore property market remains active — HDB resale prices are generally well-supported, with affordability holding up reasonably across most towns. That said, prime locations and high-demand estates continue to command a premium, so expect stronger pricing in those pockets. I have <strong>${DB.resale.length.toLocaleString()}</strong> resale transactions ready for your review.`;
+      const briefing=`${opener} The Singapore property market remains active — HDB resale prices are generally well-supported, with affordability holding up reasonably across most towns. Prime locations and high-demand estates continue to command a premium. I have <strong>${DB.resale.length.toLocaleString()}</strong> resale transactions ready for your review.`;
 
       harveyMsg(briefing,[
         {label:'RESALE TRANSACTIONS',val:'search'},
         {label:'ESTIMATE VALUATION',val:'estimate value'}
       ]);
-      speak(`Good ${timeOfDay}, sir. It is ${timeStr} local time. The Singapore property market remains active — HDB resale prices are generally well-supported, with affordability holding up across most towns. Prime locations and high-demand estates continue to command a premium. I have ${DB.resale.length.toLocaleString()} resale transactions ready for your review.`);
+      speak(`Good ${timeOfDay}, sir. ${DB.resale.length.toLocaleString()} resale transactions loaded and ready for your review.`);
     } else {
       harveyMsg('I appear to have encountered a data connection issue, sir. A quick refresh should set things right.',[]);
     }
