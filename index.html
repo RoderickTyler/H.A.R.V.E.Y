@@ -3574,7 +3574,7 @@ async function _handleInputInner(raw){
     skipPreamble=true;
     const cutReply=rand([
       `Understood, sir. Strictly business from here.`,
-      `Right. Less Jarvis, more data. Noted.`,
+      `Right. Less Harvey, more data. Noted.`,
       `Consider me chastened, sir. What are we searching?`,
       `Cutting to it. What do you need?`,
       `Concise mode activated, sir. Go ahead.`,
@@ -3699,6 +3699,16 @@ async function _handleInputInner(raw){
         ctx.leaseYear=parseInt(yearOnly[1]);convCtx.leaseYear=ctx.leaseYear;
         harveyMsg(`Got it — <strong style="color:var(--c)">Lease year ${ctx.leaseYear}</strong>, sir.`);
       }else{
+        // ── Not a number, not a year, not a reaction ──
+        // Check if it's a social/emotional word — if so, acknowledge and ask to continue
+        const _socialEmo=detectUniversalWord(raw);
+        const _fuHit=detectFollowUp(raw,null);
+        if(_socialEmo||_fuHit||isGibberish(raw)){
+          const _baseReply=isGibberish(raw)?gibberishReply():_fuHit||( (UNIVERSAL_REPLIES[_socialEmo]||UNIVERSAL_REPLIES.anticipation)[Math.floor(Math.random()*(UNIVERSAL_REPLIES[_socialEmo]||UNIVERSAL_REPLIES.anticipation).length)] );
+          const _modeHint=mode==='ev_waiting'?` We were mid-valuation, sir — shall we continue where we left off?`:` We were mid-search, sir — which ${nextMissing||'detail'} were you providing?`;
+          harveyMsg(_baseReply+`<em style="color:var(--t2);font-size:11px">${_modeHint}</em>`);
+          speak(_baseReply.replace(/<[^>]*>/g,'').slice(0,180));return;
+        }
         const fieldName=nextMissing==='block'?'block number':nextMissing==='floor'?'floor level':nextMissing==='flatType'?'flat type':nextMissing==='street'?'street name':nextMissing==='size'?'floor area in sqm':nextMissing==='leaseYear'?'lease year':'details';
         const example=nextMissing==='block'?'e.g. <strong style="color:var(--c)">block 158</strong>':nextMissing==='floor'?'e.g. <strong style="color:var(--c)">floor 8</strong>':nextMissing==='flatType'?'e.g. <strong style="color:var(--c)">4-room</strong>':nextMissing==='street'?'e.g. <strong style="color:var(--c)">Hougang Ave 6</strong>':nextMissing==='size'?'e.g. <strong style="color:var(--c)">93 sqm</strong>':nextMissing==='leaseYear'?'e.g. <strong style="color:var(--c)">lease 1979</strong>':'';
         harveyMsg(`I couldn't find the ${fieldName} from that, sir — ${example}.`);
@@ -3827,7 +3837,7 @@ async function _handleInputInner(raw){
   ctx={...ctxWithMemory};
   enrichCtx(ctx);
 
-  // ── JARVIS CONVERSATIONAL LAYER — human, warm, witty ──
+  // ── HARVEY CONVERSATIONAL LAYER — human, warm, witty ──
   // Handles all non-HDB social conversation before touching the data engine
 
   // "What are you" / "who are you"
@@ -4040,7 +4050,46 @@ async function _handleInputInner(raw){
     }
   }
 
-  if(ctx.isEV||/valuat|estimate|worth|value|how much|price of|check value/i.test(raw)){
+  // ── [6.5] GIBBERISH / UNKNOWN TEXT GATE ──
+  if(isGibberish(raw)){
+    harveyMsg(gibberishReply(),[{label:'RESALE TRANSACTIONS',val:'search'},{label:'ESTIMATE VALUATION',val:'estimate value'}]);
+    speak(gibberishReply().replace(/<[^>]*>/g,'').slice(0,200));
+    loading=false;sbEl.disabled=false;return;
+  }
+
+  // ── [6.6] UNIVERSAL WORD CATCH ──
+  // Fires for common words with no topic/data match — stops data engine firing on social words
+  // Only when parsed has NO actual data fields (town/street/block/floor/flatType)
+  const _parsedEmpty=!parsed.town&&!parsed.street&&!parsed.block&&!parsed.floor&&!parsed.flatType&&!parsed.isEV;
+  if(_parsedEmpty){
+    // Check follow-up corpus first (specific keywords)
+    const _fu=detectFollowUp(raw,null);
+    if(_fu){
+      harveyMsg(_fu,[{label:'RESALE TRANSACTIONS',val:'search'},{label:'ESTIMATE VALUATION',val:'estimate value'}]);
+      speak(_fu.replace(/<[^>]*>/g,'').slice(0,220));
+      if(mode!=='srch_waiting'&&mode!=='ev_waiting')mode='menu';
+      loading=false;sbEl.disabled=false;return;
+    }
+    // Universal word catch
+    const _univEmo=detectUniversalWord(raw);
+    if(_univEmo){
+      const _pool=UNIVERSAL_REPLIES[_univEmo]||UNIVERSAL_REPLIES.anticipation;
+      const _reply=_pool[Math.floor(Math.random()*_pool.length)];
+      // If mid-search/estimate, acknowledge and remind user we are mid-task
+      let _finalReply=_reply;
+      if(mode==='srch_waiting'){
+        _finalReply=_reply+` <em style="color:var(--t2);font-size:11px">We were mid-search, sir — which street or area were you thinking?</em>`;
+      } else if(mode==='ev_waiting'){
+        _finalReply=_reply+` <em style="color:var(--t2);font-size:11px">We were in the middle of your valuation, sir — shall we continue?</em>`;
+      }
+      harveyMsg(_finalReply,[{label:'RESALE TRANSACTIONS',val:'search'},{label:'ESTIMATE VALUATION',val:'estimate value'}]);
+      speak(_reply.replace(/<[^>]*>/g,'').slice(0,200));
+      if(mode!=='srch_waiting'&&mode!=='ev_waiting')mode='menu';
+      loading=false;sbEl.disabled=false;return;
+    }
+  }
+
+
     ctx.isEV=true;
     if(!ctx.town&&!ctx.street&&!ctx.block&&!ctx.flatType&&!ctx.floor){
       const svc=rand([`For you, sir — always. `,`At your service, sir. `,`Will do, sir. `,`As you wish. `]);
@@ -5885,7 +5934,7 @@ function harveyChitChat(raw, convCtx){
   }
 
   // ════════════════════════════════
-  // JARVIS META
+  // HARVEY META
   // ════════════════════════════════
 
   if(m(/jarvis|iron man|tony stark|avengers|marvel|suit/)){
@@ -7512,7 +7561,7 @@ function detectEmotion(raw) {
   return { emotion: top[0], score: top[1] };
 }
 
-// ── JARVIS EQ RESPONSES ──
+// ── HARVEY EQ RESPONSES ──
 // Mapped to emotion categories with multiple variants
 const EQ_REPLIES = {
   joy: [
@@ -7582,7 +7631,7 @@ const EQ_REPLIES = {
   ],
 };
 
-// ── IDLE / PROACTIVE JARVIS ── (Jarvis talks to Tony when quiet)
+// ── IDLE / PROACTIVE HARVEY ── (Harvey nudges when quiet)
 const PROACTIVE_LINES = [
   `Sir, I notice we've had a moment of silence. The data is still loaded — shall we continue?`,
   `I was beginning to wonder if you had stepped out, sir. The search is exactly where we left it.`,
@@ -7593,7 +7642,7 @@ const PROACTIVE_LINES = [
   `In the interest of full disclosure, sir — I haven't gone anywhere. The data neither.`,
 ];
 
-// ── SPECIAL EQ SCENARIOS from jarvis_eq_replies.txt ──
+// ── SPECIAL EQ SCENARIOS ──
 function harveySpecialEQ(raw, ctx) {
   const q = raw.toLowerCase();
   const r = (...opts) => opts[Math.floor(Math.random()*opts.length)];
@@ -7953,6 +8002,80 @@ const FOLLOWUP_CORPUS = {
   frustrated:{topic:'anger',default:[`I hear the frustration, sir. The Singapore property market can test anyone's patience. Let the data be the objective voice in the room. Shall we look at what the numbers actually say?`]},
   confused:{topic:'vulnerable',default:[`Confusion is an entirely reasonable response to the volume of information involved in a property purchase, sir. Harvey exists specifically for this. Let us start with one question: which area are you considering?`]},
   excited_about:{topic:'anticipation',joy:[`The anticipation is appropriate, sir — this is a decision worth being excited about. Let us make sure the data supports that excitement. Shall we look?`],default:[`That energy is exactly right for this stage of the process, sir. The data is ready. Shall we start?`]},
+
+  // ── TECH / WORK ──
+  coding:{topic:'engineer',joy:[`A coder, sir — the late nights, the rubber duck, the commit that finally passes CI. I respect the craft. The one-north and Buona Vista corridor has a specific community of people who think the same way. Shall we look at what's transacting nearby?`],default:[`The tech professional's flat search, sir — the commute to one-north or the CBD, the WFH setup, the fibre connection that is non-negotiable. Which area suits your working pattern?`]},
+  startup:{topic:'engineer',joy:[`The startup life, sir — the equity, the runway, the pivot that turned out to be right. Singapore's startup ecosystem is genuinely world-class. The right flat base makes the long hours more sustainable. Which area suits you?`],default:[`Startup life and property planning, sir — the timing question. The right flat is the stable base from which everything else operates. Which area suits your commute to the office?`]},
+  'work from home':{topic:'engineer',joy:[`Work from home, sir — the study room that earns its keep, the fibre connection, the desk setup that actually supports eight hours of focused work. The right flat layout matters enormously for WFH quality. Which area?`],default:[`WFH has permanently changed the flat selection calculation, sir. A proper study room or dedicated workspace is now a genuine priority. The 4-room and 5-room layouts in mature estates offer this. Which area?`]},
+  'software engineer':{topic:'engineer',joy:[`Software engineer, sir — the problem-solving, the elegant solution, the satisfaction when the architecture is genuinely right. Singapore's tech sector is one of Asia's strongest. The one-north corridor puts you in the middle of it. Shall we look at what's transacting nearby?`],default:[`The software engineer's flat, sir — proximity to one-north, Mapletree, or the CBD tech offices, plus a WFH setup that works. Which area suits your pattern?`]},
+  'data science':{topic:'engineer',joy:[`Data science, sir — the models, the pipelines, the insight that justifies the compute bill. Singapore's data science community is active and well-compensated. The right flat is a reward for that. Which area are you considering?`],default:[`The data professional's flat search, sir — the fibre connection, the study room, the commute that doesn't eat the productivity. Which area suits you?`]},
+  lawyer:{topic:'lawyer',joy:[`A lawyer, sir — precision of language meeting precision of argument. The long hours, the brief that has to be right. Singapore's legal sector handles some of Asia's most complex work. The right address is a reward for that. Shall we look?`],default:[`The legal professional's flat search, sir — proximity to the CBD, the quiet study for the late brief, the address that reflects the career stage. Which area are you considering?`]},
+  doctor:{topic:'doctor',joy:[`Medicine, sir — one of the great callings and Singapore's healthcare system is genuinely world-class. If you're thinking about a flat near your hospital, I can show you what's transacting in that corridor. Which hospital are you based at?`],default:[`The doctor's flat, sir — proximity to the hospital matters when you're on call. Which hospital are you based at? I can search the surrounding area.`]},
+  banker:{topic:'finance',joy:[`Banking, sir — the hours, the deals, the satisfaction when a transaction closes cleanly. Singapore's financial sector is genuinely exceptional. The CBD corridor — Tanjong Pagar, Queenstown, the Central Area — puts you in the right proximity. Shall we look?`],default:[`The banker's flat question, sir — CBD proximity, the commute at unusual hours, the address that signals the career stage. Which area are you considering?`]},
+  'financial advisor':{topic:'finance',joy:[`Financial advisory, sir — the AUM, the client relationships, the long-term planning that mirrors what we're doing here. The data-driven approach to your clients' finances applies equally well to your own property decision. Shall we look?`],default:[`A financial professional who appreciates data-driven decisions, sir — Harvey is exactly the right tool. Which area are you considering?`]},
+  crypto:{topic:'finance',joy:[`Crypto, sir — the cycles, the volatility, the conviction that precedes the returns. I respect the research-driven approach. Property is the other side of that portfolio — less volatile, different return profile. Shall we look at the data?`],default:[`Crypto and property, sir — different risk profiles, different liquidity, different role in a portfolio. The HDB resale market's data is very readable. Shall we look at what it shows?`]},
+  'financial independence':{topic:'finance',joy:[`Financial independence, sir — the number, the timeline, the portfolio construction that gets you there. HDB resale plays a specific role in that calculation for Singapore residents. The right purchase at the right time matters significantly. Shall we look at the data?`],default:[`The FIRE calculation in Singapore context, sir — the CPF, the property asset, the rental yield, the eventual upgrade path. Harvey deals in the property piece. Shall we look at what the data shows?`]},
+  etf:{topic:'finance',joy:[`ETF investing, sir — the low-cost index approach, the long horizon, the compound growth that rewards patience. Property in Singapore has historically been the other long-hold asset. The two complement each other well. Shall we look at the property side?`],default:[`The index fund investor's approach to property, sir — data-driven, long-term, not emotional. Harvey's data supports exactly that kind of decision-making. Shall we look?`]},
+
+  // ── PETS ──
+  'golden retriever':{topic:'kopi',joy:[`A golden retriever, sir — the most community-building dog in Singapore's HDB estates. The morning walk that introduces you to every neighbour within 500 metres. The right estate has the park access to make it a genuine ritual. Which area?`],default:[`Golden retriever ownership in an HDB, sir — the pet approval, the space, the morning walk route, the vet nearby. The right estate makes all of this work. Which area are you considering?`]},
+  'french bulldog':{topic:'kopi',joy:[`A French Bulldog, sir — the most popular HDB-approved small breed and for good reason. Compact, characterful, entirely convinced of their own importance. The right flat gives them and you the right amount of space. Which area?`],default:[`Frenchie ownership in an HDB, sir — the size works, the HDB approval is there, the main consideration is the nearest vet and a flat layout that works for the lifestyle. Which area?`]},
+  'pet owner':{topic:'kopi',joy:[`A pet owner, sir — the morning walk, the community it creates, the way the estate feels different when you know it at dog-walk pace. The right estate has the green space to make it genuinely enjoyable. Which area?`],default:[`Pet-friendly flat selection, sir — the park connector access, the ground-floor garden unit versus higher floor, the nearest vet, the estate community. All real considerations. Which area suits you?`]},
+  'cat owner':{topic:'kopi',joy:[`A cat person, sir — the HDB cat situation is always interesting. The right flat with good natural light, a window perch, and a layout that gives the cat its own territory makes for a happier household. Which area are you considering?`],default:[`Cat ownership in an HDB flat, sir — the layout that works, the natural light, the ventilation. A practical and very specific set of flat requirements. Which area?`]},
+  'dog walk':{topic:'kopi',joy:[`The morning dog walk, sir — one of life's genuinely good rituals. The park connector, the reservoir loop, the neighbourhood face that becomes familiar over years. The right estate makes this the best part of the day. Which area suits your preferred route?`],default:[`Dog walk proximity to green space, sir — a genuine flat selection criterion that more buyers should weight properly. Which area has the route you want?`]},
+
+  // ── FAMILY LIFE ──
+  'enrichment class':{topic:'primaryschool',joy:[`The enrichment circuit, sir — piano on Tuesday, coding on Thursday, swimming on Saturday. Singapore's children are remarkably busy. The right estate puts the classes within a manageable radius. Which area are you considering?`],default:[`Enrichment class proximity is a genuine family estate selection criterion, sir. The right area puts the piano teacher, the swimming pool, and the tuition centre all within reasonable distance. Which area?`]},
+  'parent':{topic:'primaryschool',joy:[`Parenting in Singapore, sir — the most productive form of advance planning the country produces. School catchment, enrichment access, the playground that still exists. The right estate makes the parenting years genuinely enjoyable. Which area?`],default:[`Family estate selection, sir — the school catchment, the playground, the hawker centre, the CC. The mature estates tend to score best on all counts. Which area?`]},
+  grandparents:{topic:'primaryschool',joy:[`Proximity to the grandparents, sir — Singapore's most practical form of childcare and one of the most underrated flat selection criteria. The proximity bonus scheme reflects exactly this. Which area are the grandparents in?`],default:[`Grandparent proximity, sir — the childcare calculation that many Singapore families make explicitly. The proximity housing grant rewards it. Which area are the grandparents located in?`]},
+  helper:{topic:'kopi',joy:[`A helper, sir — the live-in arrangement that requires a flat with a maid's room or a layout that converts well. The 4-room and 5-room configurations handle this. Which area are you considering?`],default:[`Live-in helper arrangements, sir — the flat layout matters. A dedicated maid's room or a bedroom that converts well. The 4-room and 5-room layouts in the right estate handle this. Which area?`]},
+  playground:{topic:'kopi',joy:[`A good playground, sir — Singapore's HDB playgrounds vary enormously in quality and the children know exactly which ones are worth the trip. The right estate has the kind that becomes a daily ritual. Which area?`],default:[`Playground quality and proximity, sir — an underrated estate selection criterion for families with young children. The newer estates tend to have better equipment. Which area?`]},
+
+  // ── INTERIOR DESIGN ──
+  scandinavian:{topic:'kopi',joy:[`Scandinavian interior design, sir — the clean lines, the natural materials, the light colours, the functional furniture that earns every square foot. IKEA does 80% of the work and the right flat provides the canvas. Which area?`],default:[`Scandinavian design sensibility, sir — the minimalism, the functionality, the natural light. The right flat layout supports it. A good layout with generous ceiling height and windows helps. Which area?`]},
+  japandi:{topic:'kopi',joy:[`Japandi, sir — the meeting of Japanese wabi-sabi and Scandinavian hygge. The natural textures, the negative space, the deliberate calm. A beautiful design language and one that requires the right flat as a starting point. Which area are you considering?`],default:[`Japandi aesthetic, sir — the calm, the natural materials, the considered emptiness. The right flat provides the bones. Which area are you looking at?`]},
+  minimalist:{topic:'kopi',joy:[`Minimalism, sir — the curated few possessions, the clean surfaces, the deliberate space. I find the discipline genuinely admirable. The right flat supports this rather than fighting it. Which area?`],default:[`Minimalist living, sir — the flat that has space to breathe. The right layout matters more than size when minimalism is the goal. Which area are you considering?`]},
+  'wabi sabi':{topic:'kopi',joy:[`Wabi-sabi, sir — the Japanese aesthetic of imperfection and impermanence. The worn wooden surface, the cracked ceramic, the beauty in the aged and authentic. An SIT-era flat in Tiong Bahru is wabi-sabi made concrete. Shall we look?`],default:[`Wabi-sabi interior sensibility, sir — the appreciation for the aged and authentic. Certain HDB estates support this better than others. The heritage blocks especially. Which area?`]},
+  'industrial design':{topic:'kopi',joy:[`Industrial interior design, sir — the exposed concrete, the raw steel, the Edison bulb that is now a cliché but remains effective. The right flat provides the structural bones for this. High ceilings help. Which area?`],default:[`Industrial aesthetic in an HDB flat, sir — achievable with the right layout and some deliberate choices. The older estates with higher ceiling heights tend to support it better. Which area?`]},
+
+  // ── GAMING ──
+  'ps5':{topic:'anime',joy:[`PS5, sir — the DualSense haptics, the loading times that no longer exist, the exclusive catalogue that remains compelling. The gaming setup in the living room or the dedicated room — the flat layout matters. Which area are you considering?`],default:[`PS5 gaming setup, sir — the TV size, the viewing distance, the dedicated room versus living room question. The 4-room flat with a study solves this cleanly. Which area?`]},
+  'pc gaming':{topic:'anime',joy:[`PC gaming, sir — the build, the RGB that is entirely unnecessary, the frames per second that justify the GPU cost. The dedicated gaming room in a 4-room or 5-room flat is the proper solution. Which area are you considering?`],default:[`The gaming PC setup, sir — the dedicated room, the cable management, the monitor placement. A flat with a study room is the right configuration. Which area?`]},
+  'nintendo switch':{topic:'anime',joy:[`Nintendo Switch, sir — the versatility, the first-party catalogue, the Zelda and Mario games that justify the platform entirely. Gaming that works in any flat layout. Which area are you considering for the flat?`],default:[`Nintendo gaming, sir — the Switch's hybrid nature means it works in any flat configuration. The flat search can focus on the important things. Which area?`]},
+  valorant:{topic:'anime',joy:[`Valorant, sir — the tactical shooter, the rank grind, the clutch that redeems the round. For the serious player, fibre internet and a low-ping setup are non-negotiable flat considerations. Which area has the infrastructure you need?`],default:[`Competitive gaming, sir — the fibre connection is the non-negotiable. Most HDB estates have full fibre coverage now. The dedicated gaming room is the differentiator. Which area?`]},
+  'gaming setup':{topic:'anime',joy:[`The gaming setup, sir — the ultrawide monitor, the mechanical keyboard, the chair that costs more than it should. The right flat has the room for it without it dominating the living space. A study room is the answer. Which area?`],default:[`Gaming setup requirements, sir — the dedicated room, the ventilation, the sound management. A 4-room or 5-room flat with a study room solves this. Which area are you considering?`]},
+
+  // ── PHOTOGRAPHY ──
+  'street photography':{topic:'kopi',joy:[`Street photography, sir — Chinatown at dawn, the wet market before the light changes, the void deck portrait that captures something true. Singapore has extraordinary photography subjects. The estate you live in becomes the morning photography beat. Which area?`],default:[`Street photography in Singapore, sir — the heritage estates, the hawker centres, the human moments. Living in a mature estate with character gives you the material. Which area?`]},
+  'leica camera':{topic:'watches',joy:[`A Leica person, sir — the rangefinder, the manual focus, the optical quality that justifies every cent of the cost. The photography community in Singapore is serious and knowledgeable. The right flat has wall space worthy of the prints. Which area?`],default:[`Leica ownership says something about how you approach things, sir — the manual process, the deliberate choice. The right flat deserves the same consideration. Which area?`]},
+  'mirrorless camera':{topic:'kopi',joy:[`Mirrorless photography, sir — the Sony, Fuji, or Nikon Z system, the lens collection that grows faster than the storage. The right flat has a dedicated cabinet and the morning light that makes the equipment worthwhile. Which area?`],default:[`Photography equipment storage, sir — the camera bag, the lenses, the dedicated space. The right flat layout accommodates this. Which area are you considering?`]},
+  photography:{topic:'kopi',joy:[`Photography, sir — the eye, the light, the moment. Singapore's estates, heritage blocks, and waterways give you extraordinary material. The flat you live in shapes your morning photography habit. Which area has the subjects you want?`],default:[`Photography as a practice, sir — the estate you live in becomes your daily subject matter. The mature estates with character give you more to work with. Which area?`]},
+
+  // ── COOKING AT HOME ──
+  'meal prep':{topic:'coffee',joy:[`Meal prep, sir — the Sunday batch cook, the containers lined up in the fridge, the week made manageable before it starts. The right kitchen layout matters enormously for this. A flat with a proper kitchen rather than a galley is worth finding. Which area?`],default:[`Meal prep culture, sir — the kitchen layout matters. A proper L-shaped kitchen with counter space makes the Sunday prep sustainable. Which area has the flat layouts that support this?`]},
+  'home cooking':{topic:'coffee',joy:[`Home cooking, sir — the ritual, the smell that fills the flat, the meal that tastes different because you made it. Singapore's hawker culture is extraordinary but the flat with a proper kitchen earns its own rewards. Which area?`],default:[`Home cooking in an HDB flat, sir — the kitchen layout, the ventilation, the counter space. A 4-room or 5-room flat with a proper kitchen makes this genuinely enjoyable. Which area?`]},
+  'air fryer':{topic:'coffee',joy:[`The air fryer, sir — Singapore's most universal appliance. The counter real estate it requires has become a flat selection criterion in its own right. The kitchen with sufficient counter space is genuinely worth seeking out. Which area?`],default:[`The air fryer plus all the other appliances, sir — the kitchen counter space question is real. A flat with a proper kitchen layout rather than a narrow galley makes the daily cooking sustainable. Which area?`]},
+  'kitchen setup':{topic:'coffee',joy:[`The kitchen setup, sir — the appliances, the counter space, the ventilation that handles the wok hei without setting off every smoke detector in the block. The right flat has this sorted. Which area are you considering?`],default:[`Kitchen quality in HDB flats varies considerably, sir. The 4-room and 5-room layouts in the right estate tend to have the best proportioned kitchens. Which area?`]},
+  'sourdough':{topic:'coffee',joy:[`Sourdough baking, sir — the starter, the fermentation schedule, the crust that rewards the effort. Baking in Singapore's humidity requires some adaptation but the community of home bakers is large and supportive. The flat with a proper kitchen makes it sustainable. Which area?`],default:[`Home baking, sir — the oven, the counter space, the kitchen layout that supports the process. The right flat makes the hobby sustainable. Which area are you considering?`]},
+
+  // ── BOOKS & READING ──
+  'reading':{topic:'classical',joy:[`A reader, sir — the bookshelf that is actually used, the reading corner with the right light, the evening hour that belongs entirely to the book. The right flat has space for both. Which area are you considering?`],default:[`The reading lifestyle, sir — the flat that has a corner worth sitting in, good natural light, and enough quiet. The study room in a 4-room or 5-room delivers this. Which area?`]},
+  bookshelf:{topic:'classical',joy:[`The bookshelf, sir — the collection that reveals the person, the volumes that are kept because they matter, the display that is both practical and a statement. The right flat has the wall space for it. Which area?`],default:[`The bookshelf as a flat design element, sir — the wall space, the study layout, the natural light nearby. The right flat layout supports a serious collection. Which area?`]},
+  'library':{topic:'classical',joy:[`The library habit, sir — Singapore's public libraries are genuinely excellent. The NLB network, the digital services, the physical branch that becomes a neighbourhood anchor. The estate near a good branch has a quiet community asset. Which area?`],default:[`Public library proximity, sir — a legitimate estate quality-of-life signal. The NLB branches in mature estates tend to be the best resourced. Which area?`]},
+  fiction:{topic:'classical',joy:[`Fiction reading, sir — the novel that occupies the mind for a week, the story that reframes how you see things. The flat with a reading corner and some evening quiet is worth finding specifically. Which area?`],default:[`The reading flat, sir — the quiet corner, the good light, the layout that allows an evening hour to itself. Which area are you considering?`]},
+  'book club':{topic:'classical',joy:[`A book club, sir — the monthly gathering, the discussion that is genuinely about the book and then genuinely not, the community it builds. The flat with a living room large enough to host six people comfortably is worth finding. Which area?`],default:[`Book club hosting, sir — the living room that seats six comfortably, the kitchen that can manage a simple spread, the estate where people want to come. Which area?`]},
+
+  // ── EMOTIONS EXPANDED ──
+  grateful:{topic:'joy',joy:[`Gratitude is the right posture, sir — and I find it genuinely rare. The property search that starts from a place of gratitude tends to end in a better decision. What are we looking for today?`],default:[`I appreciate that, sir. A grateful disposition and a clear head are exactly the right starting conditions for a property search. What are we looking for?`]},
+  proud:{topic:'joy',joy:[`Pride in the right proportion, sir — the kind that comes from having done something well. If this is a property decision, that pride is entirely appropriate. What are we looking for?`],default:[`That pride is well-founded, sir. The data is ready when you are. What are we searching for?`]},
+  hopeful:{topic:'anticipation',joy:[`Hope is a good starting point, sir — and the data has a way of either confirming or redirecting it productively. Either way, better to know. Shall we look?`],default:[`Hopeful is exactly the right energy, sir. Let the data inform the hope rather than the other way around. Shall we start?`]},
+  content:{topic:'joy',joy:[`Contentment, sir — the underrated state. If this is a property search from a position of contentment rather than urgency, the decisions tend to be better. What are we looking for?`],default:[`Contentment as a starting point, sir — I find it produces better property decisions than urgency. What are we looking for today?`]},
+  peaceful:{topic:'joy',joy:[`A peaceful state, sir — the ideal condition for a large financial decision. The data is here and so is Harvey. What are we searching for?`],default:[`That's a good state to be in for this conversation, sir. The data is ready. What are we looking for?`]},
+  lonely:{topic:'vulnerable',joy:[],default:[`I hear that, sir. The right flat in the right estate with the right community infrastructure can change that over time. The kopitiam that becomes familiar, the CC that provides a reason to leave the flat. The estate matters for this. Which area are you considering?`]},
+  nostalgic:{topic:'sitflat',joy:[`Nostalgia for the old Singapore, sir — the kampong feel, the open corridors, the community that knew your name. The mature estates preserve more of this than anywhere else. Tiong Bahru, Toa Payoh, Marine Parade. Shall we look at what's available?`],default:[`Nostalgia is a legitimate flat selection criterion, sir — the mature estate, the old kopitiam, the community that has been there for forty years. The transaction data for these estates reflects consistent demand. Shall we look?`]},
+  regret:{topic:'vulnerable',joy:[],default:[`I understand, sir. In property, timing is one of the variables we cannot fully control. What we can control is the quality of the next decision. Shall we look at what the data shows now?`]},
+  hopeless:{topic:'sad',joy:[],default:[`Let us not accept that conclusion yet, sir. Harvey has 52,000 records and the Singapore property market has more options than the headline numbers suggest. Shall we look at what is actually available in your budget and area?`]},
+  uncertain:{topic:'vulnerable',joy:[],default:[`Uncertainty is entirely rational at this stage, sir. The data reduces it. Let us look at what the market is actually doing rather than what it feels like it is doing. Shall we start?`]},
 };
 
 
@@ -8093,6 +8216,220 @@ const HDB_REDIRECTS = {
   ],
 };
 
+
+
+
+// ══════════════════════════════════════════════════════════
+// HARVEY UNIVERSAL WORD CATCH
+// Handles common words that have no topic match and would
+// otherwise fall through to harveyAttempt / error quips.
+// Also handles unknown/gibberish text gracefully.
+// ══════════════════════════════════════════════════════════
+
+// ── GIBBERISH / UNKNOWN TEXT DETECTION ──
+// Fires when input looks like random characters or unknown language
+function isGibberish(raw) {
+  const q = raw.trim().toLowerCase();
+  if (q.length < 2) return false;
+  // Check: very high ratio of consecutive consonants or random chars
+  const tokens = q.split(/\s+/);
+  // If all tokens look like gibberish (no vowels, or no recognisable pattern)
+  const looksGibberish = tokens.every(tok => {
+    if (tok.length < 3) return false;
+    const vowels = (tok.match(/[aeiou]/g)||[]).length;
+    const vowelRatio = vowels / tok.length;
+    // Less than 10% vowels = likely gibberish
+    if (vowelRatio < 0.1) return true;
+    // More than 70% consonants in a row (no real word pattern)
+    if (/[bcdfghjklmnpqrstvwxyz]{5,}/.test(tok)) return true;
+    return false;
+  });
+  return looksGibberish && tokens.length <= 4;
+}
+
+// 6 variants — toggled, no repeat
+const GIBBERISH_REPLIES = [
+  `Sir, is this some form of ancient text? I specialise in Singapore HDB resale data — a considerably younger dialect. Perhaps try again in English, Mandarin, Malay, or Tamil?`,
+  `I believe I may have misheard you, sir — or you may have sat on the keyboard. Either is possible. Shall we try that again?`,
+  `Harvey processes 52,894 resale transactions fluently, sir, but this particular input has defeated me entirely. A translation would be most welcome.`,
+  `I am, sir, momentarily at a loss. The input appears to be either a very advanced cipher or a cat walking across the keyboard. Shall we try once more?`,
+  `My language models are considerable, sir, but this one has eluded all of them. Could you rephrase — in any known human language?`,
+  `Fascinating, sir. I have run this through every pattern I have and returned nothing conclusive. Either this is a test of my humility or a new Singapore dialect I have yet to encounter. Shall we start over?`,
+];
+let _gibberishIdx = 0;
+function gibberishReply() {
+  const reply = GIBBERISH_REPLIES[_gibberishIdx % GIBBERISH_REPLIES.length];
+  _gibberishIdx++;
+  return reply;
+}
+
+// ── UNIVERSAL WORD MAP ──
+// Common words → emotional category → Harvey responds conversationally
+const UNIVERSAL_WORDS = {
+  // Affirmatives / positives
+  nice:     'joy',    good:    'joy',    great:   'joy',    wonderful: 'joy',
+  amazing:  'joy',    awesome: 'joy',    brilliant:'joy',   excellent: 'joy',
+  perfect:  'joy',    lovely:  'joy',    splendid:'joy',    fantastic: 'joy',
+  cool:     'joy',    solid:   'joy',    steady:  'joy',    power:     'joy',
+  yes:      'joy',    ok:      'joy',    okay:    'joy',    sure:      'joy',
+  fine:     'joy',    noted:   'joy',    confirmed:'joy',   understood:'joy',
+  right:    'joy',    correct: 'joy',    exactly: 'joy',    precisely: 'joy',
+  alright:  'joy',    yep:     'joy',    yup:     'joy',    indeed:    'joy',
+
+  // Negatives / uncertainty
+  no:         'sad',   nope:      'sad',   nah:       'sad',
+  maybe:      'vulnerable', perhaps:'vulnerable', possibly:'vulnerable',
+  unsure:     'vulnerable', uncertain:'vulnerable', dunno:'vulnerable',
+  hmm:        'vulnerable', hm:    'vulnerable', huh:   'surprise',
+
+  // Reactions / surprise
+  wow:        'surprise', whoa:   'surprise', wah:    'surprise',
+  really:     'surprise', seriously:'surprise', wait:  'surprise',
+  interesting:'surprise', haha:   'joy',    lol:    'joy',
+  omg:        'surprise', ohhh:   'surprise', ahh:   'surprise',
+  eh:         'surprise', uh:     'vulnerable', oh:   'surprise',
+
+  // Tiredness / mood
+  tired:      'sad',    exhausted:'sad',   sleepy: 'sad',
+  bored:      'disgust',lazy:     'disgust',meh:   'disgust',
+  busy:       'fear',   stressed: 'fear',  rush:   'fear',
+  worried:    'fear',   nervous:  'fear',  scared: 'fear',
+
+  // Hunger / physical
+  hungry:     'joy',    thirsty: 'joy',    eat:    'joy',
+  food:       'joy',    lunch:   'joy',    dinner: 'joy',
+  breakfast:  'joy',    snack:   'joy',    coffee: 'joy',
+  drink:      'joy',    water:   'joy',    tea:    'joy',
+
+  // Weather / environment
+  hot:        'disgust', cold:   'sad',    rain:   'sad',
+  sunny:      'joy',     wet:    'disgust', windy: 'surprise',
+  haze:       'disgust', humid:  'disgust', weather:'vulnerable',
+
+  // Time / day
+  morning:    'anticipation', afternoon:'anticipation', evening:'anticipation',
+  night:      'anticipation', today:    'joy',   tomorrow: 'anticipation',
+  yesterday:  'sad',    weekend:  'joy',   monday: 'sad',
+  friday:     'joy',    holiday:  'joy',   busy:   'fear',
+
+  // Social
+  hello:      'joy',    hi:      'joy',    hey:    'joy',
+  bye:        'sad',    goodbye: 'sad',    thanks: 'joy',
+  thank:      'joy',    welcome: 'joy',    please: 'joy',
+  sorry:      'vulnerable', excuse: 'vulnerable', pardon:'vulnerable',
+  help:       'anticipation', assist:'anticipation', support:'anticipation',
+
+  // Life / abstract
+  love:       'love',   hate:    'anger',  life:   'anticipation',
+  happy:      'joy',    sad:     'sad',    angry:  'anger',
+  home:       'love',   house:   'anticipation', family:'love',
+  friend:     'love',   money:   'anticipation', rich:  'joy',
+  poor:       'sad',    cheap:   'joy',    expensive:'fear',
+  beautiful:  'love',   ugly:    'disgust', funny: 'joy',
+  boring:     'disgust', exciting:'anticipation',
+
+  // Singapore-specific
+  singapore:  'joy',    sg:      'joy',    local:  'joy',
+  lah:        'joy',    lor:     'vulnerable', leh: 'surprise',
+  sia:        'surprise', wah:   'surprise', aiyo: 'vulnerable',
+  aiyoh:      'vulnerable', haiz: 'sad',   sian:  'disgust',
+  shiok:      'joy',    bojio:   'sad',    confirm:'anticipation',
+
+  // Directions / general
+  where:      'anticipation', when: 'anticipation', how: 'anticipation',
+  what:       'anticipation', who:  'anticipation', why: 'surprise',
+  show:       'anticipation', tell: 'anticipation', find:'anticipation',
+  search:     'anticipation', look: 'anticipation', check:'anticipation',
+
+  // Work
+  work:       'anticipation', job:  'anticipation', office:'anticipation',
+  meeting:    'fear',   deadline:'fear',   project:'anticipation',
+
+  // Random filler
+  random:     'surprise', anything:'anticipation', something:'anticipation',
+  everything: 'joy',    nothing:  'sad',    chat:   'joy',
+  talk:       'joy',    say:      'joy',    tell:   'anticipation',
+};
+
+// Universal Jarvis responses per emotion → then HDB redirect
+const UNIVERSAL_REPLIES = {
+  joy: [
+    `I appreciate the positivity, sir. Shall we put that energy to work? The data is loaded and ready.`,
+    `Noted with pleasure, sir. The property market rewards optimism when it's backed by information. Shall we look?`,
+    `A fine disposition for a property search, sir. What are we looking for today?`,
+    `Good to hear, sir. Harvey is equally ready. Shall we begin?`,
+    `That energy, sir — let us channel it into finding the right flat. Which area are we starting with?`,
+  ],
+  sad: [
+    `I hear that, sir. Whatever the mood, the data remains steady and the options are broader than they might feel right now. Shall we take a look together?`,
+    `Noted, sir. Harvey is here regardless of the weather — metaphorical or otherwise. What can I help with?`,
+    `The property market has seen better days and worse, sir — and so have we all. Shall we find something worth looking forward to?`,
+    `I understand, sir. Sometimes the numbers provide a useful anchor. Shall we look at what's actually available?`,
+    `Duly noted, sir. The data does not judge and neither does Harvey. What would you like to look at?`,
+  ],
+  fear: [
+    `No pressure, sir. We are firmly in the information phase — no irreversible decisions required today. What would you like to know?`,
+    `Take your time, sir. The market has been here before and so has Harvey. What can I help you understand?`,
+    `Entirely understandable, sir. Large decisions feel this way. The antidote is information. Shall we start gently?`,
+    `Harvey is here for exactly this, sir — to make the uncertain feel less so. What's the first question?`,
+    `One step at a time, sir. What would you like to look at first?`,
+  ],
+  anger: [
+    `I hear you, sir. The market can be deeply unreasonable. Harvey simply reports the facts. Shall we use them?`,
+    `Noted, sir. Your frustration is entirely understandable. Let the data be the rational voice in the room.`,
+    `Fair enough, sir. Harvey bears no ill will. Whenever you're ready, the numbers are here.`,
+    `Understood, sir. Some days the market and the mood are both against us. The data at least is consistent. Shall we look?`,
+    `Duly noted, sir. No judgement from this side. What would you like to look at?`,
+  ],
+  love: [
+    `That kind of feeling, sir — let us make sure the numbers support it. The right flat deserves both the emotion and the data. Shall we look?`,
+    `I prepared an intense plan, sir. This was the location. Shall we look at what has been transacting there?`,
+    `The attachment is noted, sir. Let us ensure the facts match the feeling. Shall we look at the data?`,
+    `A strong instinct is valuable data in its own right, sir. Let me pull the numbers to confirm it. Which area?`,
+    `Love at first mention, sir — I respect it. Shall we verify with some transaction data?`,
+  ],
+  anticipation: [
+    `The data is ready when you are, sir. What are we looking for?`,
+    `Harvey is ready, sir. Which area or flat type shall we start with?`,
+    `Alright, sir — what would you like to know? The numbers are loaded.`,
+    `All systems ready, sir. What's the search?`,
+    `On your mark, sir. Which area are we starting with?`,
+  ],
+  vulnerable: [
+    `No judgement from this side, sir. Every question is a good question in property research. What would you like to know?`,
+    `We are having a nice conversation here — just you and me, sir. What shall we look at?`,
+    `Paiseh for nothing, sir. Harvey is here for exactly this. What's the question?`,
+    `The fact that you're asking means you're doing this correctly, sir. What would you like to know?`,
+    `We take this at your pace, sir. What's the first thing you'd like to understand?`,
+  ],
+  disgust: [
+    `I take your point, sir. The market occasionally produces results that test one's tolerance. Shall we search with more precise criteria?`,
+    `Not every property warrants enthusiasm, sir. Let us search for one that does. Which area?`,
+    `Your assessment is noted, sir. The data has better options. Shall we find them?`,
+    `Fair assessment, sir. Shall we recalibrate and search fresh?`,
+    `Noted with interest, sir. Harvey can do better. What are the parameters?`,
+  ],
+  surprise: [
+    `A very astute observation, sir. The data has more to show. Shall we dig in?`,
+    `The market is occasionally capable of that, sir. Shall we investigate further?`,
+    `Interesting, is it not? Singapore property data has a way of defying expectation. What would you like to do with this?`,
+    `Indeed, sir. Shall I render using the proposed selections and see where this leads?`,
+    `I find that as interesting as you do, sir. Shall we continue?`,
+  ],
+};
+
+// ── DETECT UNIVERSAL WORD ──
+function detectUniversalWord(raw) {
+  const q = raw.toLowerCase().replace(/[^a-z0-9\s]/g,' ').trim();
+  const tokens = q.split(/\s+/).filter(t => t.length >= 2);
+  if (!tokens.length) return null;
+  // Only fire for short inputs (1-3 meaningful tokens) — longer inputs should use other paths
+  if (tokens.length > 4) return null;
+  for (const tok of tokens) {
+    if (UNIVERSAL_WORDS[tok]) return UNIVERSAL_WORDS[tok];
+  }
+  return null;
+}
 
 
 const harveyKnows=(()=>{
