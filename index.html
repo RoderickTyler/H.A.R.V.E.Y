@@ -4057,11 +4057,40 @@ async function _handleInputInner(raw){
     loading=false;sbEl.disabled=false;return;
   }
 
+  // ── [6.5b] EXCLAMATORY PAIR DETECTION ──
+  // "fucking power", "knn steady", "cb good lah" = intensifier + positive = PRAISE
+  // Strip the intensifier and evaluate what's left
+  const _INTENSIFIERS = /\b(fuck(?:ing)?|knn|cb|ccb|nabei|kanasai|lan jiao|cb|damn|bloody|shiok|wah|walao|wah lao|sibei|si bei|super|ultra|hella|so|very|really|so fucking|bloody hell|holy)\b/gi;
+  const _PRAISE_CORES = new Set(['power','steady','geng','good','great','nice','solid','lah','sia','wah','class','pro','best','sharp','on point','legit','fire','dope','sick','perfect','fantastic','brilliant','excellent','amazing','outstanding','awesome','superb','incredible','top','first class','world class','not bad','shiok','jialat good','steady bom','confirm good']);
+  const _rawStripped = raw.toLowerCase().replace(_INTENSIFIERS,'').replace(/[^a-z0-9\s]/g,' ').trim();
+  const _strippedTokens = _rawStripped.split(/\s+/).filter(t=>t.length>1);
+  const _isExclPraise = _strippedTokens.length > 0 && _strippedTokens.some(t => _PRAISE_CORES.has(t)) && _INTENSIFIERS.test(raw.toLowerCase());
+  if(_isExclPraise){
+    // Treat as praise — reset regex lastIndex and route to praise handler
+    _INTENSIFIERS.lastIndex=0;
+    const _exclPool=[
+      `I shall take that as a compliment, sir — the enthusiasm is noted and appreciated.`,
+      `Harvey understands that as high praise, sir. The sentiment, if not the precise vocabulary, is received warmly.`,
+      `Noted with considerable pleasure, sir — the vigour of the endorsement is not lost on me.`,
+      `I believe that is what they call emphatic praise, sir. Harvey accepts gracefully.`,
+      `The expletive construction only adds emphasis, sir. Harvey is genuinely pleased.`,
+      `That, sir, is what I would call a strongly-worded compliment. Received with gratitude.`,
+    ];
+    const _exclReply=_exclPool[Math.floor(Math.random()*_exclPool.length)];
+    harveyMsg(_exclReply,[{label:'RESALE TRANSACTIONS',val:'search'},{label:'ESTIMATE VALUATION',val:'estimate value'}]);
+    speak(_exclReply.slice(0,200));
+    if(mode!=='srch_waiting'&&mode!=='ev_waiting')mode='menu';
+    loading=false;sbEl.disabled=false;return;
+  }
+  _INTENSIFIERS.lastIndex=0;
+
   // ── [6.6] UNIVERSAL WORD CATCH ──
   // Fires for common words with no topic/data match — stops data engine firing on social words
   // Only when parsed has NO actual data fields (town/street/block/floor/flatType)
   const _parsedEmpty=!parsed.town&&!parsed.street&&!parsed.block&&!parsed.floor&&!parsed.flatType&&!parsed.isEV;
-  if(_parsedEmpty){
+  // Skip universal catch for praise — let isPraise() handle it properly
+  const _isPraiseInput=harveyKnows.isPraise(raw);
+  if(_parsedEmpty&&!_isPraiseInput){
     // Check follow-up corpus first (specific keywords)
     const _fu=detectFollowUp(raw,null);
     if(_fu){
@@ -5841,7 +5870,7 @@ function harveyChitChat(raw, convCtx){
     ));
   }
 
-  if(m(/ns|national service|army|camp|bmtc|tekong|reservist|in camp|ict|ord/)){
+  if(m(/\bns\b|national service|\barmy\b|\bcamp\b|bmtc|tekong|reservist|in camp|\bict\b|\bord\b/)){
     return withCtx(r(
       `National Service, sir — a rite of passage. I have great respect for it, even if I was deployed in rather different circumstances. Is there something property-related I can help with?`,
       `Ah, NS, sir. The great shared experience. I don't have a NRIC or a rank, but I do have an encyclopaedic knowledge of Singapore resale prices. Slightly different skill set.`,
@@ -6040,6 +6069,82 @@ function harveyChitChat(raw, convCtx){
       `Harvey doesn't predict, sir. Harvey analyses. The distinction matters. What I can show you is the data trajectory — and what you do with it is your call.`
     ));
   }
+
+  // ── DYNAMIC TOWN + PRICE EMOTION ──
+  // Catches: "wah clementi so fucking expensive", "jurong so cheap", "tampines affordable"
+  // Detects town + price sentiment and responds with town-specific Jarvis reply
+  (()=>{
+    const _priceTowns={
+      'clementi':`Clementi is a class of its own, sir`,
+      'queenstown':`Queenstown commands what it commands, sir`,
+      'bishan':`Bishan prices reflect exactly what Bishan offers, sir`,
+      'toa payoh':`Toa Payoh has always known its worth, sir`,
+      'marine parade':`Marine Parade and the sea breeze carry a specific premium, sir`,
+      'tampines':`Tampines is the East's most complete new town — the pricing follows logically, sir`,
+      'bedok':`Bedok's maturity and amenities are priced accordingly, sir`,
+      'punggol':`Punggol's waterfront infrastructure commands what it does for good reason, sir`,
+      'serangoon':`Serangoon's connectivity and schools explain the numbers, sir`,
+      'hougang':`Hougang offers genuine heartland value, sir`,
+      'woodlands':`Woodlands offers some of the most accessible pricing on the island, sir`,
+      'yishun':`Yishun offers very honest value for the infrastructure it provides, sir`,
+      'jurong':`Jurong West and East offer solid value relative to their amenities, sir`,
+      'sengkang':`Sengkang's modern estates are priced for what they deliver, sir`,
+      'bukit timah':`Bukit Timah has been premium since before premium was a word, sir`,
+      'ang mo kio':`AMK prices reflect its central position and mature infrastructure, sir`,
+    };
+    const _q=q.toLowerCase();
+    const _matchTown=Object.keys(_priceTowns).find(t=>_q.includes(t));
+    const _isExpensive=/expensive|pricey|costly|so high|damn high|too high|sibei ex|sibei expensive|fucking expensive|knn expensive|walao expensive|wah expensive|cannot tahan price|wallet pain|burn pocket|break bank|shiok meh price|overpriced|over priced/.test(_q);
+    const _isCheap=/cheap|affordable|value|reasonable|not bad price|good price|worth it price|sibei cheap|fucking cheap|damn cheap|wah cheap|steady price|solid price|shiok price|good value|great value|wallet friendly|budget friendly/.test(_q);
+    if(_matchTown&&(_isExpensive||_isCheap)){
+      const _townLine=_priceTowns[_matchTown];
+      const _expReplies=[
+        `${_townLine}. The prices are not an accident — they reflect demand that has been consistent for years. Shall I show you the transaction data?`,
+        `${_townLine} — and the transaction history bears that out. Shall we look at what has actually been selling?`,
+        `${_townLine}. The market is telling you something with those prices. The data will explain what. Shall we look?`,
+        `${_townLine}. I understand the reaction — but the numbers have a story. Shall I show you?`,
+        `${_townLine}. Harvey agrees the prices are serious. The question is whether they are justified. The data will tell us. Shall we look?`,
+        `${_townLine}. That premium has been earned over decades of consistent demand. Shall I show you the transaction trend?`,
+        `${_townLine}. The frustration is understandable, sir, but the market has spoken consistently. Shall we look at the data?`,
+        `${_townLine}. Expensive relative to what, sir? Let the data answer that. Shall we look?`,
+        `${_townLine}. I can understand why you feel this way, sir. The pricing corridor here is one of Singapore's most persistent premiums. Shall we look?`,
+        `${_townLine}. The wallet pain is real, sir. The data will at least explain where it comes from. Shall we look?`,
+      ];
+      const _cheapReplies=[
+        `${_townLine}. Are you sure about that, sir? The data may have a different view. Shall we check?`,
+        `${_townLine} — and the transaction numbers would politely push back on "cheap". Shall we look at what has actually been selling?`,
+        `${_townLine}. Harvey is glad you feel that way, sir. The market may have a different opinion. Shall we verify?`,
+        `${_townLine}. That assessment may surprise you when we look at the actual transactions. Shall we?`,
+        `${_townLine}. Affordable by Singapore standards is still a meaningful number, sir. Shall we look at the data?`,
+        `${_townLine}. If that is your read on the pricing, sir, the transaction data will either confirm or expand your perspective. Shall we look?`,
+        `${_townLine}. Good value, certainly — but cheap might be a stretch. Shall I show you the numbers?`,
+        `${_townLine}. The value case is real, sir. Let us look at the data and see exactly how real. Shall we?`,
+        `${_townLine}. A good value find in Singapore, sir — those are increasingly rare. Shall we look at the transactions?`,
+        `${_townLine}. Harvey notes the optimism, sir. The data will sharpen the picture. Shall we look?`,
+      ];
+      const _pool=_isExpensive?_expReplies:_cheapReplies;
+      return withCtx(_pool[Math.floor(Math.random()*_pool.length)]);
+    }
+    // Pure price emotion — no town match
+    if(_isExpensive&&!_matchTown){
+      return withCtx(r(
+        `Singapore property prices, sir — the number that either validates or resets expectations. Which area or flat type has caught your attention? The data will give you context.`,
+        `Expensive relative to what, sir? The data has a way of making absolute numbers feel more navigable. Which area are we discussing?`,
+        `Sir, take a deep breath. The market is what it is — and the data will show you both the pain and the opportunity. Which area?`,
+        `The price anxiety is entirely understandable, sir. Harvey exists precisely to replace that anxiety with information. Which area are we looking at?`,
+        `Expensive now, sir — or expensive versus three years ago? The data tells different stories depending on the timeframe. Which area?`
+      ));
+    }
+    if(_isCheap&&!_matchTown){
+      return withCtx(r(
+        `Good value in Singapore property, sir — a specific and increasingly precise thing. Which area are you looking at? Let us verify that instinct with the data.`,
+        `Affordable by Singapore standards, sir — still a meaningful number. Which area caught your eye? The data will confirm whether the value case is real.`,
+        `Harvey appreciates the optimism, sir. Let the data confirm it. Which area are we looking at?`,
+        `A good deal in the Singapore market is always worth investigating carefully, sir. Which area? Let us look at what has actually been transacting.`,
+        `If you have found genuine value here, sir, the data will confirm it — and the opportunity may not last long. Which area?`
+      ));
+    }
+  })();
 
   if(m(/rich|wealthy|afford|budget|expensive|cannot afford|too expensive|price too high/)){
     return withCtx(r(
@@ -8516,6 +8621,24 @@ const harveyKnows=(()=>{
     'good stuff','good going','keep it up','love it','loving this','loving it',
     'legend','legendary','top notch','top class','first class','world class',
     'cannot complain','no complaints','satisfied','happy with this','happy with that',
+    // ── SINGLISH PRAISE ──
+    'power lah','power sia','steady lah','steady sia','steady bom pi pi','geng sia','geng leh',
+    'solid lah','solid sia','best lah','best sia','pro lah','pro sia','sibei good','damn good',
+    'confirm good','confirm power','confirm solid','shiok lah','shiok sia','very shiok',
+    'on point lah','sharp leh','not bad leh','not bad sia','quite good lah','okay lah good',
+    'wah power','wah geng','wah steady','wah solid','wah shiok','steady bom',
+    // ── MANDARIN ──
+    '很好','太棒了','厉害','不错','做得好','好厉害','太厉害了','非常好','好极了','真不错',
+    'hen hao','tai bang le','li hai','bu cuo','zuo de hao',
+    // ── MALAY ──
+    'bagus','bagus sekali','pandai','hebat','terbaik','mantap','cayalah','caya lah',
+    'bagus harvey','pandai harvey','hebat harvey','best gila','best ah',
+    // ── TAMIL ──
+    'nalla','romba nalla','super da','nalla harvey','super harvey','romba super',
+    // ── CANTONESE / HOKKIEN ──
+    'hou leng','hou ye','geng ah','hou geng','leng zai','ho liao',
+    // ── JAPANESE LOANWORDS ──
+    'sugoi','sugoi harvey','sugoii',
     'you rock','you are great','you\'re great','very impressive','quite impressive'
   ]);
 
