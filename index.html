@@ -2575,7 +2575,14 @@ async function runEvExpanded(p,labels){
       <div class="ev-meta" style="margin-top:8px">⚠ Expanded scope — treat as directional guide only. <a href="https://wa.me/6597531657" target="_blank" style="color:var(--g)">Chat for accurate valuation →</a></div>
     </div>`;
   msgsEl.appendChild(d);bot();
-  speak(`Expanded estimate using ${comps.length} transactions. Median ${fmtP(median)}, range ${fmtP(low)} to ${fmtP(high)}, sir.`);
+  // Expanded estimate speech — full natural language readout
+  const _expAdj=Math.round(median/1000);
+  const _expLow=Math.round(low/1000);
+  const _expHi=Math.round(high/1000);
+  const _expM=median>=1000000?(median/1000000).toFixed(2).replace(/\.?0+$/,'')+' million dollars':_expAdj+' thousand dollars';
+  const _expLowS=low>=1000000?(low/1000000).toFixed(2).replace(/\.?0+$/,'')+' million dollars':_expLow+' thousand dollars';
+  const _expHiS=high>=1000000?(high/1000000).toFixed(2).replace(/\.?0+$/,'')+' million dollars':_expHi+' thousand dollars';
+  speak(`Expanded estimate using ${comps.length} comparable transactions, sir. The median is ${_expM}. The range runs from ${_expLowS} to ${_expHiS}. This is a directional guide — for a precise valuation, please contact us directly.`);
   setTimeout(()=>harveyMsg('Anything else, sir?',[{label:'ESTIMATE ANOTHER UNIT',val:'estimate value'},{label:'SEARCH TRANSACTIONS',val:'search'}]),1400);
   mode='menu';loading=false;sbEl.disabled=false;
 }
@@ -2683,16 +2690,22 @@ function showTransactions(recs,params,is6mo){
       <div class="sc"><span class="svv">${fmtP(Math.max(...prices))}</span><span class="sll">HIGHEST</span></div>
     </div></div>`;
   // ── TOWN FLAVOUR LINE — short evocative intro before data ──
+  let _tfSpoken=false;
   if(params.town&&!params.block&&typeof getTownFlavour==='function'){
     const _tfLine=getTownFlavour(params.town);
     if(_tfLine){
       const _tfd=document.createElement('div');_tfd.className='msg-ai';
       _tfd.innerHTML=`<div class="mbub" style="color:var(--c);font-style:italic;font-size:12px;opacity:0.85">${_tfLine}</div>`;
       msgsEl.appendChild(_tfd);bot();
+      speak(_tfLine.replace(/<[^>]*>/g,'').slice(0,220));
+      // Flag that town flavour was spoken - delay transaction summary speak
+      _tfSpoken=true;
     }
   }
   msgsEl.appendChild(d);bot();
-  speak(`${recs.length} transaction${recs.length!==1?'s':''} found, sir. Median price ${fmtP(median)}.`);
+  // Delay transaction summary speak so town flavour line finishes first
+  const _txnDelay=_tfSpoken?2200:0;
+  setTimeout(()=>speak(`${recs.length} transaction${recs.length!==1?'s':''} found, sir. Median price ${fmtP(median)}.`),_txnDelay);
 
   // ── INTELLIGENT FOLLOW-UP — Harvey interprets, then closes with "Anything else" ──
   setTimeout(()=>{
@@ -2806,12 +2819,84 @@ function harveyInterpret(recs,params,avg,median,prices){
     ]);
   }
 
-  const intro=rand([
-    `A few things worth noting about ${loc}, sir:`,
-    `Reading between the lines here, sir:`,
-    `The data tells an interesting story, sir:`
-  ]);
-  return `${intro}<br><br>${parts.slice(0,3).map(p=>`▸ ${p}`).join('<br><br>')}`;
+  // ── 15 EMOTION-DRIVEN INTROS based on what the data actually shows ──
+  let intro;
+
+  // RECORD-BREAKING: million dollar deals dominant
+  if(milCount>=3&&median>=900000){
+    intro=rand([
+      `Sir, the numbers here are frankly remarkable — this is premium territory doing premium things:`,
+      `Record territory, sir. This dataset is not for the faint-hearted:`,
+      `Harvey is genuinely impressed, sir. The data here reads like a highlight reel:`,
+    ]);
+  }
+  // SHOCKING: explosive upward trend
+  else if(trend!==null&&Number(trend)>15){
+    intro=rand([
+      `Sir, I'll be direct — these prices have moved considerably. Brace yourself:`,
+      `Something has changed here, sir. The trend line does not lie:`,
+      `If you were not watching this closely, sir, you may want to sit down:`,
+    ]);
+  }
+  // MYSTERIOUS: weird inversion, older beats newer, strange spread
+  else if(agePremium!==null&&agePremium<-10){
+    intro=rand([
+      `Something unusual in the data here, sir — the older stock is outperforming the newer:`,
+      `Harvey has run this twice to be sure, sir. The pattern is genuinely unexpected:`,
+      `The data is doing something counterintuitive here, sir. Worth examining closely:`,
+    ]);
+  }
+  // WIDE SPREAD: wild variation, call agent
+  else if(Number(spreadPct)>60&&recs.length>5){
+    intro=rand([
+      `Sir, the price spread here is wide enough to raise questions. I would recommend speaking to a professional:`,
+      `Significant variation in this dataset, sir — the unit you pick matters enormously here:`,
+      `Harvey notes the spread, sir. This market rewards careful selection. The details:`,
+    ]);
+  }
+  // SOFTENING: prices easing, opportunity?
+  else if(trend!==null&&Number(trend)<-8){
+    intro=rand([
+      `The market here has softened, sir. Whether that is opportunity or caution depends on your timeline:`,
+      `Prices have eased in this dataset, sir — the data suggests the market is in transition:`,
+      `Interesting timing, sir. The numbers show some cooling. Here is what Harvey sees:`,
+    ]);
+  }
+  // EXCITING: strong floor premium + million deals
+  else if(milCount>=1&&floorPrem!==null&&floorPrem>15){
+    intro=rand([
+      `A few compelling signals in this data, sir — the floor premium alone tells a story:`,
+      `Sir, this one has layers. The data rewards careful reading:`,
+      `Harvey finds this dataset rather exciting, sir. The floor dynamics here are significant:`,
+    ]);
+  }
+  // STEADY + STRONG: consistent median, clean data
+  else if(!parts.length||parts.length===1){
+    intro=rand([
+      `Clean and consistent, sir — ${loc} is behaving exactly as a mature market should:`,
+      `The data here is disciplined, sir. No drama, just numbers:`,
+      `A steady hand in the data, sir. Here is what ${loc} looks like right now:`,
+    ]);
+  }
+  // DEFAULT VARIANTS: 6 general intros for everything else
+  else{
+    intro=rand([
+      `A few things worth noting about ${loc}, sir:`,
+      `Reading between the lines here, sir — the data has something to say:`,
+      `The data tells an interesting story, sir:`,
+      `Harvey has a few observations about ${loc}, sir:`,
+      `Let me walk you through what the numbers are telling us, sir:`,
+      `${loc} — and the data here has some character to it, sir:`,
+    ]);
+  }
+
+  // ── CALL TO ACTION for extreme scenarios ──
+  let cta='';
+  if(milCount>=3||Number(spreadPct)>60||(trend!==null&&Math.abs(Number(trend))>15)){
+    cta=`<br><br><em style="color:var(--t2);font-size:11px">For a precise assessment of this market, consider speaking to a professional — <a href="https://wa.me/6597531657" target="_blank" style="color:var(--c)">WhatsApp our agent →</a></em>`;
+  }
+
+  return `${intro}<br><br>${parts.slice(0,3).map(p=>`▸ ${p}`).join('<br><br>')}${cta}`;
 }
 
 // ── PRICE QUESTION ROUTER — "why expensive", "what is the price", "median vs average" ──
@@ -3033,18 +3118,25 @@ function showEV(result,params){
   </div>`;
   msgsEl.appendChild(d);bot();
 
-  // Read it out clearly — numbers expanded for TTS, no dollar signs
-  const adjK=Math.round(result.adjusted/1000);
-  const lowK=Math.round(result.priceLow/1000);
-  const hiK=Math.round(result.priceHigh/1000);
-  const floorPremK=Math.round(result.floorPrem/1000);
-  const speechLine=`Block ${result.block}, ${cleanForSpeech(result.street)}, floor ${result.floor}, ${cleanForSpeech(result.flatType)}.`
-    +` Based on my calculations, sir, your unit's estimated value is ${adjK} thousand dollars.`
-    +` I see transactions ranging from ${lowK} thousand to ${hiK} thousand dollars on this ${result.fallbackLevel==='street'?'street':'block'}.`
-    +(result.floorPrem>500?` I've applied a floor premium of approximately ${floorPremK} thousand dollars per level.`:'')
-    +(result.lookbackUsed===12?' Please note this is based on 12 months of data as recent transactions were limited.':'');
-  speak(speechLine);
-  if(inversionSpoken){setTimeout(()=>speak(inversionSpoken),3500);}
+  // ── EV SPEECH — full clear readout for voice, nothing cut off ──
+  function _speakMoney(n){
+    const v=Math.round(Number(n));
+    if(v>=1000000){const m=(v/1000000).toFixed(2).replace(/\.?0+$/,'');return m+' million dollars';}
+    return Math.round(v/1000)+' thousand dollars';
+  }
+  const _spFt=(result.flatType||'').replace(/-/g,' ').replace(/ROOM/i,'room').toLowerCase();
+  const _spStreet=cleanForSpeech(result.street);
+  const _spTown=result.town?', '+cleanForSpeech(result.town):'';
+  let _speech=`Block ${result.block}, ${_spStreet}${_spTown}. ${_spFt}, floor ${result.floor}, ${result.size} square metres. `;
+  _speech+=`Based on ${result.comps} comparable transaction${result.comps!==1?'s':''}, sir, `;
+  _speech+=`your unit's estimated value is ${_speakMoney(result.adjusted)}. `;
+  _speech+=`The range runs from ${_speakMoney(result.priceLow)} on the conservative side `;
+  _speech+=`to ${_speakMoney(result.priceHigh)} on the optimistic side. `;
+  if(result.floorPrem>500) _speech+=`I have applied a floor premium of approximately ${_speakMoney(result.floorPrem)} per level for your floor ${result.floor}. `;
+  if(result.lookbackUsed===12) _speech+=`Please note this is based on 12 months of data as recent transactions were limited. `;
+  if(result.fallbackLevel==='street') _speech+=`I expanded to street-level comparables as block-specific data was limited. `;
+  if(inversionSpoken) _speech+=inversionSpoken;
+  speak(_speech);
 
   // Follow-up — professional nudge + two street transaction buttons + quiet details check
   setTimeout(()=>{
