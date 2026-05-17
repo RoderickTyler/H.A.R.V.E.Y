@@ -2682,6 +2682,15 @@ function showTransactions(recs,params,is6mo){
       <div class="sc"><span class="svv">${fmtP(Math.min(...prices))}</span><span class="sll">LOWEST</span></div>
       <div class="sc"><span class="svv">${fmtP(Math.max(...prices))}</span><span class="sll">HIGHEST</span></div>
     </div></div>`;
+  // ── TOWN FLAVOUR LINE — short evocative intro before data ──
+  if(params.town&&!params.block&&typeof getTownFlavour==='function'){
+    const _tfLine=getTownFlavour(params.town);
+    if(_tfLine){
+      const _tfd=document.createElement('div');_tfd.className='msg-ai';
+      _tfd.innerHTML=`<div class="mbub" style="color:var(--c);font-style:italic;font-size:12px;opacity:0.85">${_tfLine}</div>`;
+      msgsEl.appendChild(_tfd);bot();
+    }
+  }
   msgsEl.appendChild(d);bot();
   speak(`${recs.length} transaction${recs.length!==1?'s':''} found, sir. Median price ${fmtP(median)}.`);
 
@@ -3541,13 +3550,40 @@ async function _handleInputInner(raw){
   if(raw==='__restart__'){
     userMsg('Start over');
     ctx={};convCtx={};mode='menu';
-    stopSpeech();
-    removeLiveBubble();
-    harveyMsg(`Of course, sir. Starting fresh — what would you like to do?`,[
+    stopSpeech();removeLiveBubble();
+    const _restartLines=[
+      `Reinitialising the system, sir. We are all fresh and ready for action.`,
+      `Consider it done, sir. Memory cleared, slate wiped, Harvey reloaded. What shall we look at?`,
+      `System reset complete, sir. All previous context has been cleared. Where would you like to begin?`,
+      `Fresh start confirmed, sir. I've cleared everything and we are starting from zero. What's the mission?`,
+      `Reboot complete, sir. I am back online and entirely at your disposal. Shall we search or estimate?`,
+    ];
+    harveyMsg(rand(_restartLines),[
       {label:'ESTIMATE VALUATION',val:'estimate value'},
       {label:'SEARCH TRANSACTIONS',val:'search'}
     ]);
-    speak('Starting fresh, sir. What would you like to do?');
+    speak(rand(_restartLines).replace(/<[^>]*>/g,'').slice(0,180));
+    return;
+  }
+
+  // ── Comprehensive command line detection ──
+  // Natural language restart/reset/clear commands
+  if(/^(start over|restart|reset|clear|fresh start|start again|new search|clear all|wipe|reboot|reinitialise|reinitialize|begin again|go back to start|clear memory|reset harvey|restart harvey|start fresh|let's start over|lets start over|start from scratch|from the top|from scratch)$/i.test(raw.trim())){
+    ctx={};convCtx={};mode='menu';
+    stopSpeech();removeLiveBubble();
+    const _cmdLines=[
+      `Reinitialising the system, sir. We are all fresh and ready for action.`,
+      `Consider it done, sir. Memory cleared, slate wiped, Harvey reloaded. What shall we look at?`,
+      `System reset complete, sir. All previous context has been cleared. Where would you like to begin?`,
+      `Fresh start confirmed, sir. I've cleared everything — what's the mission?`,
+      `Reboot complete, sir. I am back online and entirely at your disposal. Shall we search or estimate?`,
+    ];
+    const _cmdReply=rand(_cmdLines);
+    harveyMsg(_cmdReply,[
+      {label:'ESTIMATE VALUATION',val:'estimate value'},
+      {label:'SEARCH TRANSACTIONS',val:'search'}
+    ]);
+    speak(_cmdReply.replace(/<[^>]*>/g,'').slice(0,180));
     return;
   }
 
@@ -3614,7 +3650,24 @@ async function _handleInputInner(raw){
     const _finalMsg=_followUp||chitChatEarly;
     harveyMsg(_finalMsg,dataChips);
     speak(_finalMsg.replace(/<[^>]*>/g,'').slice(0,280));
+    // ── Preserve full convCtx when returning from chitchat mid-search ──
+    // Restores mode so Harvey remembers what he was doing
     mode=prevMode;
+    // If we were mid-search or mid-EV, remind user we are still in that flow
+    if(prevMode==='srch_waiting'||prevMode==='ev_waiting'){
+      const _stillFields=buildMissingPrompt?buildMissingPrompt(ctx):[];
+      if(_stillFields&&_stillFields.length>0){
+        setTimeout(()=>{
+          const _reminder=rand([
+            `By the way, sir — we were mid-search. I still need: ${_stillFields.slice(0,2).join(', ')}.`,
+            `Just a reminder, sir — we are still in the middle of your search. ${_stillFields[0]} when you are ready.`,
+            `We were in the middle of something, sir — still need ${_stillFields[0]} to continue.`,
+          ]);
+          harveyMsg(_reminder);
+          speak(_reminder.replace(/<[^>]*>/g,'').slice(0,160));
+        },1200);
+      }
+    }
     return;
   }
 
@@ -4219,6 +4272,7 @@ async function _handleInputInner(raw){
       harveyMsg(_finalReply,[{label:'RESALE TRANSACTIONS',val:'search'},{label:'ESTIMATE VALUATION',val:'estimate value'}]);
       speak(_reply.replace(/<[^>]*>/g,'').slice(0,200));
       if(mode!=='srch_waiting'&&mode!=='ev_waiting')mode='menu';
+      // convCtx is intentionally preserved — Harvey remembers where we were
       loading=false;sbEl.disabled=false;return;
     }
   }
@@ -8583,6 +8637,148 @@ function detectUniversalWord(raw) {
   return null;
 }
 
+
+
+// ── TOWN FLAVOUR LINES ──
+// Short evocative intro lines shown before data output for each town
+const TOWN_FLAVOUR = {
+  'ANG MO KIO': [
+    `Ang Mo Kio — the heartland's heartland, sir. Central, connected, and consistent.`,
+    `AMK has been doing this since 1973, sir. One of Singapore's most enduring estates.`,
+    `Ang Mo Kio — mature, well-served, and always in demand. Here is what the data shows:`,
+  ],
+  'BEDOK': [
+    `Bedok — the East Coast anchor, sir. The 85 hawker centre, the reservoir, the community that has been here for forty years.`,
+    `Bedok remains one of Singapore's most sought-after mature estates, sir. The data reflects that clearly.`,
+    `Ahh, Bedok — where the char kway teow is honest and so is the property market. Let us look:`,
+  ],
+  'BISHAN': [
+    `Bishan — Singapore's most complete family estate, sir. The park, the schools, the MRT interchange.`,
+    `Bishan prices reflect exactly what Bishan offers, sir — and it offers quite a lot. Here is the data:`,
+    `Ahh, Bishan — central, green, and consistently in demand. Let us see what the numbers say:`,
+  ],
+  'BUKIT BATOK': [
+    `Bukit Batok — the west's quiet achiever, sir. Solid value, good connectivity, mature infrastructure.`,
+    `Bukit Batok offers genuine value in the west, sir. Here is what has been transacting:`,
+    `Bukit Batok — not the loudest estate, but a consistently reliable one. The data:`,
+  ],
+  'BUKIT MERAH': [
+    `Bukit Merah — city fringe at a heartland address, sir. The location premium is entirely justified.`,
+    `Ahh, Bukit Merah — close enough to the CBD to matter, priced accordingly. Here is the data:`,
+    `Bukit Merah's central location and heritage make it perpetually interesting, sir. Let us look:`,
+  ],
+  'BUKIT PANJANG': [
+    `Bukit Panjang — the DTL made everything different here, sir. The data reflects that shift clearly.`,
+    `Bukit Panjang has grown considerably with the Downtown Line, sir. Here is what the market shows:`,
+    `Bukit Panjang — where the LRT meets the DTL and the pricing follows, sir. Let us look:`,
+  ],
+  'BUKIT TIMAH': [
+    `Bukit Timah — premium since before premium was a word in Singapore property, sir.`,
+    `Ahh, Bukit Timah — the education corridor, the good class bungalows, the prices that reflect both. Here is the data:`,
+    `Bukit Timah has always known its worth, sir. Here is what the numbers confirm:`,
+  ],
+  'CENTRAL AREA': [
+    `The Central Area, sir — where Singapore's story began and where the premium has never wavered.`,
+    `Ahh, the Central Area — Tanjong Pagar, Chinatown, the city itself. The pricing here is a statement. Here is the data:`,
+    `Central Area flats are genuinely rare, sir. Here is what the market has been doing:`,
+  ],
+  'CHOA CHU KANG': [
+    `Choa Chu Kang — the west's family estate, sir. Accessible pricing, solid infrastructure, genuine community.`,
+    `CCK offers very honest value for what it delivers, sir. Here is what has been transacting:`,
+    `Choa Chu Kang — where the pricing is accessible and the community is genuine. The data:`,
+  ],
+  'CLEMENTI': [
+    `Ahh, Clementi — a class of its own, sir. NUS next door, one-north nearby, the west's most complete estate.`,
+    `Clementi — the education and research corridor that never goes out of demand. Here is the data:`,
+    `Clementi prices have a logic to them, sir — and the data will make that logic very clear:`,
+  ],
+  'GEYLANG': [
+    `Geylang — Singapore's most misunderstood estate, sir. The food is legendary, the connectivity is excellent, and the value is real.`,
+    `Ahh, Geylang — city fringe, diverse, and perennially interesting. Here is what the market shows:`,
+    `Geylang's location and connectivity explain the pricing entirely, sir. Let us look at the data:`,
+  ],
+  'HOUGANG': [
+    `Hougang — the north-east's heartland anchor, sir. Genuine community, mature infrastructure, honest pricing.`,
+    `Ahh, Hougang — where the community has been here for decades and the value reflects that stability.`,
+    `Hougang offers genuine heartland character, sir. Here is what has been transacting:`,
+  ],
+  'JURONG EAST': [
+    `Jurong East — the west's regional centre, sir. The future Jurong Lake District adds a long-term dimension.`,
+    `Ahh, Jurong East — the JLD plans make this a very interesting long-game purchase, sir. Here is the current data:`,
+    `Jurong East's regional centre status earns its premium, sir. Let us look at what the market says:`,
+  ],
+  'JURONG WEST': [
+    `Jurong West — solid value in the west, sir. Large estate, good amenities, honest pricing.`,
+    `Jurong West offers consistently good value relative to its infrastructure, sir. Here is the data:`,
+    `Ahh, Jurong West — where the value case is straightforward and the data confirms it. Let us look:`,
+  ],
+  'KALLANG/WHAMPOA': [
+    `Kallang — the city fringe address that punches well above its postcode, sir.`,
+    `Ahh, Kallang and Whampoa — heritage estates with city-fringe access. The pricing reflects both. Here is the data:`,
+    `Kallang's city-fringe location justifies every dollar of its premium, sir. Let us look:`,
+  ],
+  'MARINE PARADE': [
+    `Marine Parade — the sea breeze and Katong laksa at the door, sir. One of Singapore's most liveable corridors.`,
+    `Ahh, Marine Parade — East Coast Park at your doorstep and the Katong heritage all around. The premium is entirely earned.`,
+    `Marine Parade carries a specific quality of life, sir. The data reflects consistent demand. Here:`,
+  ],
+  'PASIR RIS': [
+    `Pasir Ris — the far east's family destination, sir. The beach, the park, Elias Mall, the community.`,
+    `Ahh, Pasir Ris — where the park and the beach make the morning commute feel worth it. Here is the data:`,
+    `Pasir Ris offers strong family value in Singapore's east, sir. Let us look at what the market shows:`,
+  ],
+  'PUNGGOL': [
+    `Punggol — Singapore's most intentional new town, sir. The waterway, the parks, the young family community.`,
+    `Ahh, Punggol — the waterfront estate that has grown from a fishing village into Singapore's most ambitious new town. Here is the data:`,
+    `Punggol's infrastructure commands what it does for very good reason, sir. Let us look:`,
+  ],
+  'QUEENSTOWN': [
+    `Queenstown — Singapore's first satellite town, sir. The heritage, the Botanic Gardens proximity, the pricing that has never really softened.`,
+    `Ahh, Queenstown — the estate that has been premium since 1952 and shows no signs of stopping. Here is the data:`,
+    `Queenstown commands what it commands, sir — and has done for over seventy years. Let us look:`,
+  ],
+  'SEMBAWANG': [
+    `Sembawang — the north's hidden value, sir. Waterfront access, Canberra MRT, accessible pricing.`,
+    `Ahh, Sembawang — where the pricing is refreshingly honest and the waterfront proximity is underappreciated. Here is the data:`,
+    `Sembawang offers some of the most accessible pricing on the island, sir. Let us look at the numbers:`,
+  ],
+  'SERANGOON': [
+    `Serangoon — the north-east's well-connected anchor, sir. NEX, the MRT interchange, the schools.`,
+    `Ahh, Serangoon — connectivity and community in equal measure. The pricing reflects both. Here is the data:`,
+    `Serangoon's connectivity and school corridor explain the consistent demand, sir. Let us look:`,
+  ],
+  'SENGKANG': [
+    `Sengkang — the modern family estate, sir. The LRT network, the Waterway, the young community.`,
+    `Ahh, Sengkang — where the town planning is thoughtful and the family infrastructure is excellent. Here is the data:`,
+    `Sengkang's modern estates are priced for what they deliver, sir. Let us look at the numbers:`,
+  ],
+  'TAMPINES': [
+    `Tampines — the East's most self-contained new town, sir. The malls, the parks, the sports hub, the schools.`,
+    `Ahh, Tampines — Singapore's eastern powerhouse. Everything a family needs within a 15-minute radius. Here is the data:`,
+    `Tampines pricing follows logically from what it offers, sir. Let us look at what the market says:`,
+  ],
+  'TOA PAYOH': [
+    `Toa Payoh — the original HDB estate, sir. The template for everything that followed, and still one of the best.`,
+    `Ahh, Toa Payoh — mature, central, iconic. The Sports Hub next door, the kopitiam culture intact. Here is the data:`,
+    `Toa Payoh has always known its worth, sir. Here is what the numbers confirm:`,
+  ],
+  'WOODLANDS': [
+    `Woodlands — the north's gateway, sir. The Causeway proximity, the newer Canberra developments, the honest pricing.`,
+    `Ahh, Woodlands — where the pricing is accessible and the cross-border convenience is real. Here is the data:`,
+    `Woodlands offers some of the most accessible pricing on the island, sir. The data makes the case clearly:`,
+  ],
+  'YISHUN': [
+    `Yishun — the north's established estate, sir. The reservoir, the parks, the accessible pricing.`,
+    `Ahh, Yishun — more to offer than its reputation suggests, sir. The reservoir is genuinely excellent. Here is the data:`,
+    `Yishun offers honest value for the infrastructure it provides, sir. Let us look at the numbers:`,
+  ],
+};
+
+function getTownFlavour(town){
+  const pool = TOWN_FLAVOUR[town];
+  if(!pool) return null;
+  return pool[Math.floor(Math.random()*pool.length)];
+}
 
 const harveyKnows=(()=>{
 
