@@ -881,7 +881,18 @@ function computeEstimate(params){
   if(denom!==0){const bPsf=(n*sumXY-sumX*sumY)/denom;floorPrem=bPsf*mySize*10.764;}
   floorPrem=Math.max(0,Math.min(3000,floorPrem));
 
-  const refComp=compsWithFloor.reduce((best,r)=>Math.abs(r.floorMid-myFloor)<Math.abs(best.floorMid-myFloor)?r:best,compsWithFloor[0]);
+  // refComp: prefer closest comp AT or BELOW user's floor (not above)
+  // e.g. user floor 12, comps at 10,14,18 → pick floor 10, not 14
+  const _belowOrEqual=compsWithFloor.filter(r=>r.floorMid<=myFloor);
+  const _above=compsWithFloor.filter(r=>r.floorMid>myFloor);
+  let refComp;
+  if(_belowOrEqual.length>0){
+    // Closest below or equal
+    refComp=_belowOrEqual.reduce((best,r)=>r.floorMid>best.floorMid?r:best,_belowOrEqual[0]);
+  } else {
+    // No comps at or below — use closest above
+    refComp=_above.reduce((best,r)=>r.floorMid<best.floorMid?r:best,_above[0]);
+  }
   const refAnchor=refComp.floorLow!==null?refComp.floorLow:refComp.floorMid;
   const basePrice=refComp.psf*mySize*10.764;
   const adjustedPrice=basePrice+(myFloor-refAnchor)*floorPrem;
@@ -3025,7 +3036,9 @@ function showEV(result,params){
   // Never flag comps that are at the same level or higher — those are normal or expected
   let inversionNote='';
   let inversionSpoken='';
-  if(compsData.length>=2){
+  // Only flag inversion when floor was explicitly provided — not when inferred
+  // Inferred mid-floor (~28) would falsely flag ALL real comps at floors 13-18 as "below"
+  if(compsData.length>=2&&!params.floorInferred){
     const myFloorNum=Number(result.floor)||1;
 
     // Split comps into below-user and at/above-user
