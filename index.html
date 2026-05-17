@@ -737,6 +737,8 @@ const fmtP=p=>'$'+Number(p).toLocaleString();
 function stopSpeech(){
   if(currentAudio){currentAudio.pause();try{currentAudio.currentTime=0;}catch(e){}currentAudio=null;}
   window.speechSynthesis?.cancel();
+  // Reset speak queue so nothing is stuck
+  if(typeof _speakQueue!=='undefined'){_speakQueue=[];_speakBusy=false;}
   document.querySelector('.hrw')?.classList.remove('speaking');
   document.getElementById('harvey-speaking-fx')?.classList.remove('active');
 }
