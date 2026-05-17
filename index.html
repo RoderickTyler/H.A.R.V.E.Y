@@ -634,31 +634,37 @@ pickVoice();
 if(window.speechSynthesis.onvoiceschanged!==undefined)
   window.speechSynthesis.onvoiceschanged=pickVoice;
 
-async function speak(txt){
+async // ── SPEAK QUEUE — prevents new speak() from cutting off current speech ──
+let _speakQueue=[];let _speakBusy=false;
+function speakNext(){
+  if(!_speakBusy&&_speakQueue.length>0){
+    _speakBusy=true;
+    const {clean,rate}=_speakQueue.shift();
+    const u=new SpeechSynthesisUtterance(clean);
+    u.rate=rate||VOICE_SPEED;u.pitch=0.6;u.volume=0.92;
+    if(harveyVoice)u.voice=harveyVoice;
+    u.onend=()=>{
+      _speakBusy=false;
+      document.querySelector('.hrw')?.classList.remove('speaking');
+      document.getElementById('harvey-speaking-fx')?.classList.remove('active');
+      speakNext();
+    };
+    u.onerror=()=>{_speakBusy=false;speakNext();};
+    document.querySelector('.hrw')?.classList.add('speaking');
+    document.getElementById('harvey-speaking-fx')?.classList.add('active');
+    window.speechSynthesis.speak(u);
+  }
+}
+function speak(txt,_priority=false){
   if(!voiceOn||!txt)return;
   const clean=cleanForSpeech(txt);
   if(!clean)return;
-  stopSpeech();
-  document.querySelector('.hrw')?.classList.add('speaking');
-  document.getElementById('harvey-speaking-fx')?.classList.add('active');
-  const u=new SpeechSynthesisUtterance(clean);
-  u.rate=VOICE_SPEED;
-  u.pitch=0.6;
-  u.volume=0.92;
-  if(harveyVoice)u.voice=harveyVoice;
-  u.onend=()=>{
-    document.querySelector('.hrw')?.classList.remove('speaking');
-    document.getElementById('harvey-speaking-fx')?.classList.remove('active');
-    // Voice mode — restart listening after Harvey finishes speaking
-    if(voiceMode&&micState==='query'&&!recogBusy){
-      vsTxt.textContent='HARVEY LISTENING — SPEAK ANYTIME';
-      setTimeout(()=>safeStart(),400);
-    }
-    // Reset skipPreamble after each response
-    skipPreamble=false;
-  };
-  window.speechSynthesis.speak(u);
+  if(_priority){_speakQueue=[];stopSpeech();_speakBusy=false;}
+  _speakQueue.push({clean,rate:VOICE_SPEED});
+  if(!_speakBusy)speakNext();
 }
+function speakNow(txt){speak(txt,true);}// immediate, cancels queue
+
 
 const DB = { resale:[], townStreets:{}, loaded:false };
 let loading=false, qn=0, voiceOn=true;
@@ -7611,7 +7617,7 @@ const EMOTION_JOINS = {
     // English high-intensity
     'enraged','furious','irate','livid','outraged','wrathful',
     'extremely angry','very angry','so angry','really angry',
-    'fucking','fucked','wtf','what the fuck','what the hell','what the heck',
+    'fuck','fucking','fucker','shit','bullshit','fucked','wtf','what the fuck','what the hell','what the heck',
     'screw this','screw you','screw off','bullshit','crap',
     'bloody hell','damn it','dammit','bloody useless','goddamn',
     'piss off','pissed off','pissed','fed up','had enough',
