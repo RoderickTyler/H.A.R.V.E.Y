@@ -634,7 +634,7 @@ pickVoice();
 if(window.speechSynthesis.onvoiceschanged!==undefined)
   window.speechSynthesis.onvoiceschanged=pickVoice;
 
-async // ── SPEAK QUEUE — prevents new speak() from cutting off current speech ──
+// ── SPEAK QUEUE — prevents new speak() from cutting off current speech ──
 let _speakQueue=[];let _speakBusy=false;
 function speakNext(){
   if(!_speakBusy&&_speakQueue.length>0){
