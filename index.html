@@ -4041,6 +4041,31 @@ async function _handleInputInner(raw){
     loading=false;sbEl.disabled=false;return;
   }
 
+  // "lets get back" / "back to work" / "back" alone → resume like continue
+  if(/^(?:lets|let.s)?\s*(?:get\s+)?back(?:\s+to\s+(?:it|work|search|data|this))?$|^back to work$|^get back$/i.test(raw.trim())){
+    const _backStreet=workingCtx.streetCtx||convCtx.street;
+    const _backTown=workingCtx.townCtx||convCtx.town;
+    if(_backStreet){
+      ctx.street=_backStreet;ctx.town=_backTown||ctx.town;
+      await handleStreetOnly(_backStreet,ctx);return;
+    } else if(_backTown){
+      ctx.town=_backTown;ctx.isEV=false;mode='srch_waiting';runSearch();return;
+    }
+    // No context — show "lost the thread" card with reinitialise option
+    const _lostMsg=rand([
+      `I seem to have lost the thread entirely, sir — no previous search is on record. Shall we start fresh?`,
+      `My records don't show a previous search to resume, sir. A clean start might serve us better here.`,
+      `I'm afraid I've lost track of where we were, sir. Let us reinitialise and begin properly.`,
+    ]);
+    harveyMsg(_lostMsg,[
+      {label:'RESALE TRANSACTIONS',val:'search'},
+      {label:'ESTIMATE VALUATION',val:'estimate value'},
+      {label:'↺ REINITIALISE HARVEY',val:'__restart__'},
+    ]);
+    speak(_lostMsg.replace(/<[^>]*>/g,'').slice(0,160));
+    loading=false;sbEl.disabled=false;return;
+  }
+
   if(/^(search new|new search|different area|new area|not in here|none of these|other town|other area|not here|change town)$/i.test(raw.trim())){
     ctx={};convCtx={};mode='menu';
     _showSearchCard(null, null);
@@ -4725,6 +4750,36 @@ async function _handleInputInner(raw){
   const _parsedHasDataSignal=!!(parsed.town||parsed.street||parsed.block||parsed.floor||
     parsed.flatType||/transact|search|recent|sold|find|show|estimate|valuat|resale/i.test(raw));
   if(_parsedHasDataSignal){
+    // ── CONTEXT CONFLICT: user names a different location than what we had recorded ──
+    // e.g. "lets get back to punggol" but workingCtx has CLEMENTI WEST ST 1
+    const _prevRecorded=workingCtx.streetCtx||workingCtx.townCtx;
+    const _newTown=parsed.town||ctx.town;
+    const _prevTown=workingCtx.townCtx;
+    const _hasConflict=_prevRecorded&&_newTown&&_prevTown&&
+      _prevTown!==_newTown&&
+      /back|return|resume|get back/i.test(raw);  // only flag on explicit "back/return" phrasing
+    if(_hasConflict){
+      const _prevLabel=workingCtx.streetCtx||_prevTown;
+      const _newLabel=parsed.street?canonicalStreet(parsed.street)||_newTown:_newTown;
+      const _conflictMsg=rand([
+        `Just to confirm, sir — I have <strong>${String(_prevLabel).toUpperCase()}</strong> from our last session, but you mentioned <strong>${String(_newLabel).toUpperCase()}</strong>. Which would you like me to proceed with?`,
+        `I noticed we were on <strong>${String(_prevLabel).toUpperCase()}</strong>, sir — but you're now pointing to <strong>${String(_newLabel).toUpperCase()}</strong>. Shall I switch, or was that a slip?`,
+        `Quick check, sir — recorded context is <strong>${String(_prevLabel).toUpperCase()}</strong>, new request is <strong>${String(_newLabel).toUpperCase()}</strong>. Which one shall I pull?`,
+      ]);
+      harveyMsg(_conflictMsg,[
+        {label:`↗ GO TO ${String(_newLabel).slice(0,18).toUpperCase()}`,val:_newLabel},
+        {label:`↩ BACK TO ${String(_prevLabel).slice(0,18).toUpperCase()}`,val:'continue'},
+        {label:'🔄 FRESH START',val:'search new'},
+      ]);
+      speak(_conflictMsg.replace(/<[^>]*>/g,'').slice(0,180));
+      mode='menu';loading=false;sbEl.disabled=false;return;
+    }
+
+    // If user says "back to [town]" and we have a street in working context for that town,
+    // restore that specific street rather than searching the whole town
+    if(!ctx.street&&ctx.town&&workingCtx.streetCtx&&workingCtx.townCtx===ctx.town){
+      ctx.street=workingCtx.streetCtx;
+    }
     if(ctx.street&&!ctx.isEV){
       await handleStreetOnly(ctx.street,ctx);return;
     }
@@ -5975,7 +6030,9 @@ function harveyChitChat(raw, convCtx){
   const _noDataSignal=!topicKey&&_rawTokens.length<=4&&
     !/(tampines|clementi|bedok|bishan|jurong|yishun|woodlands|sengkang|punggol|hougang|toa payoh|marine parade|bukit|geylang|serangoon|queenstown|ang mo kio|pasir ris|sembawang|central area|choa chu kang|kallang)/.test(q)&&
     !/\d{3,}|(room|resale|flat|block|floor|level|storey|street|ave|road|drive|crescent|close|lane|way|place|terrace|walk)/.test(q);
-  if(!topicKey&&_noDataSignal&&harveyChitChat._lastTopic){
+  // Only inherit _lastTopic if input is genuine continuation — not acknowledge/navigate words
+  const _isAckOrNav=/^(ok|okay|ya|yea|yeah|yep|yup|sure|noted|alright|right|fine|kk|orh|mhm|mmm|\bback\b|lets get back|back to|continue|resume|carry on|go on|proceed)$/i.test(q.trim());
+  if(!topicKey&&_noDataSignal&&harveyChitChat._lastTopic&&!_isAckOrNav){
     topicKey=harveyChitChat._lastTopic;
   }
 
