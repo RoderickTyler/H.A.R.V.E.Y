@@ -4507,8 +4507,10 @@ async function _handleInputInner(raw){
     speak(_jReply.replace(/<[^>]*>/g,'').slice(0,200));
     mode='menu';loading=false;sbEl.disabled=false;return;
   }
+  console.log('[HARVEY DEBUG] _parsedHasDataSignal check: raw='+JSON.stringify(raw)+' parsed='+JSON.stringify({town:parsed.town,street:parsed.street,block:parsed.block,flatType:parsed.flatType}));
   const _parsedHasDataSignal=!!(parsed.town||parsed.street||parsed.block||parsed.floor||
     parsed.flatType||/transact|search|recent|sold|find|show|estimate|valuat|resale/i.test(raw));
+  console.log('[HARVEY DEBUG] _parsedHasDataSignal='+_parsedHasDataSignal+' ctx.town='+ctx.town);
   if(_parsedHasDataSignal){
     if(ctx.street&&!ctx.isEV){
       await handleStreetOnly(ctx.street,ctx);return;
