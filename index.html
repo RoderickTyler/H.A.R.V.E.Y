@@ -3835,6 +3835,7 @@ function restoreWorkingCtx(ctx){
 
 function clearWorkingCtx(){
   workingCtx = {task:null,streetCtx:null,townCtx:null,blockCtx:null,lastSearches:[],
+  _lastReplyHash:null,_sameReplyCount:0,
     lastQuestion:null,lastDataResult:null,sidetrackCount:0,sidetrackTopic:null,pendingFields:[]};
 }
 
@@ -3952,6 +3953,28 @@ function sidetrackRecovery(){
     `My memory is excellent — it is the chit chat that scrambles me occasionally. We were on ${where}, if I recall. Shall we?`,
     `A delightful detour, sir — but I notice we have drifted from ${where}. Shall I guide us back?`,
   ]);
+}
+
+// ══ QUESTION CONTEXT TRACKER ══
+// Call this whenever Harvey asks the user something specific
+// type: 'confirm_street'|'confirm_town'|'confirm_continue'|'provide_block'|'provide_floor'|'provide_flattype'
+function askQuestion(type, ref, chips, msg){
+  workingCtx.lastQuestion = {type, ref, ts: Date.now()};
+  harveyMsg(msg, chips);
+  speak(msg.replace(/<[^>]*>/g,'').slice(0,180));
+}
+
+// Reply hash for repeat detection
+function _replyHash(msg){ return msg?msg.replace(/\s+/g,'').slice(0,40):''; }
+function _checkRepeat(msg){
+  const h=_replyHash(msg);
+  if(h===workingCtx._lastReplyHash){
+    workingCtx._sameReplyCount=(workingCtx._sameReplyCount||0)+1;
+  } else {
+    workingCtx._sameReplyCount=0;
+    workingCtx._lastReplyHash=h;
+  }
+  return workingCtx._sameReplyCount;
 }
 
 // ══ CANONICAL STREET RESOLVER ══
@@ -4766,6 +4789,7 @@ async function _handleInputInner(raw){
         `I noticed we were on <strong>${String(_prevLabel).toUpperCase()}</strong>, sir — but you're now pointing to <strong>${String(_newLabel).toUpperCase()}</strong>. Shall I switch, or was that a slip?`,
         `Quick check, sir — recorded context is <strong>${String(_prevLabel).toUpperCase()}</strong>, new request is <strong>${String(_newLabel).toUpperCase()}</strong>. Which one shall I pull?`,
       ]);
+      workingCtx.lastQuestion={type:'confirm_town',ref:_newLabel,ts:Date.now()};
       harveyMsg(_conflictMsg,[
         {label:`↗ GO TO ${String(_newLabel).slice(0,18).toUpperCase()}`,val:_newLabel},
         {label:`↩ BACK TO ${String(_prevLabel).slice(0,18).toUpperCase()}`,val:'continue'},
@@ -5004,33 +5028,94 @@ async function _handleInputInner(raw){
       const _hasPrevCtx=!!(convCtx.town||convCtx.street||workingCtx.streetCtx);
       const _prevRef=workingCtx.streetCtx||convCtx.street||convCtx.town;
 
-      // ── ACKNOWLEDGE: short closed-end words — reply brief, offer context chip ──
+      // ── ACKNOWLEDGE: short closed-end words — reply brief, act on lastQuestion ──
       if(_univEmo==='acknowledge'){
-        const _ackReply=rand(UNIVERSAL_REPLIES.acknowledge);
-        let _ackFinal=_ackReply;
-        const _ackChips=[];
-        if(_hasPrevCtx){
-          // Had a previous search — offer to continue or search new
-          _ackFinal+=rand([
-            ` I may be missing something, sir — we were on ${String(_prevRef).toUpperCase()}. Shall we continue?`,
-            ` Were you referring to ${String(_prevRef).toUpperCase()}, sir? Or something else entirely?`,
-            ` Still have ${String(_prevRef).toUpperCase()} loaded. Say the word and we continue.`,
+        const _lq=workingCtx.lastQuestion;
+        const _isAffirm=/^(yes|yep|yup|sure|correct|right|exactly|confirm|ok|okay|ya|yea|yeah|alright|go ahead|proceed|please|do it)$/i.test(raw.trim());
+        const _isDeny=/^(no|nope|nah|not really|different|other|wrong|not that)$/i.test(raw.trim());
+
+        // 1. If Harvey had an open question and user affirms → act on it
+        if(_lq&&_isAffirm&&(Date.now()-_lq.ts)<120000){
+          workingCtx.lastQuestion=null;
+          if(_lq.type==='confirm_street'||_lq.type==='confirm_continue'){
+            const _ref=_lq.ref;
+            ctx.street=_ref;ctx.town=workingCtx.townCtx||convCtx.town;
+            await handleStreetOnly(_ref,ctx);return;
+          }
+          if(_lq.type==='confirm_town'){
+            ctx.town=_lq.ref;ctx.isEV=false;mode='srch_waiting';runSearch();return;
+          }
+        }
+
+        // 2. If user denies → clear question, show options
+        if(_lq&&_isDeny){
+          workingCtx.lastQuestion=null;
+          const _denyMsg=rand([
+            `No problem, sir. What would you like instead?`,
+            `Understood, sir. Where shall we go then?`,
+            `Right — scratch that. What are we looking for?`,
           ]);
+          harveyMsg(_denyMsg,[{label:'RESALE TRANSACTIONS',val:'search'},{label:'ESTIMATE VALUATION',val:'estimate value'},{label:'↺ FRESH START',val:'__restart__'}]);
+          speak(_denyMsg.replace(/<[^>]*>/g,'').slice(0,120));
+          loading=false;sbEl.disabled=false;return;
+        }
+
+        // 3. Build context-aware acknowledge with rich action cards
+        const _ackReply=rand(UNIVERSAL_REPLIES.acknowledge);
+        const _ackChips=[];
+        let _ackFinal=_ackReply;
+
+        if(_hasPrevCtx){
+          const _ref=_prevRef;
+          const _isSt=workingCtx.streetCtx||convCtx.street;
+          // Rich card: offer specific street chips not just text
+          // Save the question so next "yes" can act on it
+          const _ackType=_isSt?'confirm_street':'confirm_town';
+          const _ackQRef=_isSt||_ref;
+          workingCtx.lastQuestion={type:_ackType,ref:_ackQRef,ts:Date.now()};
+          _ackFinal+=rand([
+            ` I may be missing something, sir — what were you confirming?`,
+            ` Were you replying to something, sir? We were on ${String(_ref).toUpperCase()}.`,
+            ` Still have ${String(_ref).toUpperCase()} loaded — is that where you want to go?`,
+          ]);
+          if(_isSt){
+            _ackChips.push(
+              {label:`▶ ${String(_isSt).replace(/^.*\s/,'').toUpperCase()} DATA`,val:_isSt},
+              {label:`⬡ ESTIMATE ${String(_isSt).replace(/^.*\s/,'').toUpperCase()}`,val:`estimate value`},
+            );
+          }
           _ackChips.push(
-            {label:`↗ CONTINUE: ${String(_prevRef).slice(0,18).toUpperCase()}`,val:'continue'},
             {label:'NEW SEARCH',val:'search'},
+            {label:'NEW ESTIMATE',val:'estimate value'},
           );
         } else {
-          // No context — stay brief, offer search
           _ackFinal+=rand([
-            ` What were we looking at, sir?`,
-            ` I may be missing something — what are we after?`,
-            ` Shall we get into the data, sir?`,
+            ` Not sure what you're confirming, sir — nothing on record. What are we after?`,
+            ` I may be missing something — no previous search on record. Shall we start one?`,
           ]);
           _ackChips.push(
             {label:'RESALE TRANSACTIONS',val:'search'},
             {label:'ESTIMATE VALUATION',val:'estimate value'},
           );
+        }
+        const _rptCount=_checkRepeat(_ackFinal);
+        if(_rptCount>=2){
+          // Same reply 3rd time → apologise and reset
+          const _apology=rand([
+            `I suspect the conversation has drifted somewhere I haven't followed, sir. Shall we reset and you take the lead?`,
+            `I may have entirely misread what you were after, sir. No blame — let us recalibrate. Where would you like to go?`,
+            `Something tells me we are talking past each other, sir. Let me stop guessing and let you steer.`,
+            `I believe I have been answering the wrong question entirely, sir. What did you actually have in mind?`,
+          ]);
+          harveyMsg(_apology,[
+            {label:'RESALE TRANSACTIONS',val:'search'},
+            {label:'ESTIMATE VALUATION',val:'estimate value'},
+            {label:'↺ REINITIALISE',val:'__restart__'},
+            ...(_hasPrevCtx?[{label:`↗ BACK TO ${String(_prevRef).slice(0,15).toUpperCase()}`,val:'continue'}]:[]),
+          ]);
+          speak(_apology.replace(/<[^>]*>/g,'').slice(0,180));
+          workingCtx._sameReplyCount=0;workingCtx._lastReplyHash=null;
+          loading=false;sbEl.disabled=false;return;
         }
         harveyMsg(_ackFinal,_ackChips);
         speak(_ackReply.replace(/<[^>]*>/g,'').slice(0,80));
@@ -5126,7 +5211,27 @@ async function _handleInputInner(raw){
   if(_intent.type===INTENT.AMBIGUOUS||(_intent.type===INTENT.UNKNOWN&&!/_intent.subtype==='gibberish'/.test(''))){
     const _hasPrev=!!(convCtx.town||convCtx.street||workingCtx.streetCtx);
     const _prevRef=workingCtx.streetCtx||workingCtx.townCtx||convCtx.street||convCtx.town;
+    // Check for repeat replies
+    const _ambRepeatCount=_checkRepeat('ambiguous-reply-'+(_hasPrevCtx?'ctx':'no-ctx'));
     let _ambReply;
+    if(_ambRepeatCount>=2){
+      // Third time hitting ambiguous — apologise
+      const _rptApology=rand([
+        `I suspect we may have drifted somewhat, sir. Allow me to reset and take your lead — where would you like to go?`,
+        `I may have misread the room entirely, sir. Let us start from scratch — you call the direction.`,
+        `Something tells me we are talking past each other, sir. No fault assigned. Shall we recalibrate?`,
+        `I believe I have been answering a question you were not asking, sir. My apologies for the detour. What did you actually have in mind?`,
+      ]);
+      harveyMsg(_rptApology,[
+        {label:'RESALE TRANSACTIONS',val:'search'},
+        {label:'ESTIMATE VALUATION',val:'estimate value'},
+        {label:'↺ REINITIALISE',val:'__restart__'},
+        ...(_hasPrevCtx?[{label:`↗ BACK TO ${String(_prevRef).slice(0,15).toUpperCase()}`,val:'continue'}]:[]),
+      ]);
+      speak(_rptApology.replace(/<[^>]*>/g,'').slice(0,180));
+      workingCtx._sameReplyCount=0;workingCtx._lastReplyHash=null;
+      mode='menu';loading=false;sbEl.disabled=false;return;
+    }
     if(/^(test|testing|test test|hello|hi|hey|yo|ping|check|is this on|anyone there|harvey\?)$/i.test(raw.trim())){
       _ambReply=rand([
         `All systems operational, sir. 52,894 transactions indexed and ready. Town, street, or block?`,
@@ -9378,7 +9483,7 @@ const UNIVERSAL_WORDS = {
   ight:     'acknowledge', gotcha:  'acknowledge', roger:   'acknowledge',
   copy:     'acknowledge', confirmed:'acknowledge',understood:'acknowledge',
   // Positive affirmations stay as joy
-  yes:      'joy',    fine:     'acknowledge',    correct: 'joy',    exactly: 'joy',
+  yes:      'acknowledge', fine: 'acknowledge',    correct: 'joy',    exactly: 'joy',
   precisely:'joy',   indeed:   'joy',    wonderful:'joy',
 
   no:         'sad',   nope:      'sad',   nah:       'sad',
@@ -9394,6 +9499,11 @@ const UNIVERSAL_WORDS = {
   omg:        'surprise', ohhh:   'surprise', ahh:   'surprise',
   eh:         'surprise', uh:     'vulnerable', oh:   'surprise',
 
+  // Presence signals
+  'still here':    'acknowledge',
+  here:            'anticipation',
+  present:         'anticipation',
+  // Tired/emotional
   tired:      'sad',    exhausted:'sad',   sleepy: 'sad',
   bored:      'disgust',lazy:     'disgust',meh:   'disgust',
   busy:       'fear',   stressed: 'fear',  rush:   'fear',
