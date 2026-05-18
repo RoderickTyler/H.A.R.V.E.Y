@@ -2249,7 +2249,8 @@ function parseQuery(raw){
       .replace(/\s+/g,' ').trim();
 
     const _hasStreetType=/(ST|AVE|DR|RD|CL|CRES|LOR|JLN|LANE|WAY|WALK|RISE|VIEW|LINK|GDNS|TER|PLACE|GROVE|COURT|HEIGHTS|ROAD|STREET|AVENUE|DRIVE|CRESCENT|CLOSE|TERRACE|GARDENS)/i.test(streetCandidate);
-    const _streetLongEnough=streetCandidate.trim().split(/\s+/).length>=2&&streetCandidate.replace(/\s/g,'').length>=6;
+    const _knownPlaceWord=/\b(BT|BUKIT|TOA|PAYOH|CHOA|CHU|KANG|ANG|MO|KIO|JURONG|CLEMENTI|TAMPINES|BEDOK|BISHAN|SENGKANG|PUNGGOL|HOUGANG|YISHUN|WOODLANDS|KALLANG|GEYLANG|QUEENSTOWN|WHAMPOA|SERANGOON|PASIR|SEMBAWANG|BATOK|MERAH|TIMAH|PANJANG|TEBAN|GHIM|MOH|HENDERSON|REDHILL|DOVER|COMMONWEALTH|FARRER|BENDEMEER|LORONG|JALAN|MARSILING|BRICKLAND|PETIR|BANGKIT|BUANGKOK|CASHEW|FERNVALE|RIVERVALE|COMPASSVALE|ANCHORVALE|KIM|TECK|HOO|KAH|CHUAN|TAH|LENG|CHIN|BOON|KEAT|VEERASAMY|MCNAIR|DORSET|BUFFALO|RACE\s*COURSE|CRAWFORD)\b/i.test(streetCandidate);
+    const _streetLongEnough=streetCandidate.trim().split(/\s+/).length>=2&&streetCandidate.replace(/\s/g,'').length>=6&&_knownPlaceWord;
     if(streetCandidate.length>4&&DB.loaded&&(_hasStreetType||_streetLongEnough)){
       const found=reverseStreet(streetCandidate);
       if(found){
@@ -3458,7 +3459,6 @@ async function runEV(){
 }
 
 async function runSearch(){
-  console.log('[HARVEY DEBUG] runSearch called, ctx.town='+ctx.town+' ctx.street='+ctx.street+' stack='+new Error().stack.split('\n').slice(1,4).join(' | '));
   loading=true;sbEl.disabled=true;
   speak(rand(['Stand by, sir.','Searching records, sir.','One moment, sir.']));
   thinkingMsg();await new Promise(r=>setTimeout(r,200));
@@ -3552,6 +3552,7 @@ async function handleStreetOnly(street, ctx){
   }
 
   const prices=recs.map(r=>Number(r.resale_price));
+  const avg=prices.length?Math.round(prices.reduce((a,b)=>a+b,0)/prices.length):0;
   const median=prices.slice().sort((a,b)=>a-b)[Math.floor(prices.length/2)];
   const rows=recs.map(r=>`<tr><td>${esc(r.month)}</td><td>BLK ${esc(r.block)} ${esc(r.street_name)}</td><td>${esc(r.flat_type)}</td><td>${esc(r.storey_range)}</td><td>${esc(r.floor_area_sqm)}m²</td><td class="pc">${fmtP(r.resale_price)}</td></tr>`).join('');
 
@@ -4507,10 +4508,8 @@ async function _handleInputInner(raw){
     speak(_jReply.replace(/<[^>]*>/g,'').slice(0,200));
     mode='menu';loading=false;sbEl.disabled=false;return;
   }
-  console.log('[HARVEY DEBUG] _parsedHasDataSignal check: raw='+JSON.stringify(raw)+' parsed='+JSON.stringify({town:parsed.town,street:parsed.street,block:parsed.block,flatType:parsed.flatType}));
   const _parsedHasDataSignal=!!(parsed.town||parsed.street||parsed.block||parsed.floor||
     parsed.flatType||/transact|search|recent|sold|find|show|estimate|valuat|resale/i.test(raw));
-  console.log('[HARVEY DEBUG] _parsedHasDataSignal='+_parsedHasDataSignal+' ctx.town='+ctx.town);
   if(_parsedHasDataSignal){
     if(ctx.street&&!ctx.isEV){
       await handleStreetOnly(ctx.street,ctx);return;
@@ -4732,7 +4731,6 @@ async function _handleInputInner(raw){
       loading=false;sbEl.disabled=false;return;
     }
     const _univEmo=detectUniversalWord(raw);
-    console.log('[HARVEY DEBUG] _parsedEmpty='+_parsedEmpty+' _univEmo='+_univEmo+' raw='+raw);
     if(_univEmo){
       const _pool=UNIVERSAL_REPLIES[_univEmo]||UNIVERSAL_REPLIES.anticipation;
       const _reply=_pool[Math.floor(Math.random()*_pool.length)];
@@ -4854,7 +4852,6 @@ async function _handleInputInner(raw){
   // Prevents "then lets continue" firing Bukit Merah just because ctx inherits convCtx
   const _currentHasData=!!(parsed.town||parsed.street||parsed.block||
     /transact|search|recent|sales?|sold|show|find/i.test(raw));
-  console.log('[HARVEY DEBUG] DATA GATE: _currentHasData='+_currentHasData+' ctx.town='+ctx.town+' raw='+raw);
   if(_currentHasData&&(ctx.town||ctx.street||ctx.block)){
     // Fix #10: restore working context before search
     restoreWorkingCtx(ctx);
