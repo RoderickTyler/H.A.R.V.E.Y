@@ -3458,7 +3458,6 @@ async function runEV(){
 }
 
 async function runSearch(){
-  console.log('[HARVEY DEBUG] runSearch called, ctx.town='+ctx.town+' ctx.street='+ctx.street+' stack='+new Error().stack.split('\n').slice(1,4).join(' | '));
   loading=true;sbEl.disabled=true;
   speak(rand(['Stand by, sir.','Searching records, sir.','One moment, sir.']));
   thinkingMsg();await new Promise(r=>setTimeout(r,200));
@@ -4507,10 +4506,8 @@ async function _handleInputInner(raw){
     speak(_jReply.replace(/<[^>]*>/g,'').slice(0,200));
     mode='menu';loading=false;sbEl.disabled=false;return;
   }
-  console.log('[HARVEY DEBUG] _parsedHasDataSignal check: raw='+JSON.stringify(raw)+' parsed='+JSON.stringify({town:parsed.town,street:parsed.street,block:parsed.block,flatType:parsed.flatType}));
   const _parsedHasDataSignal=!!(parsed.town||parsed.street||parsed.block||parsed.floor||
     parsed.flatType||/transact|search|recent|sold|find|show|estimate|valuat|resale/i.test(raw));
-  console.log('[HARVEY DEBUG] _parsedHasDataSignal='+_parsedHasDataSignal+' ctx.town='+ctx.town);
   if(_parsedHasDataSignal){
     if(ctx.street&&!ctx.isEV){
       await handleStreetOnly(ctx.street,ctx);return;
@@ -4732,7 +4729,6 @@ async function _handleInputInner(raw){
       loading=false;sbEl.disabled=false;return;
     }
     const _univEmo=detectUniversalWord(raw);
-    console.log('[HARVEY DEBUG] _parsedEmpty='+_parsedEmpty+' _univEmo='+_univEmo+' raw='+raw);
     if(_univEmo){
       const _pool=UNIVERSAL_REPLIES[_univEmo]||UNIVERSAL_REPLIES.anticipation;
       const _reply=_pool[Math.floor(Math.random()*_pool.length)];
@@ -4854,7 +4850,6 @@ async function _handleInputInner(raw){
   // Prevents "then lets continue" firing Bukit Merah just because ctx inherits convCtx
   const _currentHasData=!!(parsed.town||parsed.street||parsed.block||
     /transact|search|recent|sales?|sold|show|find/i.test(raw));
-  console.log('[HARVEY DEBUG] DATA GATE: _currentHasData='+_currentHasData+' ctx.town='+ctx.town+' raw='+raw);
   if(_currentHasData&&(ctx.town||ctx.street||ctx.block)){
     // Fix #10: restore working context before search
     restoreWorkingCtx(ctx);
