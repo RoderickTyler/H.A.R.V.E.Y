@@ -689,6 +689,16 @@ function applyConvCtx(parsed){
   if(parsed.block)    merged.block=parsed.block;
   if(parsed.floor!==undefined&&parsed.floor) merged.floor=parsed.floor;
   if(parsed.size)     merged.size=parsed.size;
+  // If user navigates back to a town (no explicit street given) and workingCtx has a street
+  // in that town — restore it. Prevents convCtx.street from wrong previous search bleeding in.
+  if(parsed.town&&!parsed.street&&workingCtx.streetCtx){
+    const _wStreet=workingCtx.streetCtx;
+    // Only restore if the saved street belongs to the requested town
+    const _wTown=workingCtx.townCtx;
+    if(!_wTown||_wTown===parsed.town||(_wStreet&&_wStreet.toUpperCase().includes(parsed.town.split(' ')[0]))){
+      merged.street=_wStreet;
+    }
+  }
   if(parsed.leaseYear)merged.leaseYear=parsed.leaseYear;
   if(parsed.maxPrice) merged.maxPrice=parsed.maxPrice;
   if(parsed.minPrice) merged.minPrice=parsed.minPrice;
@@ -3753,6 +3763,11 @@ function saveWorkingCtx(ctx, taskMode){
   if(ctx.town)   workingCtx.townCtx   = ctx.town;
   if(ctx.block)  workingCtx.blockCtx  = ctx.block;
   if(taskMode)   workingCtx.task      = taskMode;
+  // Track last 3 search contexts for multi-context clarity
+  const _entry={town:ctx.town,street:ctx.street?canonicalStreet(ctx.street):null,
+    block:ctx.block||null,task:taskMode||'search',ts:Date.now()};
+  workingCtx.lastSearches.unshift(_entry);
+  if(workingCtx.lastSearches.length>3) workingCtx.lastSearches.pop();
 }
 
 function restoreWorkingCtx(ctx){
@@ -3763,7 +3778,7 @@ function restoreWorkingCtx(ctx){
 }
 
 function clearWorkingCtx(){
-  workingCtx = {task:null,streetCtx:null,townCtx:null,blockCtx:null,
+  workingCtx = {task:null,streetCtx:null,townCtx:null,blockCtx:null,lastSearches:[],
     lastQuestion:null,lastDataResult:null,sidetrackCount:0,sidetrackTopic:null,pendingFields:[]};
 }
 
@@ -4002,6 +4017,7 @@ async function _handleInputInner(raw){
     const _dbState={
       mode, workingCtx, harveyPersona,
       convStyle:harveyPersona.conversationStyle,
+      lastSearches:workingCtx.lastSearches,
       chatRatio:Math.round(harveyPersona.chatRatio*100)+'%',
       turnHistory:harveyPersona.turnHistory.join(','),
       convCtx:{town:convCtx.town,street:convCtx.street,block:convCtx.block},
@@ -4213,12 +4229,36 @@ async function _handleInputInner(raw){
     }
 
     if(isReaction&&!hasNewInfo){
-      harveyMsg(rand([
-        `I'm afraid the data presents itself as such, sir. The estimate reflects actual recorded transactions. A professional agent may give you a fuller picture — <a href="https://wa.me/6597531657" target="_blank" style="color:var(--g)">WhatsApp us here</a>.`,
-        `The numbers are what they are, sir — I'm merely reflecting recorded transactions. Feel free to <a href="https://wa.me/6597531657" target="_blank" style="color:var(--g)">reach out on WhatsApp</a> for a more personal assessment.`,
-        `I understand, sir — but the data presents itself as such. Market conditions on the ground can differ. <a href="https://wa.me/6597531657" target="_blank" style="color:var(--g)">Chat with us on WhatsApp</a> for a grounded view.`
-      ]),[{label:'SEE THE TRANSACTIONS',val:`recent ${ctx.flatType||''} ${ctx.block?'block '+ctx.block:''} ${ctx.street||ctx.town||''}`},{label:'TRY A DIFFERENT UNIT',val:'estimate value'}]);
-      speak(`I'm afraid the data presents itself as such, sir.`);return;
+      const _isCheapReact=/\b(cheap|low|too low|so low|affordable|not expensive|reasonable|value|good price|nice price|cheap la|cheap ah|cheap one|not bad)\b/i.test(raw);
+      const _isExpReact=/\b(ex|expensive|pricey|costly|too much|so high|so ex|why so|cannot afford|unaffordable|steep|outrageous|ridiculous|shiok meh|for real|serious|really|joking)\b/i.test(raw);
+      const _backRef=workingCtx.streetCtx||ctx.street||ctx.town;
+      const _backChips=[
+        {label:'SEE THE TRANSACTIONS',val:`recent ${ctx.flatType||''} ${ctx.block?'block '+ctx.block:''} ${ctx.street||ctx.town||''}`.trim()},
+        {label:'TRY A DIFFERENT UNIT',val:'estimate value'},
+        ...(_backRef?[{label:`↗ BACK TO ${String(_backRef).slice(0,18).toUpperCase()}`,val:_backRef}]:[])
+      ];
+      if(_isCheapReact){
+        harveyMsg(rand([
+          `I'm glad the numbers are working in your favour, sir. In fact, very well — affordability is an outmost concern in public housing. Prices need to be as such in the grand scheme of the HDB plan.`,
+          `Affordable is good news, sir. The HDB mandate is precisely this — broad access to quality public housing. The market is doing its job here, and so is the estate.`,
+          `That is the beauty of the programme, sir. Public housing exists to be accessible, and the data reflects that intent. Singapore's housing model is quite remarkable when you step back and look at it.`,
+        ]),_backChips);
+        speak(rand([`Affordable indeed, sir. That is the HDB mandate at work.`,`Good value, sir — exactly as intended.`,`Accessibility by design, sir.`]));
+      } else if(_isExpReact){
+        harveyMsg(rand([
+          `I'm afraid the data presents itself as such, sir. Prime locations command a premium — the market has spoken. A professional assessment may reveal options. <a href="https://wa.me/6597531657" target="_blank" style="color:var(--g)">WhatsApp us here →</a>`,
+          `The numbers are what they are, sir. Location, floor, and lease remaining are doing most of the work here. I can show you the comparable transactions if that helps. <a href="https://wa.me/6597531657" target="_blank" style="color:var(--g)">Or speak to an agent →</a>`,
+          `Noted, sir — and the frustration is valid. The market has been running warm. I can pull the transactions so you see exactly what's driving this figure. <a href="https://wa.me/6597531657" target="_blank" style="color:var(--g)">WhatsApp us here →</a>`,
+        ]),_backChips);
+        speak(`The data presents itself as such, sir. The market has been running warm.`);
+      } else {
+        harveyMsg(rand([
+          `I understand, sir — but the data presents itself as such. Market conditions on the ground can differ. <a href="https://wa.me/6597531657" target="_blank" style="color:var(--g)">Chat with us on WhatsApp</a> for a grounded view.`,
+          `The numbers are what they are, sir — recorded transactions, no editorialising. <a href="https://wa.me/6597531657" target="_blank" style="color:var(--g)">Reach out on WhatsApp</a> for a personal assessment.`,
+        ]),_backChips);
+        speak(`The data presents itself as such, sir.`);
+      }
+      return;
     }
 
     if(!hasNewInfo){
@@ -4379,8 +4419,11 @@ async function _handleInputInner(raw){
   if(isLowest||isHighest){
     const p2=parseQuery(normalizeSpeech(raw));
     const flatFilter=p2.flatType||null;
-    const _analyseTown=p2.town||convCtx.town||null;
-    const _analyseStreet=p2.street?reverseStreet(p2.street)?.street:null;
+    // "here" / "this area" / "in this street" → use current context
+    const _usesHere=/\b(here|this area|this street|this town|this place|in here|right here)\b/i.test(raw);
+    const _analyseTown=p2.town||(_usesHere?convCtx.town:null)||null;
+    const _analyseStreetRaw=p2.street||((_usesHere&&(convCtx.street||workingCtx.streetCtx))?convCtx.street||workingCtx.streetCtx:null);
+    const _analyseStreet=_analyseStreetRaw?reverseStreet(_analyseStreetRaw)?.street||canonicalStreet(_analyseStreetRaw):null;
 
     // If no flat type given, prompt user to pick — unless they've already been prompted
     if(!flatFilter && !convCtx._analysisFlatAsked){
@@ -4388,18 +4431,25 @@ async function _handleInputInner(raw){
       convCtx._analysisPending={isLowest,isHighest,_analyseTown,_analyseStreet,raw};
       const _scopeLabel=_analyseStreet||_analyseTown||'Singapore';
       const _dir=isHighest?'highest':'lowest';
+      // Build chip values that carry the street/town context forward
+      const _ctx=_analyseStreet||_analyseTown||'';
+      const _sep=_ctx?' ':'';
       const _typeChips=[
-        {label:'2 ROOM',val:raw+' 2-room'},{label:'3 ROOM',val:raw+' 3-room'},
-        {label:'4 ROOM',val:raw+' 4-room'},{label:'5 ROOM',val:raw+' 5-room'},
-        {label:'EXECUTIVE',val:raw+' executive'},{label:'ALL TYPES',val:raw+' all types'},
+        {label:'2 ROOM',val:`${_dir} 2-room${_sep}${_ctx}`},
+        {label:'3 ROOM',val:`${_dir} 3-room${_sep}${_ctx}`},
+        {label:'4 ROOM',val:`${_dir} 4-room${_sep}${_ctx}`},
+        {label:'5 ROOM',val:`${_dir} 5-room${_sep}${_ctx}`},
+        {label:'EXECUTIVE',val:`${_dir} executive${_sep}${_ctx}`},
+        {label:'ALL TYPES',val:`${_dir} all types${_sep}${_ctx}`},
       ];
-      harveyMsg(`Which flat type shall I look at for the ${_dir} in <strong>${_scopeLabel}</strong>, sir?`,_typeChips);
+      harveyMsg(`Which flat type for the <strong>${_dir}</strong> in <strong>${_scopeLabel}</strong>, sir?`,_typeChips);
       speak(`Which flat type for the ${_dir} in ${_scopeLabel}, sir?`);
       mode='menu';loading=false;sbEl.disabled=false;return;
     }
-    // Clear the prompt flag — user has responded or said "all types"
+    // Clear the prompt flag — user has responded, said "all types", or provided flat type directly
     delete convCtx._analysisFlatAsked;
     delete convCtx._analysisPending;
+    convCtx._analysisFlatAsked = false;
     // "all types" means no filter
     const _effectiveFilter = flatFilter==='ALL TYPES'?null:flatFilter;
 
@@ -9215,7 +9265,7 @@ const UNIVERSAL_WORDS = {
   ight:     'acknowledge', gotcha:  'acknowledge', roger:   'acknowledge',
   copy:     'acknowledge', confirmed:'acknowledge',understood:'acknowledge',
   // Positive affirmations stay as joy
-  yes:      'joy',    fine:     'joy',    correct: 'joy',    exactly: 'joy',
+  yes:      'joy',    fine:     'acknowledge',    correct: 'joy',    exactly: 'joy',
   precisely:'joy',   indeed:   'joy',    wonderful:'joy',
 
   no:         'sad',   nope:      'sad',   nah:       'sad',
