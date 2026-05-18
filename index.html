@@ -689,14 +689,12 @@ function applyConvCtx(parsed){
   if(parsed.block)    merged.block=parsed.block;
   if(parsed.floor!==undefined&&parsed.floor) merged.floor=parsed.floor;
   if(parsed.size)     merged.size=parsed.size;
-  // If user navigates back to a town (no explicit street given) and workingCtx has a street
-  // in that town — restore it. Prevents convCtx.street from wrong previous search bleeding in.
-  if(parsed.town&&!parsed.street&&workingCtx.streetCtx){
-    const _wStreet=workingCtx.streetCtx;
-    // Only restore if the saved street belongs to the requested town
+  // Only restore workingCtx.streetCtx if convCtx has NO street at all
+  // convCtx.street is always more recent — never let stale workingCtx overwrite it
+  if(parsed.town&&!parsed.street&&!convCtx.street&&workingCtx.streetCtx){
     const _wTown=workingCtx.townCtx;
-    if(!_wTown||_wTown===parsed.town||(_wStreet&&_wStreet.toUpperCase().includes(parsed.town.split(' ')[0]))){
-      merged.street=_wStreet;
+    if(!_wTown||_wTown===parsed.town){
+      merged.street=workingCtx.streetCtx;
     }
   }
   if(parsed.leaseYear)merged.leaseYear=parsed.leaseYear;
@@ -2155,7 +2153,34 @@ function reverseStreet(streetRaw){
     }
     sc.sort((a,b)=>b.score-a.score);
     const _minScore=nameWords.length;
-    if(sc.length&&sc[0].score>=_minScore){m=DB.resale.filter(r=>r.street_name===sc[0].street);if(m.length)return _srResult(m);}
+    if(sc.length&&sc[0].score>=_minScore){
+      // When multiple streets tie, pick the one whose trailing number matches input
+      // e.g. "CLEMENTI WEST ST 1" input → prefer ST 1 over ST 2 among ties
+      const _top=sc.filter(x=>x.score===sc[0].score);
+      let _best=sc[0];
+      if(_top.length>1){
+        if(streetNum){
+          // Input has a number — find exact match
+          const _exact=_top.find(x=>{
+            const _n=x.street.match(/\s(\d+[A-Z]?)$/);
+            return _n&&_n[1]===streetNum;
+          });
+          if(_exact) _best=_exact;
+        } else {
+          // No number given — pick lowest-numbered but flag as guessed
+          const _sorted=_top.slice().sort((a,b)=>{
+            const _na=Number((a.street.match(/\s(\d+)/)||[0,999])[1]);
+            const _nb=Number((b.street.match(/\s(\d+)/)||[0,999])[1]);
+            return _na-_nb;
+          });
+          _best=_sorted[0];
+          // Attach all sibling streets so caller can show disambiguation
+          _best._siblings=_sorted.map(x=>x.street);
+          _best._guessed=true;
+        }
+      }
+      m=DB.resale.filter(r=>r.street_name===_best.street);if(m.length)return _srResult(m,_best);
+    }
   }
 
   const fw=s.replace(/\d+[A-Z]?/g,'').split(' ').filter(w=>w.length>=4&&!new RegExp(`^(${typeRxStr})$`).test(w));
@@ -2168,7 +2193,11 @@ function reverseStreet(streetRaw){
       const score=fw.filter(w=>up.includes(w)||_fuzzyWord(up,w)).length;
       if(score>0)sc2.push({score,street:r.street_name});
     }
-    sc2.sort((a,b)=>b.score-a.score);
+    sc2.sort((a,b)=>b.score-a.score||(()=>{
+      const _na=Number((a.street.match(/\s(\d+)/)||[0,0])[1]);
+      const _nb=Number((b.street.match(/\s(\d+)/)||[0,0])[1]);
+      return streetNum?0:_na-_nb; // prefer lowest number when no num given
+    })());
     if(sc2.length){m=DB.resale.filter(r=>r.street_name===sc2[0].street);if(m.length)return _srResult(m);}
   }
 
@@ -2196,8 +2225,10 @@ function _fuzzyWord(haystack,needle){
   }
   return false;
 }
-function _srResult(matches){
-  return{town:matches[0].town,street:matches[0].street_name,blocks:[...new Set(matches.map(r=>r.block))].sort((a,b)=>Number(a)-Number(b)||a.localeCompare(b))};
+function _srResult(matches, extra){
+  const r={town:matches[0].town,street:matches[0].street_name,blocks:[...new Set(matches.map(r=>r.block))].sort((a,b)=>Number(a)-Number(b)||a.localeCompare(b))};
+  if(extra&&extra._guessed){r._guessed=true;r._siblings=extra._siblings||[];}
+  return r;
 }
 
 
@@ -3559,11 +3590,20 @@ async function handleStreetOnly(street, ctx){
         return _words.every(w=>up.includes(w));
       });
       if(_candidates.length===1||(_candidates.length>0&&_words.length>=2)){
-        // Use most-transacted candidate
-        const _best=_candidates.reduce((a,b)=>
-          DB.resale.filter(r=>r.street_name===a.street_name).length>=
-          DB.resale.filter(r=>r.street_name===b.street_name).length?a:b);
-        found=reverseStreet(_best.street_name)||{street:_best.street_name,town:_best.town,blocks:[]};
+        // Sort by number first (lowest = most canonical), then by transaction count
+        const _sorted=_candidates.slice().sort((a,b)=>{
+          const _na=Number((a.street_name.match(/\s(\d+)/)||[0,999])[1]);
+          const _nb=Number((b.street_name.match(/\s(\d+)/)||[0,999])[1]);
+          return _na-_nb;
+        });
+        const _bestC=_sorted[0];
+        const _hasSiblings=_sorted.length>1;
+        const _foundC=reverseStreet(_bestC.street_name)||{street:_bestC.street_name,town:_bestC.town,blocks:[]};
+        if(_hasSiblings&&!_canonInput.match(/\s\d+[A-Z]?$/)){
+          _foundC._guessed=true;
+          _foundC._siblings=_sorted.map(x=>x.street_name);
+        }
+        found=_foundC;
       }
     }
   }
@@ -3606,6 +3646,19 @@ async function handleStreetOnly(street, ctx){
     mode='srch_waiting';loading=false;sbEl.disabled=false;return;
   }
 
+  // If Harvey guessed the street number — notify user, offer all siblings
+  if(found._guessed && found._siblings && found._siblings.length > 1){
+    const _sibChips = found._siblings.map(s=>({label:s.replace(/^.*?(\d+[A-Z]?)$/,'$1 — '+s),val:s}));
+    const _guessMsg = rand([
+      `You didn't specify a street number, sir — I've pulled <strong>${found.street}</strong> as it's the lowest numbered. Is this the one you meant?`,
+      `I took a guess at <strong>${found.street}</strong>, sir — no number was given. Please confirm or pick the correct one below.`,
+      `No street number given, sir, so I defaulted to <strong>${found.street}</strong>. If that's not right, select the correct one:`,
+    ]);
+    harveyMsg(_guessMsg, _sibChips);
+    speak(`I defaulted to ${found.street}, sir. Please confirm or pick the correct street number.`);
+    // Still show the data below — don't block, just notify
+  }
+
   const prices=recs.map(r=>Number(r.resale_price));
   const avg=prices.length?Math.round(prices.reduce((a,b)=>a+b,0)/prices.length):0;
   const median=prices.slice().sort((a,b)=>a-b)[Math.floor(prices.length/2)];
@@ -3635,6 +3688,9 @@ async function handleStreetOnly(street, ctx){
   speak(`${recs.length} transaction${recs.length!==1?'s':''} found on ${found.street}, sir. Median price ${fmtP(median)}.`);
 
   ctx.town=found.town;ctx.street=found.street;
+  convCtx.street=found.street;convCtx.town=found.town||convCtx.town;
+  // Keep workingCtx current — "back to X" always returns to most recent street
+  saveWorkingCtx({street:found.street,town:found.town||ctx.town},null);
 
   setTimeout(()=>{
     const nudgeHtml=`If I may, sir — if you could kindly confirm a few more details, I can get you a proper estimated value for your specific unit.<br><br>
