@@ -3917,6 +3917,41 @@ async function _handleInputInner(raw){
   }
 
   // ── Option C: Debug overlay ──
+  // ── DIRECT CHIP COMMANDS — intercept before any routing ──
+  // These are button values that must route immediately without NLP processing
+  if(/^(search|resale|resale transactions|recent|browse|look up|show transactions)$/i.test(raw.trim())){
+    const _searchWhere=workingCtx.streetCtx||workingCtx.townCtx||convCtx.street||convCtx.town;
+    const _searchChips=_searchWhere?[
+      {label:`↗ CONTINUE: ${String(_searchWhere).slice(0,18).toUpperCase()}`,val:_searchWhere},
+      {label:'SEARCH NEW AREA',val:'search new'},
+    ]:[
+      {label:'TAMPINES',val:'tampines'},{label:'CLEMENTI',val:'clementi'},
+      {label:'BEDOK',val:'bedok'},{label:'SENGKANG',val:'sengkang'},
+      {label:'BUKIT BATOK',val:'bukit batok'},{label:'JURONG EAST',val:'jurong east'},
+    ];
+    const _searchPrompt=rand([
+      `Right, sir — which area shall we look at? Type a town, street, or block number.`,
+      `Let us search. A town, street, or block — what is the target, sir?`,
+      `Search mode, sir. Town, street, or block — where do we start?`,
+    ]);
+    harveyMsg(_searchPrompt,_searchChips);
+    speak(_searchPrompt.replace(/<[^>]*>/g,'').slice(0,150));
+    mode='menu';loading=false;sbEl.disabled=false;return;
+  }
+
+  if(/^(search new|new search|different area|new area)$/i.test(raw.trim())){
+    ctx={};convCtx={};mode='menu';
+    const _newChips=[
+      {label:'TAMPINES',val:'tampines'},{label:'CLEMENTI',val:'clementi'},
+      {label:'BEDOK',val:'bedok'},{label:'SENGKANG',val:'sengkang'},
+      {label:'BUKIT BATOK',val:'bukit batok'},{label:'JURONG EAST',val:'jurong east'},
+      {label:'PASIR RIS',val:'pasir ris'},{label:'WOODLANDS',val:'woodlands'},
+    ];
+    harveyMsg(`Fresh search, sir. Which area?`,_newChips);
+    speak(`Fresh search, sir. Which area?`);
+    loading=false;sbEl.disabled=false;return;
+  }
+
   // ── CONTINUE chip handler — resume last search/EV ──
   if(/^(?:(?:then|ok|right|alright|so|yeah|yea|sure|please|lah)\s+)?(?:continue|lets continue|carry on|go on|resume|back to it|proceed|yes please|go ahead)(?:\s+(?:lah|please|sir))?$/i.test(raw.trim())){
     const _resumeStreet=workingCtx.streetCtx||convCtx.street;
@@ -4210,6 +4245,26 @@ async function _handleInputInner(raw){
           harveyMsg(_warmReply,[{label:'CONTINUE',val:'continue'},{label:'RESALE TRANSACTIONS',val:'search'},{label:'ESTIMATE VALUATION',val:'estimate value'}]);
           speak(_warmReply.replace(/<[^>]*>/g,'').slice(0,120));return;
         }
+        // Track repeat field errors — after 2 misses, redirect wittily
+        convCtx._fieldErrCount = (convCtx._fieldErrCount||0)+1;
+        convCtx._fieldErrLast = nextMissing;
+        if(convCtx._fieldErrCount >= 2){
+          convCtx._fieldErrCount=0;
+          const _where=workingCtx.streetCtx||workingCtx.townCtx||convCtx.street||convCtx.town;
+          const _wittyErr=rand([
+            `My memory may have failed me, sir — forgive me. What were we working on? Perhaps you could gently remind me.`,
+            `I do apologise, sir. I seem to have lost the thread entirely. Shall we restart this valuation from scratch?`,
+            `Two attempts and I'm still lost, sir. I'll be honest — a fresh start might serve us better here.`,
+          ]);
+          const _errChips=_where?[
+            {label:'RESTART VALUATION',val:'estimate value'},
+            {label:`↗ BACK TO ${String(_where).slice(0,18).toUpperCase()}`,val:_where},
+            {label:'START FRESH',val:'__restart__'},
+          ]:[{label:'RESTART VALUATION',val:'estimate value'},{label:'START FRESH',val:'__restart__'}];
+          harveyMsg(_wittyErr,_errChips);
+          speak(_wittyErr.replace(/<[^>]*>/g,'').slice(0,180));
+          mode='menu';loading=false;sbEl.disabled=false;return;
+        }
         harveyMsg(`I couldn't find the ${fieldName} from that, sir — ${example}.`);
         speak(`I couldn't find the ${fieldName} from that, sir.`);return;
       }
@@ -4230,6 +4285,8 @@ async function _handleInputInner(raw){
     if(parsed.maxPrice) ctx.maxPrice=parsed.maxPrice;
     if(parsed.minPrice) ctx.minPrice=parsed.minPrice;
     enrichCtx(ctx);
+    // Clear error counter when user provides valid data
+    if(parsed.block||parsed.floor||parsed.flatType||parsed.street||parsed.size) convCtx._fieldErrCount=0;
     if(ctx.flatType&&!ctx.size){const dbSz=lookupSizeFromDB(ctx.block,ctx.street,ctx.flatType);if(dbSz){ctx.size=dbSz;ctx.sizeFromDB=true;}else{ctx.size=TYPICAL_SIZE[ctx.flatType]||93;ctx.sizeInferred=true;}}
     if(mode==='ev_waiting'){
       const still=buildMissingPrompt(ctx).filter(s=>!s.includes('optional')&&!s.includes('I can find')&&!s.includes('mid-floor'));
@@ -4298,35 +4355,62 @@ async function _handleInputInner(raw){
   if(isLowest||isHighest){
     const p2=parseQuery(normalizeSpeech(raw));
     const flatFilter=p2.flatType||null;
-    // P9/P10: town/street-specific analysis
-    const _analyseTown=p2.town||null;
+    const _analyseTown=p2.town||convCtx.town||null;
     const _analyseStreet=p2.street?reverseStreet(p2.street)?.street:null;
+
+    // If no flat type given, prompt user to pick — unless they've already been prompted
+    if(!flatFilter && !convCtx._analysisFlatAsked){
+      convCtx._analysisFlatAsked=true;
+      convCtx._analysisPending={isLowest,isHighest,_analyseTown,_analyseStreet,raw};
+      const _scopeLabel=_analyseStreet||_analyseTown||'Singapore';
+      const _dir=isHighest?'highest':'lowest';
+      const _typeChips=[
+        {label:'2 ROOM',val:raw+' 2-room'},{label:'3 ROOM',val:raw+' 3-room'},
+        {label:'4 ROOM',val:raw+' 4-room'},{label:'5 ROOM',val:raw+' 5-room'},
+        {label:'EXECUTIVE',val:raw+' executive'},{label:'ALL TYPES',val:raw+' all types'},
+      ];
+      harveyMsg(`Which flat type shall I look at for the ${_dir} in <strong>${_scopeLabel}</strong>, sir?`,_typeChips);
+      speak(`Which flat type for the ${_dir} in ${_scopeLabel}, sir?`);
+      mode='menu';loading=false;sbEl.disabled=false;return;
+    }
+    // Clear the prompt flag — user has responded or said "all types"
+    delete convCtx._analysisFlatAsked;
+    delete convCtx._analysisPending;
+    // "all types" means no filter
+    const _effectiveFilter = flatFilter==='ALL TYPES'?null:flatFilter;
+
     const topN=10;
     const cutoff12=evCutoff(12);
     let pool=DB.resale.filter(r=>r.month>=cutoff12);
-    // Filter by town or street if specified
     if(_analyseStreet) pool=pool.filter(r=>r.street_name===_analyseStreet);
     else if(_analyseTown) pool=pool.filter(r=>r.town===_analyseTown);
-    if(flatFilter)pool=pool.filter(r=>r.flat_type===flatFilter);
+    if(_effectiveFilter)pool=pool.filter(r=>r.flat_type===_effectiveFilter);
     pool.sort((a,b)=>isLowest?Number(a.resale_price)-Number(b.resale_price):Number(b.resale_price)-Number(a.resale_price));
     const top=pool.slice(0,topN);
     if(!top.length){harveyMsg(`No results found, sir. Try a different flat type.`);return;}
     const _scope=_analyseStreet?` · ${_analyseStreet}`:_analyseTown?` · ${_analyseTown}`:' · SINGAPORE-WIDE';
-    const label=isLowest?`LOWEST PRICED${flatFilter?' '+flatFilter:''}${_scope}`:`HIGHEST PRICED${flatFilter?' '+flatFilter:''}${_scope}`;
+    const label=isLowest?`LOWEST PRICED${_effectiveFilter?' '+_effectiveFilter:''}${_scope}`:`HIGHEST PRICED${_effectiveFilter?' '+_effectiveFilter:''}${_scope}`;
     const prices=top.map(r=>Number(r.resale_price));
-    const rows=top.map((r,i)=>`<tr>
-      <td style="font-family:var(--mono);color:var(--t3);font-size:10px">${i+1}</td>
-      <td>${esc(r.month)}</td><td>BLK ${esc(r.block)} ${esc(r.street_name)}</td>
-      <td>${esc(r.town)}</td><td>${esc(r.flat_type)}</td>
-      <td>${esc(r.storey_range)}</td><td>${esc(r.floor_area_sqm)}m²</td>
-      <td class="pc">${fmtP(r.resale_price)}</td></tr>`).join('');
+    // Multi-street: collect unique streets in result, annotate top entry per street
+    const _streetSet=new Set(top.map(r=>r.street_name));
+    const _topPerStreet={};top.forEach(r=>{if(!_topPerStreet[r.street_name])_topPerStreet[r.street_name]=r;});
+    const rows=top.map((r,i)=>{
+      const _isTopOfStreet=_topPerStreet[r.street_name]===r;
+      return `<tr${_isTopOfStreet&&_streetSet.size>1?' style="border-top:1px solid var(--b3)"':''}>
+        <td style="font-family:var(--mono);color:var(--t3);font-size:10px">${i+1}</td>
+        <td>${esc(r.month)}</td><td>BLK ${esc(r.block)} ${esc(r.street_name)}${_isTopOfStreet&&_streetSet.size>1?` <span style="font-size:9px;color:var(--a);font-family:var(--mono)">▲ TOP</span>`:''}</td>
+        <td>${esc(r.town)}</td><td>${esc(r.flat_type)}</td>
+        <td>${esc(r.storey_range)}</td><td>${esc(r.floor_area_sqm)}m²</td>
+        <td class="pc">${fmtP(r.resale_price)}</td></tr>`;
+    }).join('');
+    const _streetSummary=_streetSet.size>1?`<div style="font-size:10px;color:var(--t2);font-family:var(--mono);margin-bottom:8px">ACROSS ${_streetSet.size} STREETS: ${[..._streetSet].slice(0,5).join(' · ')}${_streetSet.size>5?' + MORE':''}</div>`:'';
     document.getElementById('welcome')?.remove();
     const d2=document.createElement('div');d2.className='msg-ai';d2.style.maxWidth='100%';
     d2.innerHTML=`<span class="mlbl">// SINGAPORE · ${esc(label)} · LAST 12 MONTHS</span>
       <div class="mbub">Here are the <strong>${topN}</strong> ${isLowest?'most affordable':'highest priced'}${flatFilter?' <strong>'+flatFilter.toLowerCase()+'</strong>':''} flats transacted in Singapore over the last year, sir.</div>
       <div class="rwrap"><div class="rcard">
         <div class="rh"><span class="rtitle">⬡ ${esc(label)} · SINGAPORE-WIDE</span><span class="rcnt">TOP ${topN} · LAST 12 MONTHS</span></div>
-        <div style="overflow-x:auto"><table><thead><tr><th>#</th><th>MONTH</th><th>BLOCK & STREET</th><th>TOWN</th><th>TYPE</th><th>STOREY</th><th>AREA</th><th>PRICE</th></tr></thead><tbody>${rows}</tbody></table></div>
+        ${_streetSummary}<div style="overflow-x:auto"><table><thead><tr><th>#</th><th>MONTH</th><th>BLOCK & STREET</th><th>TOWN</th><th>TYPE</th><th>STOREY</th><th>AREA</th><th>PRICE</th></tr></thead><tbody>${rows}</tbody></table></div>
       </div>
       <div class="srow" style="grid-template-columns:repeat(4,1fr)">
         <div class="sc"><span class="svv">${fmtP(Math.round(prices.reduce((s,p)=>s+p,0)/prices.length))}</span><span class="sll">AVG</span></div>
@@ -4335,7 +4419,7 @@ async function _handleInputInner(raw){
         <div class="sc"><span class="svv">${fmtP(Math.max(...prices))}</span><span class="sll">HIGHEST</span></div>
       </div></div>`;
     msgsEl.appendChild(d2);bot();
-    speak(isLowest?`The most affordable${flatFilter?' '+flatFilter.toLowerCase():''} flat transacted at ${Math.round(prices[0]/1000)} thousand dollars, sir.`:`The most expensive${flatFilter?' '+flatFilter.toLowerCase():''} flat went for ${Math.round(prices[0]/1000)} thousand dollars, sir.`);
+    speak(isLowest?`The most affordable${_effectiveFilter?' '+_effectiveFilter.toLowerCase():''} flat transacted at ${Math.round(prices[0]/1000)} thousand dollars, sir.`:`The most expensive${_effectiveFilter?' '+_effectiveFilter.toLowerCase():''} flat went for ${Math.round(prices[0]/1000)} thousand dollars, sir. Across ${_streetSet.size} street${_streetSet.size!==1?'s':''}.`);
     setTimeout(()=>harveyMsg('Anything else, sir?',[{label:'ESTIMATE VALUATION',val:'estimate value'},...(flatFilter?[{label:`ALL ${flatFilter} PRICES`,val:`recent ${flatFilter}`}]:[]),{label:'SEARCH BY TOWN',val:'search'}]),1400);
     mode='menu';return;
   }
@@ -5014,17 +5098,22 @@ async function harveyAttempt(raw){
   const attemptId='ha-'+Date.now();
   const attemptDiv=document.createElement('div');attemptDiv.className='msg-ai';attemptDiv.id=attemptId;
   const shortened=raw.length>60?raw.slice(0,57)+'…':raw;
+  const _haWhere=workingCtx.streetCtx||workingCtx.townCtx||convCtx.street||convCtx.town;
+  const _haPrev=_haWhere?`<br><br><button class="stop-btn" style="color:var(--g);font-size:9px;padding:5px 14px" onclick="chipClick('${_haWhere.replace(/'/g,'')}')">↗ BACK TO ${String(_haWhere).slice(0,20).toUpperCase()}</button>`:'';
   attemptDiv.innerHTML=`<span class="mlbl" style="display:flex;align-items:center;gap:6px;justify-content:space-between">
-    <span>// HARVEY — ATTEMPTING</span>
+    <span>// HARVEY — STANDING BY</span>
     <span style="display:flex;gap:4px">
       <button class="stop-btn" onclick="stopSpeech()" title="Stop speaking">⏹ STOP</button>
       <button class="stop-btn" style="color:var(--a);background:rgba(255,170,0,.08);border-color:rgba(255,170,0,.3)" onclick="chipClick('__restart__')" title="Reset Harvey">↺ NEW</button>
     </span>
   </span>
   <div class="mbub">
-    <em style="color:var(--a);font-family:var(--mono);font-size:10px">Honestly, this isn't what I was built for — but I'll make an attempt. No promises, sir.</em>
-    <div style="display:flex;gap:4px;margin-top:10px">
-      <button class="stop-btn" style="color:var(--a);background:rgba(255,170,0,.08);border-color:rgba(255,170,0,.3);font-size:9px;padding:5px 14px" onclick="document.getElementById('${attemptId}')?.remove();chipClick('__restart__')">↺ ACTUALLY, LET'S RESET</button>
+    <em style="color:var(--a);font-family:var(--mono);font-size:10px">I'm afraid that one is outside my reach, sir. I specialise in HDB resale — shall we get back to that?</em>
+    <div style="display:flex;gap:4px;margin-top:10px;flex-wrap:wrap">
+      <button class="stop-btn" style="font-size:9px;padding:5px 14px" onclick="chipClick('search')">▶ RESALE TRANSACTIONS</button>
+      <button class="stop-btn" style="font-size:9px;padding:5px 14px" onclick="chipClick('estimate value')">▶ ESTIMATE VALUATION</button>
+      <button class="stop-btn" style="color:var(--a);background:rgba(255,170,0,.08);border-color:rgba(255,170,0,.3);font-size:9px;padding:5px 14px" onclick="document.getElementById('${attemptId}')?.remove();chipClick('__restart__')">↺ REINITIALISE HARVEY</button>
+    </div>${_haPrev}
     </div>
   </div>`;
   msgsEl.appendChild(attemptDiv);bot();
@@ -9116,7 +9205,8 @@ const UNIVERSAL_WORDS = {
   where:      'anticipation', when: 'anticipation', how: 'anticipation',
   what:       'anticipation', who:  'anticipation', why: 'surprise',
   show:       'anticipation', tell: 'anticipation', find:'anticipation',
-  search:     'anticipation', look: 'anticipation', check:'anticipation',
+  // search handled as direct chip command
+  //search:   'anticipation', look: 'anticipation', check:'anticipation',
 
   brew:       'joy',    roast:   'joy',    grind:   'joy',    steep:  'joy',
   barista:    'joy',    espresso:'joy',    latte:   'joy',    mocha:  'joy',
