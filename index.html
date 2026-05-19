@@ -654,6 +654,8 @@ if(window.speechSynthesis.onvoiceschanged!==undefined)
 
 
 let _speakQueue=[];let _speakBusy=false;
+let _harveyCurrentSpeech='';   // What Harvey is currently saying (for self-filter)
+let _harveyRecentSpeech=[];    // Last few utterances for filtering
 function speakNext(){
   if(!_speakBusy&&_speakQueue.length>0){
     _speakBusy=true;
@@ -661,18 +663,53 @@ function speakNext(){
     const u=new SpeechSynthesisUtterance(clean);
     u.rate=rate||VOICE_SPEED;u.pitch=0.6;u.volume=0.92;
     if(harveyVoice)u.voice=harveyVoice;
+    u.onstart=()=>{
+      // Record what Harvey is saying so we can filter it from mic input
+      _harveyCurrentSpeech=clean.toLowerCase().slice(0,60);
+      _harveyRecentSpeech.push(_harveyCurrentSpeech);
+      if(_harveyRecentSpeech.length>5)_harveyRecentSpeech.shift();
+      if(vsTxt&&voiceMode)vsTxt.textContent='HARVEY SPEAKING — STILL LISTENING';
+      // Keep recognition running — we filter in onresult instead
+    };
     u.onend=()=>{
       _speakBusy=false;
       document.querySelector('.hrw')?.classList.remove('speaking');
       document.getElementById('harvey-speaking-fx')?.classList.remove('active');
+      // Clear current speech text — Harvey done talking
+      _harveyCurrentSpeech='';
+      if(voiceMode&&micState==='query'&&!_speakBusy){
+        if(vsTxt)vsTxt.textContent='HARVEY LISTENING — SPEAK ANYTIME';
+        // Restart recognition if it stopped
+        if(!recogBusy)setTimeout(()=>safeStart(),200);
+      }
       speakNext();
     };
-    u.onerror=()=>{_speakBusy=false;speakNext();};
+    u.onerror=()=>{
+      _speakBusy=false;
+      // Resume on error too
+      if(voiceMode&&micState==='query'&&!_speakBusy){
+        setTimeout(()=>safeStart(),400);
+      }
+      speakNext();
+    };
     document.querySelector('.hrw')?.classList.add('speaking');
     document.getElementById('harvey-speaking-fx')?.classList.add('active');
     window.speechSynthesis.speak(u);
   }
 }
+// ── SPEAK THIS: cut current speech and read a specific message bubble ──
+function speakThisMsg(btn,txt){
+  // Visual feedback
+  document.querySelectorAll('.speak-this-btn').forEach(b=>{
+    b.textContent='▶';b.style.color='var(--t2)';
+  });
+  btn.textContent='▶▶';btn.style.color='var(--g)';
+  // Cut whatever Harvey is saying, read this message instead
+  window.speechSynthesis.cancel();
+  _speakQueue=[];_speakBusy=false;_harveyCurrentSpeech='';
+  speak(txt,true);
+}
+
 function speak(txt,_priority=false){
   if(!voiceOn||!txt)return;
   const clean=cleanForSpeech(txt);
@@ -754,6 +791,7 @@ const fmtP=p=>'$'+Number(p).toLocaleString();
 
 
 function stopSpeech(){
+  // Resume listening after manual stop
   if(currentAudio){currentAudio.pause();try{currentAudio.currentTime=0;}catch(e){}currentAudio=null;}
   window.speechSynthesis?.cancel();
   if(typeof _speakQueue!=='undefined'){_speakQueue=[];_speakBusy=false;}
@@ -2724,7 +2762,13 @@ function harveyMsg(html,chips=[]){
   const restartBtn=`<button class="stop-btn" style="color:var(--a);background:rgba(255,170,0,.06);border-color:rgba(255,170,0,.25)" onclick="chipClick('__restart__')" title="Restart conversation">↺ NEW</button>`;
   const rawForEQ=(typeof lastRaw!=='undefined')?lastRaw:'';
   const flavour=rawForEQ?harveyFlavour(html,rawForEQ):'';
-  d.innerHTML=`<span class="mlbl" style="display:flex;align-items:center;gap:6px;justify-content:space-between"><span>// HARVEY</span><span style="display:flex;gap:4px">${stopBtn}${restartBtn}</span></span><div class="mbub">${html}${flavour}${ch}</div>`;
+  // Unique ID for each message so speakThisMsg can reference it
+  const _msgId='hmsg-'+Date.now();
+  // Extract plain text for TTS (strip HTML tags)
+  const _plainTxt=html.replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim().slice(0,300);
+  const _escapedTxt=_plainTxt.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+  const speakBtn=`<button class="stop-btn speak-this-btn" title="Read this message" style="color:var(--t2);font-size:9px;padding:3px 8px" onclick="speakThisMsg(this,'${_escapedTxt}')">▶</button>`;
+  d.innerHTML=`<span class="mlbl" style="display:flex;align-items:center;gap:6px;justify-content:space-between"><span>// HARVEY</span><span style="display:flex;gap:4px">${speakBtn}${stopBtn}${restartBtn}</span></span><div class="mbub">${html}${flavour}${ch}</div>`;
   msgsEl.appendChild(d);bot();
 }
 function userMsg(text){
@@ -11228,7 +11272,7 @@ function normaliseVoiceInput(txt){
 function buildRecog(){
   if(!SR)return null;
   const r=new SR();
-  r.continuous=false;
+  r.continuous=true;  // Always on — filter Harvey's voice in onresult
   r.interimResults=true;
   try{r.lang=IS_IOS?'en-US':'en-SG';}catch(e){r.lang='en-US';}
   r.maxAlternatives=3; // More alternatives = better chance of correct match
@@ -11298,6 +11342,35 @@ function buildRecog(){
         clearTimeout(speechTimer);clearTimeout(voiceModeSilTimer);
         removeLiveBubble();
         let raw=normaliseVoiceInput(final);
+
+        // ── SELF-FILTER: ignore if Harvey is saying this ──
+        // Compare heard text against what Harvey is currently/recently speaking
+        if(_harveyCurrentSpeech||_harveyRecentSpeech.length){
+          const _heardLow=raw.toLowerCase().slice(0,60);
+          const _isSelf=_harveyCurrentSpeech&&(
+            _heardLow.length>3&&(
+              _harveyCurrentSpeech.includes(_heardLow.slice(0,15))||
+              _heardLow.includes(_harveyCurrentSpeech.slice(0,15))
+            )
+          );
+          const _isRecentSelf=_harveyRecentSpeech.some(s=>
+            _heardLow.length>5&&(s.includes(_heardLow.slice(0,12))||_heardLow.includes(s.slice(0,12)))
+          );
+          if(_isSelf||_isRecentSelf){
+            vdbgLog('Self-filtered (Harvey speech): '+_heardLow,'#666');
+            return; // Discard — this is Harvey's own voice
+          }
+        }
+
+        // ── INTERRUPT HANDLING: user speaks while Harvey is talking ──
+        if(_speakBusy&&raw.length>2){
+          // User interrupted — stop Harvey immediately, process the input
+          vdbgLog('User interrupted Harvey: '+raw,'var(--a)');
+          window.speechSynthesis.cancel();
+          _speakQueue=[];_speakBusy=false;_harveyCurrentSpeech='';
+          if(vsTxt)vsTxt.textContent='HARVEY LISTENING — SPEAK ANYTIME';
+        }
+
         if(isDeactivationPhrase(raw)){deactivateVoiceMode(false);return;}
         if(isSkipPhrase(raw)){
           skipPreamble=true;
