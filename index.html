@@ -2654,7 +2654,7 @@ async function runEvExpanded(p,labels){
   const _expLowS=low>=1000000?(low/1000000).toFixed(2).replace(/\.?0+$/,'')+' million dollars':_expLow+' thousand dollars';
   const _expHiS=high>=1000000?(high/1000000).toFixed(2).replace(/\.?0+$/,'')+' million dollars':_expHi+' thousand dollars';
   speak(`Expanded estimate using ${comps.length} comparable transactions, sir. The median is ${_expM}. The range runs from ${_expLowS} to ${_expHiS}. This is a directional guide — for a precise valuation, please contact us directly.`);
-  setTimeout(()=>harveyMsg('Anything else, sir?',[{label:'ESTIMATE ANOTHER UNIT',val:'estimate value'},{label:'SEARCH TRANSACTIONS',val:'search'}]),1400);
+  setTimeout(()=>harveyMsg('Anything else, sir?',[{label:'TRY DIFFERENT UNIT',val:'__estimatenew__'},{label:'SEARCH TRANSACTIONS',val:'search'}]),1400);
   mode='menu';loading=false;sbEl.disabled=false;
 }
 
@@ -3192,7 +3192,7 @@ function showEV(result,params){
       ...(result.flatType?[{label:`${ftLabel} ON ${streetShort}…`,val:`recent flattype ${result.flatType} all blocks ${result.street}`}]:[]),
       {label:`ALL TYPES ON ${streetShort}…`,val:`recent all blocks ${result.street}`},
       {label:'⚙ CHANGE DETAILS',val:'__changedetails__'},
-      {label:'ESTIMATE ANOTHER UNIT',val:'estimate value'}
+      {label:'TRY DIFFERENT UNIT',val:'__estimatenew__'}
     ];
     harveyMsg(`That covers everything I have, sir. Should you need a more grounded assessment, do reach out — <a href="https://wa.me/6597531657" target="_blank" style="color:var(--g)">WhatsApp us here</a>.${ctx.sizeInferred?'<br><br><span style="font-family:var(--mono);font-size:9px;color:var(--a)">⚠ You have not provided an accurate unit size and as such the value may differ if your vicinity has a different size and built of the same flat type. Here\'s a contact you can reach out for a more detailed pricing and valuation: <a href="https://wa.me/6597531657" target="_blank" style="color:var(--g)">WhatsApp us →</a></span>':''}${ctx.floorInferred?'<br><span style="font-family:var(--mono);font-size:9px;color:var(--a)">⚠ No floor level was provided — estimate used a mid-floor reference. For floor-specific pricing, <a href="https://wa.me/6597531657" target="_blank" style="color:var(--g)">reach out to us on WhatsApp →</a></span>':''}<br><br>${detailsSummary}`,chips);
     speak(`That covers all the transactions I have, sir. Do WhatsApp us if you need a more grounded assessment.`);
@@ -3610,10 +3610,13 @@ async function runSearch(){
       if(!ctx.town&&_rsFound.town) ctx.town=_rsFound.town;
     }
   }
-  // Sync convCtx with canonical street before searching
+  // Sync convCtx: if street given, set it; if town-only, CLEAR old street
   if(ctx.street){
     convCtx.street = ctx.street;
     if(ctx.town) convCtx.town = ctx.town;
+  } else if(ctx.town){
+    convCtx.town = ctx.town;
+    convCtx.street = ''; // clear stale street so "here" doesn't bleed old context
   }
   const recs=searchTransactions(ctx);
   const cutoff=evCutoff(6);
@@ -4176,6 +4179,21 @@ async function _handleInputInner(raw){
       speak(_noCtx.replace(/<[^>]*>/g,'').slice(0,150));
       loading=false;sbEl.disabled=false;return;
     }
+  }
+
+  // ── CHIP: TRY DIFFERENT UNIT — clear block/floor, keep street/flatType ──
+  if(raw==='__estimatenew__'){
+    const _newCtx={...convCtx,isEV:true};
+    _newCtx.block='';_newCtx.floor=undefined;_newCtx.leaseYear=undefined;
+    ctx={..._newCtx};
+    mode='ev_waiting';
+    harveyMsg(rand([
+      `Of course, sir. Same street and flat type — just tell me the block number and floor.`,
+      `Right away, sir. Which block and floor for your next unit?`,
+      `New unit, same area — just give me the block number and floor, sir.`,
+    ]),[{label:'⚙ CHANGE DETAILS',val:'__changedetails__'},{label:'↺ START FRESH',val:'__restart__'}]);
+    speak('Which block and floor for your next unit, sir?');
+    loading=false;sbEl.disabled=false;return;
   }
 
   // ── CHIP: CHANGE DETAILS — must fire before mode checks ──
