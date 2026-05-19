@@ -2279,7 +2279,13 @@ function parseQuery(raw){
   if(ly)res.leaseYear=Number(ly[1]||ly[2]);
   const qNoBlock=q.replace(/^\s*(?:BLK|BLOCK)?\s*\d+[A-Z]?\s*/,'').trim();
   // Strip analysis/filter keywords before stMatch2/3 to prevent greedy capture
-  const qNoBlockClean=qNoBlock.replace(/\b(?:HIGHEST|LOWEST|RECENT|ALL|ANY|TYPES|TYPE|MOST|CHEAPEST|EXPENSIVE|IN|AT|FOR|THE)\b/g,'').replace(/\s+/g,' ').trim();
+  // Strip analysis/filter keywords AND flat type patterns for stMatch2/3
+  // "lowest 4 room in CLEMENTI WST ST 1" → "CLEMENTI WST ST 1"
+  const qNoBlockClean=qNoBlock
+    .replace(/\b(?:HIGHEST|LOWEST|RECENT|ALL|ANY|TYPES|TYPE|MOST|CHEAPEST|EXPENSIVE|IN|AT|FOR|THE)\b/g,'')
+    .replace(/\b\d+\s*(?:ROOM|RM|BED|EXEC|EXECUTIVE)\b/gi,'')
+    .replace(/\b(?:EXECUTIVE|EXEC|ROOM|ROOMS)\b/gi,'')
+    .replace(/\s+/g,' ').trim();
   const stMatch=qNoBlock.match(/\b([A-Z][A-Z0-9\s]*?(?:AVENUE|STREET|DRIVE|ROAD|CRESCENT|CLOSE|WALK|LINK|LANE|VIEW|RISE|WAY|HEIGHTS|GROVE|CIRCLE|PLACE|TERRACE|LORONG|JALAN|GARDENS|COURTS|MARKET|PARK|AVE|RD|DR|CRES|CL|LOR|JLN|HTS)\s*\d*[A-Z]?)\b/)
     ||qNoBlockClean.match(/\b([A-Z]{3,}(?:\s+[A-Z]{3,})*(?:\s+(?:ST|AVE|DR|RD|CL|CRES|LOR|JLN)\s*\d+[A-Z]?))\b/)
     ||qNoBlockClean.match(/\b([A-Z]{3,}(?:\s+[A-Z]{3,})*(?:\s+(?:NTH|STH|EST|WST|CTRL))(?:\s+(?:ST|AVE|DR|RD|CL|CRES|LOR|JLN)\s*\d*[A-Z]?))\b/);
@@ -4448,6 +4454,11 @@ async function _handleInputInner(raw){
   }
 
 
+  // ── Pre-check: analysis commands escape srch_waiting to run as analysis ──
+  if(mode==='srch_waiting'&&/\b(lowest|cheapest|most affordable|most expensive|highest price|highest flat|highest priced|lowest priced|lowest flat)\b/i.test(raw)){
+    mode='menu'; // route to analysis handler below
+  }
+
   if(mode==='ev_waiting'||mode==='srch_waiting'){
     const isReaction=/low|high|wrong|seems|that's|thats|really|sure|correct|accurate|right|off|expect|thought|reckon|feel|think|why|how|cant|can't|less|more|not right|not correct|disagree/i.test(raw);
     const hasNewInfo=parsed.town||parsed.flatType||parsed.street||parsed.block||parsed.floor||parsed.size||parsed.leaseYear||parsed.maxPrice||parsed.minPrice;
@@ -4467,7 +4478,9 @@ async function _handleInputInner(raw){
       await new Promise(r=>setTimeout(r,500));
     }
 
-    if(isReaction&&!hasNewInfo){
+    // Don't treat analysis command words as reactions to displayed data
+    const _isAnalysisWord=/\b(lowest|cheapest|most affordable|highest|most expensive)\b/i.test(raw);
+    if(isReaction&&!hasNewInfo&&!_isAnalysisWord){
       const _isCheapReact=/\b(cheap|low|too low|so low|affordable|not expensive|reasonable|value|good price|nice price|cheap la|cheap ah|cheap one|not bad)\b/i.test(raw);
       const _isExpReact=/\b(ex|expensive|pricey|costly|too much|so high|so ex|why so|cannot afford|unaffordable|steep|outrageous|ridiculous|shiok meh|for real|serious|really|joking)\b/i.test(raw);
       const _backRef=workingCtx.streetCtx||ctx.street||ctx.town;
