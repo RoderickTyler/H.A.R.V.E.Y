@@ -2217,11 +2217,14 @@ function reverseStreet(streetRaw){
   return null;
 }
 function _fuzzyWord(haystack,needle){
-  if(needle.length<4)return false;
+  // Minimum 6 chars to avoid false positives like "DATA"→"DAMAI", "HOME"→"HOMA"
+  if(needle.length<6)return false;
+  // Allow 1 diff for 6-7 chars, 2 diffs for 8+ chars (proper place names only)
+  const maxDiff=needle.length>=8?2:1;
   for(let i=0;i<=haystack.length-needle.length+1;i++){
     const chunk=haystack.slice(i,i+needle.length);
     let diff=0;for(let j=0;j<needle.length;j++)if(chunk[j]!==needle[j])diff++;
-    if(diff<=1)return true;
+    if(diff<=maxDiff)return true;
   }
   return false;
 }
@@ -4182,6 +4185,14 @@ async function _handleInputInner(raw){
     mode='ev_confirm';loading=false;sbEl.disabled=false;return;
   }
 
+  // ── SEARCH CARD with town prefill — from "CHANGE STREET" chip ──
+  if(/^__searchcard_(.*)__$/.test(raw.trim())){
+    const _scTown=raw.match(/^__searchcard_(.*)__$/)[1]||workingCtx.townCtx||convCtx.town;
+    const _scStreet=workingCtx.streetCtx||convCtx.street||null;
+    _showSearchCard(_scTown||null, null, _scStreet);
+    loading=false;sbEl.disabled=false;return;
+  }
+
   if(raw==='__debug__'||raw==='debug'){
     const _dbState={
       mode, workingCtx, harveyPersona,
@@ -4746,7 +4757,16 @@ async function _handleInputInner(raw){
       </div></div>`;
     msgsEl.appendChild(d2);bot();
     speak(isLowest?`The most affordable${_effectiveFilter?' '+_effectiveFilter.toLowerCase():''} flat transacted at ${Math.round(prices[0]/1000)} thousand dollars, sir.`:`The most expensive${_effectiveFilter?' '+_effectiveFilter.toLowerCase():''} flat went for ${Math.round(prices[0]/1000)} thousand dollars, sir. Across ${_streetSet.size} street${_streetSet.size!==1?'s':''}.`);
-    setTimeout(()=>harveyMsg('Anything else, sir?',[{label:'ESTIMATE VALUATION',val:'estimate value'},...(flatFilter?[{label:`ALL ${flatFilter} PRICES`,val:`recent ${flatFilter}`}]:[]),{label:'SEARCH BY TOWN',val:'search'}]),1400);
+    const _aftStreet=_analyseStreet;
+    const _aftTown=_analyseTown;
+    const _aftType=_effectiveFilter;
+    setTimeout(()=>harveyMsg('Anything else, sir?',[
+      {label:'ESTIMATE VALUATION',val:'estimate value'},
+      ...(_aftType?[{label:`ALL ${_aftType} PRICES`,val:`recent ${_aftType}${_aftStreet?' '+_aftStreet:_aftTown?' '+_aftTown:''}`}]:[]),
+      ...(_aftStreet&&_aftTown?[{label:`EXPAND TO ${_aftTown}`,val:`highest all types ${_aftTown}`}]:[]),
+      ...(_aftStreet?[{label:'CHANGE STREET',val:`__searchcard_${_aftTown||''}__`}]:[]),
+      {label:'SEARCH BY TOWN',val:'search'},
+    ]),1400);
     mode='menu';workingCtx._activeMode='analysis';return;
   }
 
@@ -5383,8 +5403,12 @@ async function _handleInputInner(raw){
   // e.g. "dawson" → not a town → reverseStreet finds "DAWSON RD" → ask user
   if(_intent.type===INTENT.AMBIGUOUS||_intent.type===INTENT.UNKNOWN){
     const _rawUp=raw.toUpperCase().trim();
-    const _isShortLocation=raw.trim().split(/\s+/).length<=3&&!parsed.town&&!parsed.street&&DB.loaded;
-    if(_isShortLocation&&_rawUp.length>=4){
+    // Common English / Singlish words that are NOT location names — never probe these
+    const _PROBE_BLACKLIST=/^(data|go|lets|let|good|nice|great|home|here|back|help|work|real|type|view|more|next|show|tell|want|need|like|just|look|find|see|get|give|take|make|know|think|feel|come|done|wait|sure|ok|okay|ya|yea|yeah|yes|no|not|now|new|old|big|high|low|top|end|buy|sell|rent|own|pay|ask|say|try|use|run|set|put|keep|move|turn|open|live|love|hate|time|year|day|week|month|cost|rate|price|flat|room|unit|floor|block|area|town|city|road|street|place|land|home|house|site|plan|list|form|card|chip|part|info|news|note|text|call|chat|talk|meet|deal|case|item|kind|sort|type|way|lot|bit|cut|fix|add|key|map|mix|net|run|set|sum|top|hit|lap|log|map|mix|pay|pop|raw|tag|tax|tip|use|via|zip|data|code|link|test|work|flow|mode|task|page|file|base|lead|feed|idea|goal|role|rule|step|fact|term|view|word|line|mark|sign|note|name|date|time|size|face|hand|head|side|long|wide|tall|deep|near|far|hot|cold|warm|cool|fast|slow|hard|soft|full|half|both|each|such|same|next|last|past|soon|just|also|even|only|ever|much|many|some|more|most|less|few|all|any|own|few|per|via|vs)$/i;
+    const _isShortLocation=raw.trim().split(/\s+/).length<=3&&!parsed.town&&!parsed.street&&DB.loaded&&!_PROBE_BLACKLIST.test(raw.trim());
+    // Also require at least one word ≥5 chars (avoids "go", "da", short words)
+    const _hasSubstantialWord=_rawUp.split(/\s+/).some(w=>w.length>=5);
+    if(_isShortLocation&&_rawUp.length>=5&&_hasSubstantialWord){
       const _locFound=reverseStreet(_rawUp);
       if(_locFound&&_locFound.street){
         // Found a street match — ask user to confirm
@@ -9696,6 +9720,10 @@ const UNIVERSAL_WORDS = {
   hmm:        'vulnerable', hm:    'vulnerable', huh:   'surprise',
 
   test:       'anticipation', testing:'anticipation', hello:  'anticipation',
+  go:         'anticipation', goo:    'anticipation', gooo:  'anticipation',
+  fwah:       'surprise',   wahh:   'surprise',    wah:   'surprise',
+  fuuu:       'anger',      fuu:    'anger',       fu:    'anger',
+  shiok:      'joy',        woah:   'surprise',    woahh: 'surprise',
   hi:         'anticipation', hey:    'anticipation', yo:     'anticipation',
   wow:        'surprise', whoa:   'surprise', wah:    'surprise',
   really:     'surprise', seriously:'surprise', wait:  'surprise',
@@ -10884,6 +10912,10 @@ if(SR){
 
 function normalizeSpeech(txt){
   let s=txt.trim();
+
+  // Collapse repeated characters: "gooooo"→"goo", "wahhhh"→"wahh", "fuuuuu"→"fuu"
+  // Preserves 2 max so "cool"→"cool" stays, "gooooo"→"goo" (base word detectable)
+  s=s.replace(/([a-zA-Z])\1{2,}/g,(m,c)=>c+c); // 3+ repeats → 2
 
   s=s.replace(/\bjurong\s*east\b/gi,'jurong east');
   s=s.replace(/\bjurong\s*west\b/gi,'jurong west');
