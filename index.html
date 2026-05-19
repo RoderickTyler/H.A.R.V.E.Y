@@ -370,6 +370,28 @@ tr:hover td{background:rgba(0,212,255,.03)}
     <span id="vs-txt">HARVEY LISTENING…</span>
   </div>
 
+  <!-- VOICE DEBUG PANEL -->
+  <div id="vdbg" style="display:none;position:fixed;bottom:100px;right:10px;width:320px;max-height:400px;overflow-y:auto;background:rgba(0,0,0,.92);border:1px solid var(--g);border-radius:8px;font-family:var(--mono);font-size:10px;color:var(--g);z-index:9999;padding:10px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;border-bottom:1px solid rgba(0,255,136,.2);padding-bottom:6px">
+      <span style="color:var(--a);font-weight:bold">🎤 VOICE DEBUG</span>
+      <button onclick="document.getElementById('vdbg').style.display='none'" style="background:none;border:none;color:var(--t2);cursor:pointer;font-size:11px">✕</button>
+    </div>
+    <div id="vdbg-sr" style="margin-bottom:4px">SR Support: <span id="vdbg-sr-val" style="color:var(--t2)">checking…</span></div>
+    <div id="vdbg-lang" style="margin-bottom:4px">Language: <span id="vdbg-lang-val" style="color:var(--t2)">—</span></div>
+    <div id="vdbg-mic" style="margin-bottom:4px">Mic Permission: <span id="vdbg-mic-val" style="color:var(--t2)">unknown</span></div>
+    <div id="vdbg-clap" style="margin-bottom:4px">Clap Detector: <span id="vdbg-clap-val" style="color:var(--t2)">not started</span></div>
+    <div id="vdbg-state" style="margin-bottom:4px">Mic State: <span id="vdbg-state-val" style="color:var(--t2)">off</span></div>
+    <div id="vdbg-level" style="margin-bottom:4px">Audio Level: <span id="vdbg-level-val" style="color:var(--t2)">—</span></div>
+    <div style="border-top:1px solid rgba(0,255,136,.2);margin-top:6px;padding-top:6px;color:var(--t2)">EVENTS:</div>
+    <div id="vdbg-log" style="color:#aaa;max-height:180px;overflow-y:auto"></div>
+    <div style="border-top:1px solid rgba(0,255,136,.2);margin-top:6px;padding-top:6px">
+      <div style="color:var(--t2);margin-bottom:4px">HEARD:</div>
+      <div id="vdbg-heard" style="color:#fff;word-break:break-all;min-height:20px"></div>
+    </div>
+    <button onclick="testMicAccess()" style="margin-top:8px;padding:4px 10px;background:rgba(0,255,136,.1);border:1px solid var(--g);color:var(--g);border-radius:4px;cursor:pointer;font-size:9px;font-family:var(--mono)">TEST MIC</button>
+    <button onclick="testSpeechRecog()" style="margin-top:8px;margin-left:4px;padding:4px 10px;background:rgba(255,170,0,.1);border:1px solid var(--a);color:var(--a);border-radius:4px;cursor:pointer;font-size:9px;font-family:var(--mono)">TEST SPEECH</button>
+  </div>
+
   <!-- MAIN -->
   <div class="main">
     <!-- LEFT -->
@@ -4236,6 +4258,18 @@ async function _handleInputInner(raw){
     const _scDir=_scPend?(_scPend.isHighest?'highest':'lowest'):null;
     const _scFt=_scPend?null:null; // flat type from pending (null = let user choose)
     _showSearchCard(_scTown||null, _scFt, _scStreet, _scDir);
+    loading=false;sbEl.disabled=false;return;
+  }
+
+  if(raw==='__voicedebug__'||raw==='voice debug'||raw==='debug voice'){
+    const vdbg=document.getElementById('vdbg');
+    if(vdbg){vdbg.style.display='block';initVoiceDebug();}
+    harveyMsg('Voice debug panel opened, sir. Check bottom-right corner.',
+      [{label:'CLOSE DEBUG',val:'close debug'}]);
+    loading=false;sbEl.disabled=false;return;
+  }
+  if(raw==='close debug'){
+    const vdbg=document.getElementById('vdbg');if(vdbg)vdbg.style.display='none';
     loading=false;sbEl.disabled=false;return;
   }
 
@@ -10931,6 +10965,95 @@ function deactivateVoiceMode(silent){
 }
 
 
+// ══ VOICE DEBUG FUNCTIONS ══
+function vdbgLog(msg,color){
+  const el=document.getElementById('vdbg-log');
+  if(!el)return;
+  const ts=new Date().toLocaleTimeString('en-SG',{hour12:false});
+  const row=document.createElement('div');
+  row.style.color=color||'#aaa';
+  row.style.marginBottom='2px';
+  row.textContent=`[${ts}] ${msg}`;
+  el.appendChild(row);
+  el.scrollTop=el.scrollHeight;
+  // Keep max 50 entries
+  while(el.children.length>50)el.removeChild(el.firstChild);
+}
+
+function initVoiceDebug(){
+  const srVal=document.getElementById('vdbg-sr-val');
+  const langVal=document.getElementById('vdbg-lang-val');
+  const micVal=document.getElementById('vdbg-mic-val');
+  const clapVal=document.getElementById('vdbg-clap-val');
+  const stateVal=document.getElementById('vdbg-state-val');
+  
+  if(srVal)srVal.textContent=SR?'✓ SUPPORTED':'✗ NOT SUPPORTED';
+  if(srVal)srVal.style.color=SR?'var(--g)':'var(--r)';
+  const IS_IOS_D=/iPhone|iPad|iPod/i.test(navigator.userAgent);
+  if(langVal)langVal.textContent=IS_IOS_D?'en-US':'en-SG';
+  if(stateVal)stateVal.textContent=micState;
+  if(clapVal){
+    clapVal.textContent=clapAudioCtx?'✓ RUNNING':'✗ NOT STARTED';
+    clapVal.style.color=clapAudioCtx?'var(--g)':'var(--r)';
+  }
+  
+  // Check mic permission
+  if(navigator.permissions){
+    navigator.permissions.query({name:'microphone'}).then(result=>{
+      if(micVal){
+        micVal.textContent=result.state.toUpperCase();
+        micVal.style.color=result.state==='granted'?'var(--g)':result.state==='denied'?'var(--r)':'var(--a)';
+      }
+      vdbgLog('Mic permission: '+result.state, result.state==='granted'?'var(--g)':'var(--r)');
+    }).catch(()=>{if(micVal)micVal.textContent='API not available';});
+  }
+  vdbgLog('Debug initialised. SR='+!!SR+' iOS='+IS_IOS_D,'var(--g)');
+}
+
+function testMicAccess(){
+  vdbgLog('Testing mic access…','var(--a)');
+  const micVal=document.getElementById('vdbg-mic-val');
+  navigator.mediaDevices?.getUserMedia({audio:true,video:false})
+    .then(stream=>{
+      if(micVal){micVal.textContent='GRANTED ✓';micVal.style.color='var(--g)';}
+      vdbgLog('Mic access granted ✓','var(--g)');
+      stream.getTracks().forEach(t=>t.stop());
+      // Try to restart clap if it wasn't running
+      if(!clapAudioCtx&&!clapUnlocked){
+        clapUnlocked=true;startClapDetector();
+        vdbgLog('Clap detector started','var(--g)');
+      }
+      const clapVal=document.getElementById('vdbg-clap-val');
+      if(clapVal){clapVal.textContent=clapAudioCtx?'✓ RUNNING':'Starting…';clapVal.style.color='var(--a)';}
+    })
+    .catch(err=>{
+      if(micVal){micVal.textContent='DENIED ✗';micVal.style.color='var(--r)';}
+      vdbgLog('Mic access DENIED: '+err.message,'var(--r)');
+    });
+}
+
+function testSpeechRecog(){
+  vdbgLog('Testing speech recognition…','var(--a)');
+  if(!SR){vdbgLog('SR not supported on this browser','var(--r)');return;}
+  const testR=new SR();
+  const IS_IOS_T=/iPhone|iPad|iPod/i.test(navigator.userAgent);
+  try{testR.lang=IS_IOS_T?'en-US':'en-SG';}catch(e){testR.lang='en-US';}
+  testR.continuous=false;testR.interimResults=true;testR.maxAlternatives=3;
+  const heardEl=document.getElementById('vdbg-heard');
+  testR.onstart=()=>vdbgLog('Recognition started — speak now','var(--g)');
+  testR.onresult=e=>{
+    let t='';
+    for(let i=0;i<e.results.length;i++){
+      t+=(e.results[i].isFinal?'[FINAL] ':'[interim] ')+Array.from({length:e.results[i].length},(_,j)=>e.results[i][j].transcript).join(' | ');
+    }
+    if(heardEl)heardEl.textContent=t;
+    vdbgLog('Heard: '+t,'#fff');
+  };
+  testR.onerror=e=>{vdbgLog('SR Error: '+e.error,'var(--r)');};
+  testR.onend=()=>vdbgLog('Recognition ended','var(--a)');
+  try{testR.start();}catch(e){vdbgLog('Start failed: '+e.message,'var(--r)');}
+}
+
 function startClapDetector(){
   const AC=window.AudioContext||window.webkitAudioContext;
   if(!AC||!navigator.mediaDevices?.getUserMedia)return;
@@ -10956,6 +11079,9 @@ function startClapDetector(){
     const CLAP_WINDOW=900;
 
     vsSup.textContent='MIC ACTIVE — DOUBLE-CLAP TO ACTIVATE VOICE MODE';
+    vdbgLog('Clap detector running. Threshold='+CLAP_THRESHOLD,'var(--g)');
+    const clapVal2=document.getElementById('vdbg-clap-val');
+    if(clapVal2){clapVal2.textContent='✓ RUNNING (threshold '+CLAP_THRESHOLD+')';clapVal2.style.color='var(--g)';}
     vsSup.style.color='var(--g)';
 
     function tick(){
@@ -10966,8 +11092,11 @@ function startClapDetector(){
       for(let i=0;i<buf.length;i++){const v=Math.abs(buf[i]-128);if(v>peak)peak=v;}
 
       const pct=Math.min(100,Math.round(peak/128*100));
-      if(peak>20){ // any sound above background noise
-        vsSup.textContent=`MIC LEVEL: ${'█'.repeat(Math.ceil(pct/10))}${'░'.repeat(10-Math.ceil(pct/10))} ${peak>CLAP_THRESHOLD?'⚡ CLAP!':''}`;
+      if(peak>20){
+        const _bar='█'.repeat(Math.ceil(pct/10))+'░'.repeat(10-Math.ceil(pct/10));
+        vsSup.textContent=`MIC LEVEL: ${_bar} ${peak>CLAP_THRESHOLD?'⚡ CLAP!':''}`;
+        const lvlEl=document.getElementById('vdbg-level-val');
+        if(lvlEl)lvlEl.textContent=`${peak} ${_bar} ${peak>CLAP_THRESHOLD?'⚡':''}`;
       }
       const now=Date.now();
       if(peak>CLAP_THRESHOLD&&!inClap){
@@ -10983,7 +11112,13 @@ function startClapDetector(){
       }
     }
     tick();
-  }).catch(()=>{});
+  }).catch(err=>{
+    vdbgLog('Clap mic access failed: '+(err?.message||err),'var(--r)');
+    const clapVal3=document.getElementById('vdbg-clap-val');
+    if(clapVal3){clapVal3.textContent='✗ MIC DENIED';clapVal3.style.color='var(--r)';}
+    const micVal2=document.getElementById('vdbg-mic-val');
+    if(micVal2){micVal2.textContent='DENIED ✗';micVal2.style.color='var(--r)';}
+  });
 }
 
 
@@ -11100,6 +11235,8 @@ function buildRecog(){
 
   r.onstart=()=>{
     recogBusy=true;
+    vdbgLog('SR started (state='+micState+')','var(--g)');
+    const stEl=document.getElementById('vdbg-state-val');if(stEl)stEl.textContent=micState+' (listening)';
     if(micState==='query'){
       mbEl.classList.add('active');
       vsBar.style.display='flex';
@@ -11182,6 +11319,7 @@ function buildRecog(){
 
   r.onerror=e=>{
     recogBusy=false;clearTimeout(speechTimer);
+    vdbgLog('SR Error: '+e.error,'var(--r)');
     if(e.error==='not-allowed'||e.error==='service-not-allowed'){
       vsSup.textContent='MIC BLOCKED \u2014 allow mic access in browser settings';
       vsSup.style.color='var(--r)';
