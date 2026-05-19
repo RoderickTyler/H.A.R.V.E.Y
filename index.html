@@ -969,7 +969,7 @@ function searchTransactions(params){
 
 
 const TOWNS=['ANG MO KIO','BEDOK','BISHAN','BUKIT BATOK','BUKIT MERAH','BUKIT PANJANG','BUKIT TIMAH','CENTRAL AREA','CHOA CHU KANG','CLEMENTI','GEYLANG','HOUGANG','JURONG EAST','JURONG WEST','KALLANG/WHAMPOA','MARINE PARADE','PASIR RIS','PUNGGOL','QUEENSTOWN','SEMBAWANG','SENGKANG','SERANGOON','TAMPINES','TOA PAYOH','WOODLANDS','YISHUN'];
-const FLAT_MAP={'1-ROOM':'1 ROOM','2-ROOM':'2 ROOM','3-ROOM':'3 ROOM','4-ROOM':'4 ROOM','5-ROOM':'5 ROOM','1RM':'1 ROOM','2RM':'2 ROOM','3RM':'3 ROOM','4RM':'4 ROOM','5RM':'5 ROOM','EXEC':'EXECUTIVE','EXECUTIVE':'EXECUTIVE','1 ROOM':'1 ROOM','2 ROOM':'2 ROOM','3 ROOM':'3 ROOM','4 ROOM':'4 ROOM','5 ROOM':'5 ROOM'};
+const FLAT_MAP={'1-ROOM':'1 ROOM','2-ROOM':'2 ROOM','3-ROOM':'3 ROOM','4-ROOM':'4 ROOM','5-ROOM':'5 ROOM','1RM':'1 ROOM','2RM':'2 ROOM','3RM':'3 ROOM','4RM':'4 ROOM','5RM':'5 ROOM','EXEC':'EXECUTIVE','EXECUTIVE':'EXECUTIVE','1 ROOM':'1 ROOM','2 ROOM':'2 ROOM','3 ROOM':'3 ROOM','4 ROOM':'4 ROOM','5 ROOM':'5 ROOM','ALL TYPES':'ALL TYPES','ALL TYPE':'ALL TYPES','ANY TYPE':'ALL TYPES','ANY TYPES':'ALL TYPES','ALL':'ALL TYPES','ANY':'ALL TYPES','NO FILTER':'ALL TYPES','ALL FLAT':'ALL TYPES','ALL FLATS':'ALL TYPES'};
 const TYPICAL_SIZE={'1 ROOM':33,'2 ROOM':45,'3 ROOM':68,'4 ROOM':93,'5 ROOM':113,'EXECUTIVE':144,'MULTI-GENERATION':155};
 
 
@@ -4523,11 +4523,22 @@ async function _handleInputInner(raw){
   if(isLowest||isHighest){
     const p2=parseQuery(normalizeSpeech(raw));
     const flatFilter=p2.flatType||null;
-    // "here" / "this area" / "in this street" → use current context
+    // Context inheritance: "here", explicit town/street, OR short follow-up inherits convCtx
     const _usesHere=/\b(here|this area|this street|this town|this place|in here|right here)\b/i.test(raw);
-    const _analyseTown=p2.town||(_usesHere?convCtx.town:null)||null;
-    const _analyseStreetRaw=p2.street||((_usesHere&&(convCtx.street||workingCtx.streetCtx))?convCtx.street||workingCtx.streetCtx:null);
+    const _isFollowUp=raw.trim().split(/\s+/).length<=6&&!p2.town&&!p2.street;
+    const _inheritCtx=_usesHere||_isFollowUp;
+    // When user explicitly names a town → use that town only, don't bleed in the previous street
+    // e.g. "lowest in clementi" → CLEMENTI town, not CLEMENTI AVE 1 from last search
+    const _userNamedTown=!!p2.town;
+    const _analyseTown=p2.town||(_inheritCtx?(convCtx.town||workingCtx.townCtx):null)||null;
+    // Only inherit street if: user used "here" keyword, OR input has NO location at all (pure follow-up)
+    // Do NOT inherit street if user named a town explicitly
+    const _analyseStreetRaw=p2.street||
+      ((_usesHere||(_isFollowUp&&!_userNamedTown))&&(convCtx.street||workingCtx.streetCtx)?
+        (convCtx.street||workingCtx.streetCtx):null)||null;
     const _analyseStreet=_analyseStreetRaw?reverseStreet(_analyseStreetRaw)?.street||canonicalStreet(_analyseStreetRaw):null;
+    // Flag if context was inferred (not explicitly stated by user)
+    const _contextInferred=_inheritCtx&&!p2.town&&!p2.street&&(_analyseTown||_analyseStreet);
 
     // If no flat type given, prompt user to pick — unless they've already been prompted
     if(!flatFilter && !convCtx._analysisFlatAsked){
@@ -4535,9 +4546,11 @@ async function _handleInputInner(raw){
       convCtx._analysisPending={isLowest,isHighest,_analyseTown,_analyseStreet,raw};
       const _scopeLabel=_analyseStreet||_analyseTown||'Singapore';
       const _dir=isHighest?'highest':'lowest';
-      // Build chip values that carry the street/town context forward
       const _ctx=_analyseStreet||_analyseTown||'';
       const _sep=_ctx?' ':'';
+      // Context-specific chips: if scope is a street, offer expand options too
+      const _streetCtxLabel=_analyseStreet?`${_dir.toUpperCase()} ON ${_analyseStreet}`:'';
+      const _townCtxLabel=_analyseTown&&!_analyseStreet?`${_dir.toUpperCase()} IN ${_analyseTown}`:'';
       const _typeChips=[
         {label:'2 ROOM',val:`${_dir} 2-room${_sep}${_ctx}`},
         {label:'3 ROOM',val:`${_dir} 3-room${_sep}${_ctx}`},
@@ -4545,15 +4558,42 @@ async function _handleInputInner(raw){
         {label:'5 ROOM',val:`${_dir} 5-room${_sep}${_ctx}`},
         {label:'EXECUTIVE',val:`${_dir} executive${_sep}${_ctx}`},
         {label:'ALL TYPES',val:`${_dir} all types${_sep}${_ctx}`},
+        ...(_analyseStreet&&_analyseTown?[
+          {label:`EXPAND TO ${_analyseTown}`,val:`${_dir} all types ${_analyseTown}`},
+        ]:[]),
+        ...(_ctx?[{label:'SINGAPORE-WIDE',val:`${_dir} all types`}]:[]),
       ];
-      harveyMsg(`Which flat type for the <strong>${_dir}</strong> in <strong>${_scopeLabel}</strong>, sir?`,_typeChips);
+      // If context was inferred, tell user AND offer format guide
+      let _promptMsg;
+      if(_contextInferred){
+        const _ctxLabel=_analyseStreet||_analyseTown;
+        _promptMsg=rand([
+          `I've assumed you mean <strong>${_ctxLabel}</strong>, sir — we were just there. Which flat type for the ${_dir}? Or if you meant elsewhere, just say so.`,
+          `Checking back, sir — did you mean the ${_dir} in <strong>${_ctxLabel}</strong>? Select a flat type to confirm, or name a different area.`,
+          `I believe you're asking about <strong>${_ctxLabel}</strong>, sir. Which flat type for the ${_dir}? If I've got the wrong area, just correct me.`,
+        ]);
+        // Save question context so "yes" confirms
+        workingCtx.lastQuestion={type:'confirm_town',ref:_ctxLabel,ts:Date.now()};
+      } else {
+        _promptMsg=`Which flat type for the <strong>${_dir}</strong> in <strong>${_scopeLabel}</strong>, sir?`;
+      }
+      // If street is specifically named, add a format hint
+      if(_analyseStreet&&!_contextInferred){
+        const _fmtHint=rand([
+          `<br><em style="color:var(--t2);font-size:10px;font-family:var(--mono)">TIP: You can also type directly — e.g. "highest 5-room ${_analyseStreet}"</em>`,
+          `<br><em style="color:var(--t2);font-size:10px;font-family:var(--mono)">HINT: "lowest 4-room ${_analyseStreet}" works too if you prefer typing it.</em>`,
+          `<br><em style="color:var(--t2);font-size:10px;font-family:var(--mono)">I understand better in this format, sir: "highest 4-room ${_analyseStreet}"</em>`,
+        ]);
+        harveyMsg(_promptMsg+_fmtHint,_typeChips);
+      } else {
+        harveyMsg(_promptMsg,_typeChips);
+      }
       speak(`Which flat type for the ${_dir} in ${_scopeLabel}, sir?`);
       mode='menu';loading=false;sbEl.disabled=false;return;
     }
-    // Clear the prompt flag — user has responded, said "all types", or provided flat type directly
+    // Always clear the prompt flag before running analysis
     delete convCtx._analysisFlatAsked;
     delete convCtx._analysisPending;
-    convCtx._analysisFlatAsked = false;
     // "all types" means no filter
     const _effectiveFilter = flatFilter==='ALL TYPES'?null:flatFilter;
 
@@ -4584,10 +4624,13 @@ async function _handleInputInner(raw){
     const _streetSummary=_streetSet.size>1?`<div style="font-size:10px;color:var(--t2);font-family:var(--mono);margin-bottom:8px">ACROSS ${_streetSet.size} STREETS: ${[..._streetSet].slice(0,5).join(' · ')}${_streetSet.size>5?' + MORE':''}</div>`:'';
     document.getElementById('welcome')?.remove();
     const d2=document.createElement('div');d2.className='msg-ai';d2.style.maxWidth='100%';
-    d2.innerHTML=`<span class="mlbl">// SINGAPORE · ${esc(label)} · LAST 12 MONTHS</span>
-      <div class="mbub">Here are the <strong>${topN}</strong> ${isLowest?'most affordable':'highest priced'}${flatFilter?' <strong>'+flatFilter.toLowerCase()+'</strong>':''} flats transacted in Singapore over the last year, sir.</div>
+    const _scopeHeader=_analyseStreet?_analyseStreet:_analyseTown?_analyseTown:'SINGAPORE';
+    const _scopeWide=_analyseStreet?_analyseStreet:_analyseTown?_analyseTown:'SINGAPORE-WIDE';
+    const _scopeIntro=_analyseStreet?`in <strong>${_analyseStreet}</strong>`:_analyseTown?`in <strong>${_analyseTown}</strong>`:`in Singapore`;
+    d2.innerHTML=`<span class="mlbl">// ${esc(_scopeHeader)} · ${esc(label)} · LAST 12 MONTHS</span>
+      <div class="mbub">Here are the <strong>${topN}</strong> ${isLowest?'most affordable':'highest priced'}${_effectiveFilter?' <strong>'+_effectiveFilter.toLowerCase()+'</strong>':''} flats transacted ${_scopeIntro} over the last year, sir.</div>
       <div class="rwrap"><div class="rcard">
-        <div class="rh"><span class="rtitle">⬡ ${esc(label)} · SINGAPORE-WIDE</span><span class="rcnt">TOP ${topN} · LAST 12 MONTHS</span></div>
+        <div class="rh"><span class="rtitle">⬡ ${esc(label)} · ${esc(_scopeWide)}</span><span class="rcnt">TOP ${topN} · LAST 12 MONTHS</span></div>
         ${_streetSummary}<div style="overflow-x:auto"><table><thead><tr><th>#</th><th>MONTH</th><th>BLOCK & STREET</th><th>TOWN</th><th>TYPE</th><th>STOREY</th><th>AREA</th><th>PRICE</th></tr></thead><tbody>${rows}</tbody></table></div>
       </div>
       <div class="srow" style="grid-template-columns:repeat(4,1fr)">
@@ -4780,10 +4823,12 @@ async function _handleInputInner(raw){
     const _prevTown=workingCtx.townCtx;
     const _hasConflict=_prevRecorded&&_newTown&&_prevTown&&
       _prevTown!==_newTown&&
-      /back|return|resume|get back/i.test(raw);  // only flag on explicit "back/return" phrasing
+      /back|return|resume|get back/i.test(raw);
     if(_hasConflict){
       const _prevLabel=workingCtx.streetCtx||_prevTown;
-      const _newLabel=parsed.street?canonicalStreet(parsed.street)||_newTown:_newTown;
+      // Use ONLY parsed.town for the new label — never reverseStreet here
+      // "punggol" → PUNGGOL town, not "PUNGGOL EAST" street
+      const _newLabel=parsed.street?canonicalStreet(parsed.street):_newTown;
       const _conflictMsg=rand([
         `Just to confirm, sir — I have <strong>${String(_prevLabel).toUpperCase()}</strong> from our last session, but you mentioned <strong>${String(_newLabel).toUpperCase()}</strong>. Which would you like me to proceed with?`,
         `I noticed we were on <strong>${String(_prevLabel).toUpperCase()}</strong>, sir — but you're now pointing to <strong>${String(_newLabel).toUpperCase()}</strong>. Shall I switch, or was that a slip?`,
@@ -5205,6 +5250,38 @@ async function _handleInputInner(raw){
     harveyMsg(_unknownReply,_midChips);
     speak(_unknownReply.replace(/<[^>]*>/g,'').slice(0,180));
     loading=false;sbEl.disabled=false;return;
+  }
+
+  // ── UNCLEAR LOCATION — check if input might be a street area/estate name ──
+  // e.g. "dawson" → not a town → reverseStreet finds "DAWSON RD" → ask user
+  if(_intent.type===INTENT.AMBIGUOUS||_intent.type===INTENT.UNKNOWN){
+    const _rawUp=raw.toUpperCase().trim();
+    const _isShortLocation=raw.trim().split(/\s+/).length<=3&&!parsed.town&&!parsed.street&&DB.loaded;
+    if(_isShortLocation&&_rawUp.length>=4){
+      const _locFound=reverseStreet(_rawUp);
+      if(_locFound&&_locFound.street){
+        // Found a street match — ask user to confirm
+        const _locStreet=_locFound.street;
+        const _locTown=_locFound.town||'';
+        // Get all streets for this town for dropdown
+        const _sibStreets=DB.townStreets[_locTown]||[];
+        const _streetChips=[
+          {label:`▶ ${_locStreet}`,val:_locStreet},
+          {label:`⬡ ALL OF ${_locTown}`,val:_locTown},
+          ...(_sibStreets.slice(0,4).filter(s=>s!==_locStreet).map(s=>({label:s.replace(/^.*\s(\d+[A-Z]?)$/,'$1 — '+s),val:s}))),
+          {label:'🔍 DIFFERENT AREA',val:'search'},
+        ];
+        const _locMsg=rand([
+          `I may have missed a street, sir — did you mean <strong>${_locStreet}</strong> in ${_locTown}? Or were you after the whole town?`,
+          `Quick check, sir — I found <strong>${_locStreet}</strong> in ${_locTown}. Is that the one, or shall I search the broader area?`,
+          `Were you referring to <strong>${_locStreet}</strong>, sir? I want to make sure I have the right address before pulling data.`,
+        ]);
+        workingCtx.lastQuestion={type:'confirm_street',ref:_locStreet,ts:Date.now()};
+        harveyMsg(_locMsg,_streetChips);
+        speak(_locMsg.replace(/<[^>]*>/g,'').slice(0,160));
+        mode='menu';loading=false;sbEl.disabled=false;return;
+      }
+    }
   }
 
   // ── AMBIGUOUS/UNKNOWN — witty handler before harveyAttempt ──
