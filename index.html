@@ -2287,7 +2287,12 @@ function parseQuery(raw){
     let candidate=stMatch[1].trim()
       .replace(/^\s*(?:BLK|BLOCK)\s*\d+[A-Z]?\s*/i,'')
       .replace(/\s+/g,' ').trim();
-    if(candidate.length>3) res.street=candidate;
+    if(candidate.length>3){
+      // Immediately canonicalize to resolve typos and directional variants
+      // "CLMEENTI WST ST 1" → "CLEMENTI WEST ST 1", not stored as raw typo
+      const _canon=DB&&DB.loaded?canonicalStreet(candidate):candidate;
+      res.street=_canon||candidate;
+    }
   }
 
   if(res.street && typeof convCtx !== 'undefined' && convCtx.town &&
