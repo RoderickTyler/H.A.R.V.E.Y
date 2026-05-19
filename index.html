@@ -2278,9 +2278,11 @@ function parseQuery(raw){
   const ly=raw.match(/(?:built|lease|commenced?|lease\s*start|year\s*built)\s*(?:year\s*)?(\d{4})|(\d{4})\s*(?:built|lease|commenced?)/i);
   if(ly)res.leaseYear=Number(ly[1]||ly[2]);
   const qNoBlock=q.replace(/^\s*(?:BLK|BLOCK)?\s*\d+[A-Z]?\s*/,'').trim();
+  // Strip analysis/filter keywords before stMatch2/3 to prevent greedy capture
+  const qNoBlockClean=qNoBlock.replace(/\b(?:HIGHEST|LOWEST|RECENT|ALL|ANY|TYPES|TYPE|MOST|CHEAPEST|EXPENSIVE|IN|AT|FOR|THE)\b/g,'').replace(/\s+/g,' ').trim();
   const stMatch=qNoBlock.match(/\b([A-Z][A-Z0-9\s]*?(?:AVENUE|STREET|DRIVE|ROAD|CRESCENT|CLOSE|WALK|LINK|LANE|VIEW|RISE|WAY|HEIGHTS|GROVE|CIRCLE|PLACE|TERRACE|LORONG|JALAN|GARDENS|COURTS|MARKET|PARK|AVE|RD|DR|CRES|CL|LOR|JLN|HTS)\s*\d*[A-Z]?)\b/)
-    ||qNoBlock.match(/\b([A-Z]{3,}(?:\s+[A-Z]{3,})*(?:\s+(?:ST|AVE|DR|RD|CL|CRES|LOR|JLN)\s*\d+[A-Z]?))\b/)
-    ||qNoBlock.match(/\b([A-Z]{3,}(?:\s+[A-Z]{3,})*(?:\s+(?:NTH|STH|EST|WST|CTRL))(?:\s+(?:ST|AVE|DR|RD|CL|CRES|LOR|JLN)\s*\d*[A-Z]?))\b/);
+    ||qNoBlockClean.match(/\b([A-Z]{3,}(?:\s+[A-Z]{3,})*(?:\s+(?:ST|AVE|DR|RD|CL|CRES|LOR|JLN)\s*\d+[A-Z]?))\b/)
+    ||qNoBlockClean.match(/\b([A-Z]{3,}(?:\s+[A-Z]{3,})*(?:\s+(?:NTH|STH|EST|WST|CTRL))(?:\s+(?:ST|AVE|DR|RD|CL|CRES|LOR|JLN)\s*\d*[A-Z]?))\b/);
   if(stMatch){
     let candidate=stMatch[1].trim()
       .replace(/^\s*(?:BLK|BLOCK)\s*\d+[A-Z]?\s*/i,'')
@@ -2302,7 +2304,7 @@ function parseQuery(raw){
       .replace(/\b(?:EXECUTIVE|EXEC|ESTIMATE|VALUE|SEARCH|RECENT|FIND|SHOW)\b/g,'')
       // Strip conversational filler, question words, and price/analysis keywords
       // Prevents "base on clementi what is the highest price" from becoming a street query
-      .replace(/\b(?:BASE|BASED|ON|WHAT|IS|THE|HIGHEST|LOWEST|CHEAPEST|MOST|EXPENSIVE|PRICE|PRICES|ABOUT|HOW|ABOUT|I|MEAN|BY|THAT|YOU|MY|ME|PLEASE|SIR|LET|TELL|GIVE|WANT|NEED|LIKE|JUST|ONLY|ALSO|AND|OR|WITH|FOR|FROM|AT|THIS|THESE|THOSE|WHO|WHY|WHEN|WHERE|WHICH|DO|DID|CAN|COULD|WOULD|SHOULD|WILL|SHALL|MAY|MIGHT|ARE|AM|WAS|WERE|HAVE|HAS|HAD|GET|GOT|SAY|SAID|AFFORDABLE|TRANSACTIONS?|RECENT|RECORDS?)\b/g,'')
+      .replace(/\b(?:BASE|BASED|ON|WHAT|IS|THE|HIGHEST|LOWEST|CHEAPEST|MOST|EXPENSIVE|PRICE|PRICES|ABOUT|HOW|ABOUT|I|MEAN|BY|THAT|YOU|MY|ME|PLEASE|SIR|LET|TELL|GIVE|WANT|NEED|LIKE|JUST|ONLY|ALSO|AND|OR|WITH|FOR|FROM|AT|THIS|THESE|THOSE|WHO|WHY|WHEN|WHERE|WHICH|DO|DID|CAN|COULD|WOULD|SHOULD|WILL|SHALL|MAY|MIGHT|ARE|AM|WAS|WERE|HAVE|HAS|HAD|GET|GOT|SAY|SAID|AFFORDABLE|TRANSACTIONS?|RECENT|RECORDS?|ALL|TYPES|TYPE|ANY|IN)\b/g,'')
       .replace(/\s+/g,' ').trim();
 
     const _hasStreetType=/(ST|AVE|DR|RD|CL|CRES|LOR|JLN|LANE|WAY|WALK|RISE|VIEW|LINK|GDNS|TER|PLACE|GROVE|COURT|HEIGHTS|ROAD|STREET|AVENUE|DRIVE|CRESCENT|CLOSE|TERRACE|GARDENS)/i.test(streetCandidate);
@@ -3681,7 +3683,7 @@ async function handleStreetOnly(street, ctx){
 
   const cut12=evCutoff(12);
   // Filter by flatType if specified in ctx
-  const _hsoFlatType=ctx.flatType||null;
+  const _hsoFlatType=(ctx.flatType&&ctx.flatType!=='ALL TYPES')?ctx.flatType:null;
   const recs=DB.resale.filter(r=>
     r.street_name===found.street&&r.month>=cut12&&
     (!_hsoFlatType||r.flat_type===_hsoFlatType)
@@ -5060,8 +5062,13 @@ async function _handleInputInner(raw){
         // Route back through analysis with clean canonical input
         // Prefix with direction AFTER location to avoid stMatch greedily capturing direction words
         // Format: "[dir] [scope] [flattype]" where scope is already canonical
-        const _chipVal=`${_dir}${_effFilter?' '+_effFilter.toLowerCase():''}${_safeScope?' in '+_safeScope:''}`;
-        setTimeout(()=>chipClick(_chipVal),50);return;
+        // Include flat type in chipClick so analysis runs without prompting again
+        // Use "in [scope]" format so stMatch doesn't greedily capture direction/type words
+        const _ftPart=_effFilter?_effFilter.toLowerCase():'all types';
+        const _chipVal=`${_dir} ${_ftPart} in ${_safeScope}`;
+        // Set analysisFlatAsked to prevent re-prompting
+        convCtx._analysisFlatAsked=true;
+        setTimeout(()=>{convCtx._analysisFlatAsked=false;chipClick(_chipVal);},50);return;
       }
     }
   }
