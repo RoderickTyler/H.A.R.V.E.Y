@@ -3260,18 +3260,38 @@ function storeyRangeToFloors(storeys){
 
 
 // ── SEARCH CARD — lightweight town+flattype selector like EV HUD ──
-function _showSearchCard(prefillTown, prefillFlatType){
+function _showSearchCard(prefillTown, prefillFlatType, prefillStreet){
   const formId='srch-card-'+Date.now();
   const opt=(val,label,sel)=>`<option value="${val}"${sel?' selected':''}>${label}</option>`;
   const townOpts=`<option value="">— select town —</option>`+
     TOWNS.map(t=>opt(t,t,t===prefillTown)).join('');
+  // Build street options for prefilled town
+  const _streetList=prefillTown&&DB&&DB.townStreets&&DB.townStreets[prefillTown]
+    ?DB.townStreets[prefillTown]:[];
+  const streetOpts=`<option value="">— optional: pick a street —</option>`+
+    _streetList.map(s=>opt(s,s,s===prefillStreet)).join('');
   const ftOpts=`<option value="">— any type —</option>`+
     ['2 ROOM','3 ROOM','4 ROOM','5 ROOM','EXECUTIVE'].map(ft=>opt(ft,ft,ft===prefillFlatType)).join('');
+  // Street row only shown when town is selected
   const formHtml=`<div class="hud-form" id="${formId}" style="margin-top:10px">
   <div class="hud-row">
     <span class="hud-label">📍 TOWN</span>
-    <select class="hud-select" id="${formId}-town">
+    <select class="hud-select" id="${formId}-town" onchange="(function(sel){
+      const t=sel.value;
+      const sRow=document.getElementById('${formId}-street-row');
+      const sSel=document.getElementById('${formId}-street');
+      if(!t||!window.DB||!window.DB.townStreets){sRow.style.display='none';return;}
+      const streets=window.DB.townStreets[t]||[];
+      sSel.innerHTML='<option value=\'\'>— optional: pick a street —</option>'+streets.map(s=>'<option value=\''+s+'\'>'+s+'</option>').join('');
+      sRow.style.display=streets.length?'flex':'none';
+    })(this)">
       ${townOpts}
+    </select>
+  </div>
+  <div class="hud-row" id="${formId}-street-row" style="border-top:none;display:${_streetList.length?'flex':'none'}">
+    <span class="hud-label">🛣️ STREET</span>
+    <select class="hud-select" id="${formId}-street">
+      ${streetOpts}
     </select>
   </div>
   <div class="hud-row" style="border-top:none">
@@ -3284,12 +3304,24 @@ function _showSearchCard(prefillTown, prefillFlatType){
     <button class="stop-btn" style="color:var(--g);border-color:var(--g);font-size:10px;padding:6px 16px"
       onclick="(function(){
         const t=document.getElementById('${formId}-town')?.value;
+        const s=document.getElementById('${formId}-street')?.value;
         const ft=document.getElementById('${formId}-type')?.value;
         if(!t){document.getElementById('${formId}-town').style.borderColor='var(--r)';return;}
-        chipClick(ft?t+' '+ft.toLowerCase():t);
+        const loc=s||t;
+        chipClick(ft?loc+' '+ft.toLowerCase():loc);
       })()">▶ SEARCH</button>
     <button class="stop-btn" style="font-size:10px;padding:6px 14px"
-      onclick="chipClick('estimate value')">▶ ESTIMATE VALUE</button>
+      onclick="(function(){
+        const t=document.getElementById('${formId}-town')?.value;
+        const s=document.getElementById('${formId}-street')?.value;
+        const ft=document.getElementById('${formId}-type')?.value;
+        const loc=s||t;
+        if(!t)return;
+        chipClick('estimate value'+(loc?' '+loc:''));
+      })()">▶ ESTIMATE VALUE</button>
+  </div>
+  <div style="font-size:9px;color:var(--t2);font-family:var(--mono);margin-top:6px">
+    OR just type a town, street, or block number directly — I'll pick it up.
   </div>
 </div>`;
   const _intro=prefillTown
@@ -3703,6 +3735,7 @@ async function handleStreetOnly(street, ctx){
   ctx.town=found.town;ctx.street=found.street;
   convCtx.street=found.street;convCtx.town=found.town||convCtx.town;
   // Keep workingCtx current — "back to X" always returns to most recent street
+  workingCtx._activeMode='search';
   saveWorkingCtx({street:found.street,town:found.town||ctx.town},null);
 
   setTimeout(()=>{
@@ -3715,7 +3748,7 @@ async function handleStreetOnly(street, ctx){
       {label:'SEARCH WHOLE TOWN',val:`recent ${found.town}`}
     ]);
     speak(`I have ${allBlocks.length} blocks on this street, sir. Click one to estimate, or let me know your block and floor and I will get you the value.`);
-    mode='srch_waiting';loading=false;sbEl.disabled=false;
+    mode='srch_waiting';workingCtx._activeMode='search';loading=false;sbEl.disabled=false;
   },1400);
 }
 
@@ -3847,7 +3880,7 @@ function restoreWorkingCtx(ctx){
 }
 
 function clearWorkingCtx(){
-  workingCtx = {task:null,streetCtx:null,townCtx:null,blockCtx:null,lastSearches:[],
+  workingCtx = {task:null,_activeMode:null,streetCtx:null,townCtx:null,blockCtx:null,lastSearches:[],
   _lastReplyHash:null,_sameReplyCount:0,
     lastQuestion:null,lastDataResult:null,sidetrackCount:0,sidetrackTopic:null,pendingFields:[]};
 }
@@ -4072,8 +4105,9 @@ async function _handleInputInner(raw){
   // ── DIRECT CHIP COMMANDS — intercept before any routing ──
   // These are button values that must route immediately without NLP processing
   if(/^(search|resale|resale transactions|recent|browse|look up|show transactions)$/i.test(raw.trim())){
-    const _sw=workingCtx.streetCtx||workingCtx.townCtx||convCtx.street||convCtx.town;
-    _showSearchCard(_sw||null, null);
+    const _swTown=workingCtx.townCtx||convCtx.town||null;
+    const _swStreet=workingCtx.streetCtx||convCtx.street||null;
+    _showSearchCard(_swTown, null, _swStreet);
     loading=false;sbEl.disabled=false;return;
   }
 
@@ -4134,6 +4168,7 @@ async function _handleInputInner(raw){
     const _dbState={
       mode, workingCtx, harveyPersona,
       convStyle:harveyPersona.conversationStyle,
+      activeMode:workingCtx._activeMode||'none',
       lastSearches:workingCtx.lastSearches,
       chatRatio:Math.round(harveyPersona.chatRatio*100)+'%',
       turnHistory:harveyPersona.turnHistory.join(','),
@@ -4577,9 +4612,14 @@ async function _handleInputInner(raw){
         ...(_ctx?[{label:'SINGAPORE-WIDE',val:`${_dir} all types`}]:[]),
       ];
       // When context inferred, prepend street-level and town-level action chips
+      const _hasStreetCtx=_contextInferred&&_analyseStreet&&_analyseTown;
       const _ctxActionChips=_contextInferred&&(_analyseStreet||_analyseTown)?[
-        ...(_analyseStreet?[{label:`▶ ${_analyseStreet.replace(/^.*\s(\d+[A-Z]?)$/,'$1 — '+_analyseStreet)}`,val:`${_dir} all types ${_analyseStreet}`}]:[]),
-        ...(_analyseTown?[{label:`⬡ ALL OF ${_analyseTown}`,val:`${_dir} all types ${_analyseTown}`}]:[]),
+        ...(_analyseStreet?[
+          {label:`▶ ${_analyseStreet}`,val:`${_dir} all types ${_analyseStreet}`},
+        ]:[]),
+        ...(_analyseTown?[
+          {label:`⬡ ALL OF ${_analyseTown}`,val:`${_dir} all types ${_analyseTown}`},
+        ]:[]),
         {label:'🔍 DIFFERENT AREA',val:'search'},
       ]:[];
       // If context inferred, tell user AND offer format guide
@@ -4587,11 +4627,22 @@ async function _handleInputInner(raw){
       if(_contextInferred){
         const _ctxLabel=_analyseStreet||_analyseTown;
         // Witty 3-variation confirm — acknowledges the street history, offers both paths
-        _promptMsg=rand([
-          `By that I take it you mean <strong>${_ctxLabel}</strong>, sir — the wonderful ${_analyseStreet?'street':'town'} itself. Which flat type for the ${_dir}?`,
-          `I believe you're after the ${_dir} in <strong>${_ctxLabel}</strong>, sir — we were just there. Shall I confirm that, or were you thinking of somewhere else entirely?`,
-          `${_analyseStreet?`<strong>${_ctxLabel}</strong> rings a bell, sir`:`<strong>${_ctxLabel}</strong> — that's where we were, sir`}. Which flat type for the ${_dir} there?`,
-        ]);
+        // When we have a street in context, ask if they mean the street or the whole town
+        const _hasStreetInCtx=!!_analyseStreet;
+        const _townOfStreet=_analyseTown||convCtx.town||workingCtx.townCtx;
+        if(_hasStreetInCtx&&_townOfStreet){
+          _promptMsg=rand([
+            `By that I take it you mean <strong>${_analyseStreet}</strong>, sir — the wonderful street itself. Or did you mean the whole of <strong>${_townOfStreet}</strong>?`,
+            `We were on <strong>${_analyseStreet}</strong>, sir — is that the one? Or shall I look at all of <strong>${_townOfStreet}</strong>?`,
+            `<strong>${_analyseStreet}</strong> rings a bell, sir. That street, or the broader <strong>${_townOfStreet}</strong> picture?`,
+          ]);
+        } else {
+          _promptMsg=rand([
+            `By that I take it you mean <strong>${_ctxLabel}</strong>, sir — the wonderful ${_analyseStreet?'street':'town'} itself. Which flat type for the ${_dir}?`,
+            `I believe you're after the ${_dir} in <strong>${_ctxLabel}</strong>, sir — we were just there. Shall I confirm that, or were you thinking of somewhere else entirely?`,
+            `${_analyseStreet?`<strong>${_ctxLabel}</strong> rings a bell, sir`:`<strong>${_ctxLabel}</strong> — that's where we were, sir`}. Which flat type for the ${_dir} there?`,
+          ]);
+        }
         // Save question context so "yes" confirms
         // Save street-level question if we have a street
         const _iqType=_analyseStreet?'confirm_street':'confirm_town';
@@ -4665,7 +4716,7 @@ async function _handleInputInner(raw){
     msgsEl.appendChild(d2);bot();
     speak(isLowest?`The most affordable${_effectiveFilter?' '+_effectiveFilter.toLowerCase():''} flat transacted at ${Math.round(prices[0]/1000)} thousand dollars, sir.`:`The most expensive${_effectiveFilter?' '+_effectiveFilter.toLowerCase():''} flat went for ${Math.round(prices[0]/1000)} thousand dollars, sir. Across ${_streetSet.size} street${_streetSet.size!==1?'s':''}.`);
     setTimeout(()=>harveyMsg('Anything else, sir?',[{label:'ESTIMATE VALUATION',val:'estimate value'},...(flatFilter?[{label:`ALL ${flatFilter} PRICES`,val:`recent ${flatFilter}`}]:[]),{label:'SEARCH BY TOWN',val:'search'}]),1400);
-    mode='menu';return;
+    mode='menu';workingCtx._activeMode='analysis';return;
   }
 
 
@@ -4683,6 +4734,26 @@ async function _handleInputInner(raw){
     ]);
     harveyMsg(_confReply,[{label:'RESALE TRANSACTIONS',val:'search'},{label:'ESTIMATE VALUATION',val:'estimate value'}]);
     speak(_confReply.replace(/<[^>]*>/g,'').slice(0,200));
+    mode='menu';loading=false;sbEl.disabled=false;return;
+  }
+
+  // ── WHICH MODE / WHAT ARE WE DOING ──
+  if(/which (mode|category|section|flow|task|part)|what are we (doing|on|working on|looking at)|where are we|what (mode|task|section) (are we|is this)/i.test(raw)){
+    const _am=workingCtx._activeMode;
+    const _ref=workingCtx.streetCtx||workingCtx.townCtx||convCtx.street||convCtx.town;
+    const _modeLabel=_am==='ev'?'Estimate Valuation':_am==='analysis'?'Price Analysis':_am==='search'?'Resale Search':'no active session';
+    const _modeReply=rand([
+      `We are in <strong>${_modeLabel}</strong>, sir${_ref?' — currently on <strong>'+String(_ref).toUpperCase()+'</strong>':''}.`,
+      `${_modeLabel}, sir${_ref?' — last looked at <strong>'+String(_ref).toUpperCase()+'</strong>':''}.`,
+      `Current session: <strong>${_modeLabel}</strong>${_ref?', focused on <strong>'+String(_ref).toUpperCase()+'</strong>':''}, sir.`,
+    ]);
+    const _modeChips=_am?[
+      {label:`CONTINUE ${_modeLabel.toUpperCase()}`,val:'continue'},
+      {label:'SWITCH TO SEARCH',val:'search'},
+      {label:'SWITCH TO EV',val:'estimate value'},
+    ]:[{label:'RESALE SEARCH',val:'search'},{label:'ESTIMATE VALUE',val:'estimate value'},{label:'ANALYSIS',val:'highest price'}];
+    harveyMsg(_modeReply,_modeChips);
+    speak(_modeReply.replace(/<[^>]*>/g,'').slice(0,160));
     mode='menu';loading=false;sbEl.disabled=false;return;
   }
 
@@ -5141,10 +5212,12 @@ async function _handleInputInner(raw){
           const _ackType=_isSt?'confirm_street':'confirm_town';
           const _ackQRef=_isSt||_ref;
           workingCtx.lastQuestion={type:_ackType,ref:_ackQRef,ts:Date.now()};
+          const _am2=workingCtx._activeMode;
+          const _amLabel=_am2==='ev'?'your valuation':_am2==='analysis'?'the analysis':_am2==='search'?'the search':null;
           _ackFinal+=rand([
-            ` I may be missing something, sir — what were you confirming?`,
-            ` Were you replying to something, sir? We were on ${String(_ref).toUpperCase()}.`,
-            ` Still have ${String(_ref).toUpperCase()} loaded — is that where you want to go?`,
+            ` I may be missing something, sir — what were you confirming?${_amLabel?' We were mid-'+_amLabel+' on <strong>'+String(_ref).toUpperCase()+'</strong>.':''}`,
+            ` Were you replying to something, sir? We were on <strong>${String(_ref).toUpperCase()}</strong>${_amLabel?' — '+_amLabel+' mode':''}.`,
+            ` Still have <strong>${String(_ref).toUpperCase()}</strong> loaded${_amLabel?' for '+_amLabel:''}. Is that where you want to go?`,
           ]);
           if(_isSt){
             _ackChips.push(
