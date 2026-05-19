@@ -5608,6 +5608,19 @@ async function _handleInputInner(raw){
     }
   }
 
+  // ── GIBBERISH — catch before ambiguous handler ──
+  if(_intent.type===INTENT.UNKNOWN&&_intent.subtype==='gibberish'){
+    const _gReply=gibberishReply();
+    const _gWhere=workingCtx.streetCtx||workingCtx.townCtx||convCtx.street||convCtx.town;
+    harveyMsg(_gReply,[
+      ...(_gWhere?[{label:`↗ BACK TO ${String(_gWhere).slice(0,18).toUpperCase()}`,val:'continue'}]:[]),
+      {label:'RESALE TRANSACTIONS',val:'search'},
+      {label:'ESTIMATE VALUATION',val:'estimate value'},
+    ]);
+    speak(_gReply.replace(/<[^>]*>/g,'').slice(0,160));
+    mode='menu';loading=false;sbEl.disabled=false;return;
+  }
+
   // ── DB FACTS QUERY — answer questions about loaded data ──
   if(/how old|how big|how large|how high|how many floor|highest floor|top floor|size|sqm|floor area|lease|age|built|year built|remaining|storey|compare.*room|room.*compare|bigger|smaller|larger|vs\.?|difference between/i.test(raw)){
     const _fctCtx=workingCtx.streetCtx||convCtx.street||null;
@@ -5694,7 +5707,7 @@ async function _handleInputInner(raw){
   }
 
   // ── AMBIGUOUS/UNKNOWN — witty handler before harveyAttempt ──
-  if(_intent.type===INTENT.AMBIGUOUS||(_intent.type===INTENT.UNKNOWN&&!/_intent.subtype==='gibberish'/.test(''))){
+  if(_intent.type===INTENT.AMBIGUOUS||(_intent.type===INTENT.UNKNOWN&&_intent.subtype!=='gibberish')){
     const _hasPrev=!!(convCtx.town||convCtx.street||workingCtx.streetCtx);
     const _prevRef=workingCtx.streetCtx||workingCtx.townCtx||convCtx.street||convCtx.town;
     // Check for repeat replies
