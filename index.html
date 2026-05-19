@@ -4667,6 +4667,9 @@ async function _handleInputInner(raw){
     if(!flatFilter && !convCtx._analysisFlatAsked){
       convCtx._analysisFlatAsked=true;
       convCtx._analysisPending={isLowest,isHighest,_analyseTown,_analyseStreet,raw};
+      // Save as lastQuestion so natural language flat type replies are caught
+      workingCtx.lastQuestion={type:'pending_analysis',dir:isHighest?'highest':'lowest',
+        scope:_analyseStreet||_analyseTown,ts:Date.now()};
       const _scopeLabel=_analyseStreet||_analyseTown||'Singapore';
       const _dir=isHighest?'highest':'lowest';
       const _ctx=_analyseStreet||_analyseTown||'';
@@ -4997,6 +5000,72 @@ async function _handleInputInner(raw){
     speak(_jReply.replace(/<[^>]*>/g,'').slice(0,200));
     mode='menu';loading=false;sbEl.disabled=false;return;
   }
+  // ── PENDING ANALYSIS INTERCEPT — catch flat type reply to analysis prompt ──
+  // When Harvey asked "which flat type for highest/lowest in X?" and user responds
+  // with a flat type ("3 room", "all", "executive") or affirmation ("yes", "go")
+  const _lqPending=workingCtx.lastQuestion;
+  if(_lqPending&&_lqPending.type==='pending_analysis'&&(Date.now()-_lqPending.ts)<120000){
+    const _pendFt=parsed.flatType||
+      (/\ball\b|\ball types\b|\bany\b|\bno filter\b/i.test(raw)?'ALL TYPES':null)||
+      (/\byes\b|\bsure\b|\bgo\b|\bokay\b|\bok\b|\bshow\b|\bjust go\b|\bproceed\b/i.test(raw)&&convCtx._analysisPending?'ALL TYPES':null);
+    if(_pendFt){
+      const _pend=convCtx._analysisPending;
+      const _dir=_lqPending.dir;
+      const _pendStreet=_pend?._analyseStreet||null;
+      const _pendTown=_pend?._analyseTown||null;
+      const _scope=_pendStreet||_pendTown;
+      if(_dir&&_scope){
+        workingCtx.lastQuestion=null;
+        delete convCtx._analysisFlatAsked;
+        delete convCtx._analysisPending;
+        // Build analysis pool directly — bypass normalizeSpeech/stMatch garbling
+        const cutoff12=evCutoff(12);
+        let _aPool=DB.resale.filter(r=>r.month>=cutoff12);
+        if(_pendStreet) _aPool=_aPool.filter(r=>r.street_name===_pendStreet);
+        else if(_pendTown) _aPool=_aPool.filter(r=>r.town===_pendTown);
+        const _effFilter=_pendFt==='ALL TYPES'?null:_pendFt;
+        if(_effFilter) _aPool=_aPool.filter(r=>r.flat_type===_effFilter);
+        _aPool.sort((a,b)=>_dir==='lowest'?Number(a.resale_price)-Number(b.resale_price):Number(b.resale_price)-Number(a.resale_price));
+        const _top=_aPool.slice(0,10);
+        if(_top.length===0){
+          // No data — expand to town if possible
+          const _expMsg=rand([
+            `No ${_effFilter?_effFilter.toLowerCase()+' ':''}records found for the ${_dir} in <strong>${_scope}</strong> over the last year, sir. Shall I expand to ${_pendTown?`all of <strong>${_pendTown}</strong>`:'a wider search'}?`,
+            `Nothing in the last 12 months for ${_effFilter||'any flat type'} in <strong>${_scope}</strong>, sir. The area may have been quiet. Want me to try the broader ${_pendTown||'region'}?`,
+            `<strong>${_scope}</strong> shows no transactions for ${_dir} ${_effFilter?_effFilter.toLowerCase():'flats'} in the past year, sir. Shall I look at ${_pendTown?`all of <strong>${_pendTown}</strong>`:'a wider area'}?`,
+          ]);
+          const _expChips=[
+            ...(_pendTown&&_pendStreet?[{label:`EXPAND TO ${_pendTown}`,val:`${_dir} all types ${_pendTown}`}]:[]),
+            {label:'CHANGE STREET',val:`__searchcard_${_pendTown||''}__`},
+            {label:'SEARCH BY TOWN',val:'search'},
+          ];
+          workingCtx.streetCtx=_pendStreet||workingCtx.streetCtx;
+          workingCtx.townCtx=_pendTown||workingCtx.townCtx;
+          harveyMsg(_expMsg,_expChips);
+          speak(_expMsg.replace(/<[^>]*>/g,'').slice(0,180));
+          mode='menu';loading=false;sbEl.disabled=false;return;
+        }
+        // Run the analysis display inline
+        const _prices=_top.map(r=>Number(r.resale_price));
+        const _label=`${_dir==='lowest'?'LOWEST':'HIGHEST'} PRICED${_effFilter?' '+_effFilter:''}`;
+        const _scopeHdr=_pendStreet||_pendTown||'SINGAPORE';
+        workingCtx.streetCtx=_pendStreet||workingCtx.streetCtx;
+        workingCtx.townCtx=_pendTown||workingCtx.townCtx;
+        workingCtx._activeMode='analysis';
+        convCtx.street=_pendStreet||convCtx.street;
+        convCtx.town=_pendTown||convCtx.town;
+        // Use chipClick with just the direction+type+scope — stored canonically
+        const _safeScope=_pendStreet||_pendTown;
+        loading=false;sbEl.disabled=false;
+        // Route back through analysis with clean canonical input
+        // Prefix with direction AFTER location to avoid stMatch greedily capturing direction words
+        // Format: "[dir] [scope] [flattype]" where scope is already canonical
+        const _chipVal=`${_dir}${_effFilter?' '+_effFilter.toLowerCase():''}${_safeScope?' in '+_safeScope:''}`;
+        setTimeout(()=>chipClick(_chipVal),50);return;
+      }
+    }
+  }
+
   const _parsedHasDataSignal=!!(parsed.town||parsed.street||parsed.block||parsed.floor||
     parsed.flatType||/transact|search|recent|sold|find|show|estimate|valuat|resale/i.test(raw));
   if(_parsedHasDataSignal){
@@ -5262,6 +5331,24 @@ async function _handleInputInner(raw){
         const _lq=workingCtx.lastQuestion;
         const _isAffirm=/^(yes|yep|yup|sure|correct|right|exactly|confirm|ok|okay|ya|yea|yeah|alright|go ahead|proceed|please|do it)$/i.test(raw.trim());
         const _isDeny=/^(no|nope|nah|not really|different|other|wrong|not that)$/i.test(raw.trim());
+
+        // 1a. If user types a location that matches the pending question's context
+        //     e.g. Harvey asked "did you mean CLEMENTI WEST ST 1?" and user types "clementi west"
+        if(_lq&&(Date.now()-_lq.ts)<120000&&!_isAffirm&&!_isDeny){
+          const _rawLower=raw.toLowerCase().trim();
+          const _lqRef=String(_lq.ref||'').toLowerCase();
+          // Check if input partially matches the question's reference
+          if(_lqRef.length>3&&(_rawLower.includes(_lqRef.split(' ')[0])||_lqRef.includes(_rawLower.split(' ')[0]))){
+            workingCtx.lastQuestion=null;
+            if(_lq.type==='confirm_street'){
+              const _ref=_lq.ref;ctx.street=_ref;ctx.town=workingCtx.townCtx||convCtx.town;
+              await handleStreetOnly(_ref,ctx);return;
+            }
+            if(_lq.type==='confirm_town'){
+              ctx.town=_lq.ref;ctx.isEV=false;mode='srch_waiting';runSearch();return;
+            }
+          }
+        }
 
         // 1. If Harvey had an open question and user affirms → act on it
         if(_lq&&_isAffirm&&(Date.now()-_lq.ts)<120000){
@@ -5591,16 +5678,16 @@ async function _handleInputInner(raw){
     if(_ambRepeatCount>=2){
       // Third time hitting ambiguous — apologise
       const _rptApology=rand([
-        `I suspect we may have drifted somewhat, sir. Allow me to reset and take your lead — where would you like to go?`,
-        `I may have misread the room entirely, sir. Let us start from scratch — you call the direction.`,
-        `Something tells me we are talking past each other, sir. No fault assigned. Shall we recalibrate?`,
-        `I believe I have been answering a question you were not asking, sir. My apologies for the detour. What did you actually have in mind?`,
+        `I suspect we may have drifted somewhat, sir. Allow me to reset — where would you like to go?`,
+        `I may have misread the room entirely, sir. Let us recalibrate — you call the direction.`,
+        `Something tells me we are talking past each other, sir. No fault assigned. Perhaps reinitialising will help clear the confusion, sir.`,
+        `I believe I have been answering the wrong question entirely, sir. My apologies. Perhaps a fresh start might serve us better here.`,
       ]);
       harveyMsg(_rptApology,[
+        ...(_hasPrevCtx?[{label:`↗ BACK TO ${String(_prevRef).slice(0,15).toUpperCase()}`,val:'continue'}]:[]),
         {label:'RESALE TRANSACTIONS',val:'search'},
         {label:'ESTIMATE VALUATION',val:'estimate value'},
         {label:'↺ REINITIALISE',val:'__restart__'},
-        ...(_hasPrevCtx?[{label:`↗ BACK TO ${String(_prevRef).slice(0,15).toUpperCase()}`,val:'continue'}]:[]),
       ]);
       speak(_rptApology.replace(/<[^>]*>/g,'').slice(0,180));
       workingCtx._sameReplyCount=0;workingCtx._lastReplyHash=null;
