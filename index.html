@@ -4651,6 +4651,9 @@ async function _handleInputInner(raw){
         ...(_analyseStreet&&_analyseTown?[
           {label:`EXPAND TO ${_analyseTown}`,val:`${_dir} all types ${_analyseTown}`},
         ]:[]),
+        ...(_analyseStreet?[
+          {label:'CHANGE STREET',val:`__searchcard_${_analyseTown||''}__`},
+        ]:[]),
         ...(_ctx?[{label:'SINGAPORE-WIDE',val:`${_dir} all types`}]:[]),
       ];
       // When context inferred, prepend street-level and town-level action chips
@@ -5318,20 +5321,42 @@ async function _handleInputInner(raw){
       const _pool=UNIVERSAL_REPLIES[_univEmo]||UNIVERSAL_REPLIES.anticipation;
       const _reply=_pool[Math.floor(Math.random()*_pool.length)];
       let _finalReply=_reply;
-      // For joy/lol after data context — add witty redirect instead of closed loop
+      const _pend=convCtx._analysisPending;
+      const _pendDir=_pend?(_pend.isHighest?'highest':'lowest'):null;
+      const _pendScope=_pend?(_pend._analyseStreet||_pend._analyseTown||null):null;
+      let _uwChips=[{label:'RESALE TRANSACTIONS',val:'search'},{label:'ESTIMATE VALUATION',val:'estimate value'}];
       if((_univEmo==='joy'||_univEmo==='surprise')&&_hasPrevCtx){
         const _joyRedir=rand([
-          ` Not sure which part you find amusing, sir — but ${String(_prevRef).toUpperCase()} is still loaded whenever you're ready.`,
+          ` Not sure which part you find amusing, sir — but ${String(_prevRef).toUpperCase()} is still loaded.`,
           ` I'll take that as appreciation, sir. Shall we get back to ${String(_prevRef).toUpperCase()}?`,
-          ` Harvey isn't entirely sure what's funny, sir — but the data for ${String(_prevRef).toUpperCase()} is perfectly serious.`,
+          ` Harvey isn't entirely sure what's funny, sir — the data for ${String(_prevRef).toUpperCase()} is perfectly serious.`,
         ]);
         _finalReply=_reply+_joyRedir;
+        _uwChips=[{label:`↗ BACK TO ${String(_prevRef).slice(0,18).toUpperCase()}`,val:'continue'},..._uwChips];
+      } else if(_pend&&_pendDir&&_pendScope){
+        const _ctx=_pendScope;const _sep=_ctx?' ':'';
+        _finalReply=_reply+` <em style="color:var(--t2);font-size:11px">Still waiting for flat type — <strong>${_pendDir}</strong> in <strong>${String(_pendScope).toUpperCase()}</strong>.</em>`;
+        _uwChips=[
+          {label:'2 ROOM',val:`${_pendDir} 2-room${_sep}${_ctx}`},
+          {label:'3 ROOM',val:`${_pendDir} 3-room${_sep}${_ctx}`},
+          {label:'4 ROOM',val:`${_pendDir} 4-room${_sep}${_ctx}`},
+          {label:'5 ROOM',val:`${_pendDir} 5-room${_sep}${_ctx}`},
+          {label:'EXECUTIVE',val:`${_pendDir} executive${_sep}${_ctx}`},
+          {label:'ALL TYPES',val:`${_pendDir} all types${_sep}${_ctx}`},
+          ...(_pend._analyseTown&&_pend._analyseStreet?[{label:`EXPAND TO ${_pend._analyseTown}`,val:`${_pendDir} all types ${_pend._analyseTown}`}]:[]),
+          {label:'CHANGE STREET',val:`__searchcard_${_pend._analyseTown||''}__`},
+        ];
       } else if(mode==='srch_waiting'){
-        _finalReply=_reply+` <em style="color:var(--t2);font-size:11px">We were mid-search, sir — which street or area were you thinking?</em>`;
+        _finalReply=_reply+` <em style="color:var(--t2);font-size:11px">We were mid-search, sir.</em>`;
+        _uwChips=[...(_prevRef?[{label:`↗ ${String(_prevRef).slice(0,15).toUpperCase()}`,val:'continue'}]:[]),..._uwChips];
       } else if(mode==='ev_waiting'){
-        _finalReply=_reply+` <em style="color:var(--t2);font-size:11px">We were in the middle of your valuation, sir — shall we continue?</em>`;
+        _finalReply=_reply+` <em style="color:var(--t2);font-size:11px">We were mid-valuation, sir.</em>`;
+        _uwChips=[{label:'CONTINUE VALUATION',val:'continue'},{label:'⚙ CHANGE DETAILS',val:'__changedetails__'},..._uwChips];
+      } else if(_hasPrevCtx){
+        _finalReply=_reply+` <em style="color:var(--t2);font-size:11px">${String(_prevRef).toUpperCase()} is still loaded, sir.</em>`;
+        _uwChips=[{label:`↗ ${String(_prevRef).slice(0,18).toUpperCase()}`,val:'continue'},..._uwChips];
       }
-      harveyMsg(_finalReply,[{label:'RESALE TRANSACTIONS',val:'search'},{label:'ESTIMATE VALUATION',val:'estimate value'}]);
+      harveyMsg(_finalReply,_uwChips);
       speak(_reply.replace(/<[^>]*>/g,'').slice(0,200));
       if(mode!=='srch_waiting'&&mode!=='ev_waiting')mode='menu';
       loading=false;sbEl.disabled=false;return;
