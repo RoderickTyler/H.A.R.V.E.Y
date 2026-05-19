@@ -3263,7 +3263,7 @@ function storeyRangeToFloors(storeys){
 
 
 // ── SEARCH CARD — lightweight town+flattype selector like EV HUD ──
-function _showSearchCard(prefillTown, prefillFlatType, prefillStreet){
+function _showSearchCard(prefillTown, prefillFlatType, prefillStreet, pendingDir){
   const formId='srch-card-'+Date.now();
   const opt=(val,label,sel)=>`<option value="${val}"${sel?' selected':''}>${label}</option>`;
   const townOpts=`<option value="">— select town —</option>`+
@@ -3311,7 +3311,11 @@ function _showSearchCard(prefillTown, prefillFlatType, prefillStreet){
         const ft=document.getElementById('${formId}-type')?.value;
         if(!t){document.getElementById('${formId}-town').style.borderColor='var(--r)';return;}
         const loc=s||t;
-        chipClick(ft?loc+' '+ft.toLowerCase():loc);
+        const _pd=${JSON.stringify(pendingDir||null)};
+        // If analysis pending, fire "highest/lowest [ft] [loc]" else plain search
+        if(_pd&&ft) chipClick(_pd+' '+ft.toLowerCase()+' '+loc);
+        else if(_pd) chipClick(_pd+' all types '+loc);
+        else chipClick(ft?loc+' '+ft.toLowerCase():loc);
       })()">▶ SEARCH</button>
     <button class="stop-btn" style="font-size:10px;padding:6px 14px"
       onclick="(function(){
@@ -3322,6 +3326,9 @@ function _showSearchCard(prefillTown, prefillFlatType, prefillStreet){
         if(!t)return;
         chipClick('estimate value'+(loc?' '+loc:''));
       })()">▶ ESTIMATE VALUE</button>
+    <div style="font-size:9px;color:var(--t2);font-family:var(--mono);margin-top:4px;padding:0 2px">
+      ${pendingDir?`<em>Analysis: <strong>${pendingDir}</strong> — select street &amp; type above</em>`:'OR type directly — town, street, or block number.'}
+    </div>
   </div>
   <div style="font-size:9px;color:var(--t2);font-family:var(--mono);margin-top:6px">
     OR just type a town, street, or block number directly — I'll pick it up.
@@ -3670,8 +3677,12 @@ async function handleStreetOnly(street, ctx){
   convCtx.town = found.town || convCtx.town;
 
   const cut12=evCutoff(12);
-  const recs=DB.resale.filter(r=>r.street_name===found.street&&r.month>=cut12)
-    .sort((a,b)=>(b.month||'').localeCompare(a.month||''));
+  // Filter by flatType if specified in ctx
+  const _hsoFlatType=ctx.flatType||null;
+  const recs=DB.resale.filter(r=>
+    r.street_name===found.street&&r.month>=cut12&&
+    (!_hsoFlatType||r.flat_type===_hsoFlatType)
+  ).sort((a,b)=>(b.month||'').localeCompare(a.month||''));
   const timeLabel='1 year';
 
   const allBlocks=[...new Set(DB.resale.filter(r=>r.street_name===found.street).map(r=>r.block))].sort((a,b)=>Number(a)-Number(b)||a.localeCompare(b));
@@ -4189,7 +4200,11 @@ async function _handleInputInner(raw){
   if(/^__searchcard_(.*)__$/.test(raw.trim())){
     const _scTown=raw.match(/^__searchcard_(.*)__$/)[1]||workingCtx.townCtx||convCtx.town;
     const _scStreet=workingCtx.streetCtx||convCtx.street||null;
-    _showSearchCard(_scTown||null, null, _scStreet);
+    // Pass pending analysis direction so SEARCH button fires correctly
+    const _scPend=convCtx._analysisPending;
+    const _scDir=_scPend?(_scPend.isHighest?'highest':'lowest'):null;
+    const _scFt=_scPend?null:null; // flat type from pending (null = let user choose)
+    _showSearchCard(_scTown||null, _scFt, _scStreet, _scDir);
     loading=false;sbEl.disabled=false;return;
   }
 
@@ -4763,11 +4778,14 @@ async function _handleInputInner(raw){
     const _aftStreet=_analyseStreet;
     const _aftTown=_analyseTown;
     const _aftType=_effectiveFilter;
+    const _aftDir=isHighest?'highest':'lowest';
     setTimeout(()=>harveyMsg('Anything else, sir?',[
       {label:'ESTIMATE VALUATION',val:'estimate value'},
       ...(_aftType?[{label:`ALL ${_aftType} PRICES`,val:`recent ${_aftType}${_aftStreet?' '+_aftStreet:_aftTown?' '+_aftTown:''}`}]:[]),
-      ...(_aftStreet&&_aftTown?[{label:`EXPAND TO ${_aftTown}`,val:`highest all types ${_aftTown}`}]:[]),
-      ...(_aftStreet?[{label:'CHANGE STREET',val:`__searchcard_${_aftTown||''}__`}]:[]),
+      // Change flat type — re-run same location with different type
+      {label:'CHANGE FLAT TYPE',val:`${_aftDir} all types${_aftStreet?' '+_aftStreet:_aftTown?' '+_aftTown:''}`},
+      ...(_aftStreet&&_aftTown?[{label:`EXPAND TO ${_aftTown}`,val:`${_aftDir} all types ${_aftTown}`}]:[]),
+      ...(_aftStreet||_aftTown?[{label:'CHANGE STREET',val:`__searchcard_${_aftTown||''}__`}]:[]),
       {label:'SEARCH BY TOWN',val:'search'},
     ]),1400);
     mode='menu';workingCtx._activeMode='analysis';return;
@@ -5455,6 +5473,91 @@ async function _handleInputInner(raw){
         workingCtx.lastQuestion={type:'confirm_street',ref:_locStreet,ts:Date.now()};
         harveyMsg(_locMsg,_streetChips);
         speak(_locMsg.replace(/<[^>]*>/g,'').slice(0,160));
+        mode='menu';loading=false;sbEl.disabled=false;return;
+      }
+    }
+  }
+
+  // ── DB FACTS QUERY — answer questions about loaded data ──
+  if(/how old|how big|how large|how high|how many floor|highest floor|top floor|size|sqm|floor area|lease|age|built|year built|remaining|storey|compare.*room|room.*compare|bigger|smaller|larger|vs\.?|difference between/i.test(raw)){
+    const _fctCtx=workingCtx.streetCtx||convCtx.street||null;
+    const _fctTown=workingCtx.townCtx||convCtx.town||null;
+    const _fctBlock=workingCtx.blockCtx||convCtx.block||ctx.block||null;
+    const _hasCtx=_fctCtx||_fctTown||_fctBlock;
+
+    if(!_hasCtx){
+      // No context — ask what they're referring to
+      const _noCtxMsg=rand([
+        `Which area were you asking about, sir? I need a street, block, or town to look that up.`,
+        `Happy to check that — could you give me a street or block to narrow it down, sir?`,
+        `I can answer that, sir — which area or block did you have in mind?`,
+      ]);
+      harveyMsg(_noCtxMsg,[
+        {label:'RESALE TRANSACTIONS',val:'search'},
+        {label:'ESTIMATE VALUATION',val:'estimate value'},
+      ]);
+      speak(_noCtxMsg.replace(/<[^>]*>/g,'').slice(0,160));
+      mode='menu';loading=false;sbEl.disabled=false;return;
+    }
+
+    if(DB.loaded){
+      // Build pool from current context
+      const cut24=evCutoff(24);
+      let _pool=DB.resale.filter(r=>r.month>=cut24);
+      if(_fctBlock&&_fctCtx) _pool=_pool.filter(r=>r.block===_fctBlock&&r.street_name===_fctCtx);
+      else if(_fctBlock&&_fctTown) _pool=_pool.filter(r=>r.block===_fctBlock&&r.town===_fctTown);
+      else if(_fctCtx) _pool=_pool.filter(r=>r.street_name===_fctCtx);
+      else if(_fctTown) _pool=_pool.filter(r=>r.town===_fctTown);
+
+      // If asking about block but block unclear — ask
+      if(/block|floor|level|storey|how high/i.test(raw)&&!_fctBlock&&_fctCtx){
+        const _blocks=[...new Set(DB.resale.filter(r=>r.street_name===_fctCtx).map(r=>r.block))].sort((a,b)=>Number(a)-Number(b)||a.localeCompare(b));
+        if(_blocks.length>1){
+          const _blockChips=_blocks.slice(0,8).map(b=>({label:'BLK '+b,val:`block ${b} ${_fctCtx}`}));
+          const _blockMsg=rand([
+            `Which block did you have in mind, sir? There are ${_blocks.length} blocks on ${_fctCtx}.`,
+            `There are ${_blocks.length} blocks on ${_fctCtx}, sir — which one?`,
+            `I can check that, sir — which block on ${_fctCtx}?`,
+          ]);
+          harveyMsg(_blockMsg,[..._blockChips,{label:`ALL ON ${String(_fctCtx).slice(0,15).toUpperCase()}`,val:raw+' '+_fctCtx},{label:'CHANGE STREET',val:`__searchcard_${_fctTown||''}__`}]);
+          speak(_blockMsg.replace(/<[^>]*>/g,'').slice(0,160));
+          workingCtx.lastQuestion={type:'confirm_street',ref:_fctCtx,ts:Date.now()};
+          mode='menu';loading=false;sbEl.disabled=false;return;
+        }
+      }
+
+      const _scopeLabel=_fctBlock?`BLK ${_fctBlock} ${_fctCtx||_fctTown}`:_fctCtx||_fctTown||'this area';
+      const _facts=_dbFacts(raw,_pool);
+      if(_facts){
+        const _reply=_dbFactsReply(_facts,_scopeLabel);
+        if(_reply){
+          const _factsChips=[
+            ...(_fctCtx?[{label:'SEE TRANSACTIONS',val:_fctCtx}]:[]),
+            ...(_fctTown&&_fctCtx?[{label:`ALL OF ${String(_fctTown).slice(0,12).toUpperCase()}`,val:_fctTown}]:[]),
+            {label:'ESTIMATE VALUATION',val:'estimate value'},
+            {label:'CHANGE STREET',val:`__searchcard_${_fctTown||''}__`},
+          ];
+          harveyMsg(_reply,_factsChips);
+          speak(_reply.replace(/<[^>]*>/g,'').slice(0,200));
+          mode='menu';loading=false;sbEl.disabled=false;return;
+        }
+      }
+
+      // Facts engine returned null — ask for clarification with context
+      if(_pool.length>0){
+        const _unclearMsg=rand([
+          `Could you be a bit more specific, sir? I have data for ${_scopeLabel} — are you asking about lease age, floor area, or floor levels?`,
+          `I have ${_pool.length} records for ${_scopeLabel}, sir. What specifically would you like to know — age, size, floors, or something else?`,
+          `Happy to look that up for ${_scopeLabel}, sir — could you clarify? Lease remaining, flat size, highest floor?`,
+        ]);
+        harveyMsg(_unclearMsg,[
+          {label:'HOW OLD (LEASE)',val:`how old are the flats in ${_fctCtx||_fctTown}`},
+          {label:'HOW BIG (SIZE)',val:`how big are the flats in ${_fctCtx||_fctTown}`},
+          {label:'HIGHEST FLOOR',val:`highest floor in ${_fctCtx||_fctTown}`},
+          {label:'COMPARE TYPES',val:`compare flat types in ${_fctCtx||_fctTown}`},
+          ...(_fctCtx?[{label:'SEE ALL TRANSACTIONS',val:_fctCtx}]:[]),
+        ]);
+        speak(_unclearMsg.replace(/<[^>]*>/g,'').slice(0,180));
         mode='menu';loading=false;sbEl.disabled=false;return;
       }
     }
