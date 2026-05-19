@@ -10892,11 +10892,18 @@ function activateVoiceMode(){
   setTimeout(()=>safeStart(),600);
 }
 
-function deactivateVoiceMode(){
+function deactivateVoiceMode(silent){
   voiceMode=false;
-  vmBadge.classList.remove('active');
-  vsBar.classList.remove('voice-active');
-  vsBar.style.display='none';
+  if(vmBadge)vmBadge.classList.remove('active');
+  if(vsBar){vsBar.classList.remove('voice-active');vsBar.style.display='none';}
+  if(!silent){
+    const _sleepMsg=rand([
+      'Voice recognition deactivated, sir. Always here for the next mission — ready when you are.',
+      'Going quiet, sir. I remain on standby. Wake me whenever you need.',
+      'Listening mode off, sir. The data stays loaded. Just say the word when you\'re back.',
+    ]);
+    harveyMsg(_sleepMsg);speak(_sleepMsg);
+  }
   clearTimeout(voiceModeSilTimer);
   micState='wake';
   try{recog?.abort();}catch(e){}
@@ -10915,7 +10922,13 @@ function startClapDetector(){
   const AC=window.AudioContext||window.webkitAudioContext;
   if(!AC||!navigator.mediaDevices?.getUserMedia)return;
   navigator.mediaDevices.getUserMedia({
-    audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false},
+    audio:{
+      echoCancellation:true,     // remove echo from speaker playback
+      noiseSuppression:true,     // reduce background noise (louder environment)
+      autoGainControl:true,      // normalize mic input level
+      channelCount:1,            // mono — closest mic only
+      sampleRate:16000           // 16kHz optimal for speech recognition
+    },
     video:false
   }).then(stream=>{
     clapAudioCtx=new AC();
@@ -10963,16 +10976,104 @@ function startClapDetector(){
 
 function normaliseVoiceInput(txt){
   let s=txt.trim();
-  s=s.replace(/^(uh+|um+|err+|ah+|eh+|can you|please|harvey|can harvey|hey harvey|ok harvey|yo harvey)\s+/gi,'');
-  s=s.replace(/\bwant to (check|see|find|look)\b/gi,'show me');
-  s=s.replace(/\bcan (check|see|find|look)\b/gi,'show me');
+
+  // ── Strip filler and preambles ──
+  s=s.replace(/^(uh+|um+|err+|ah+|eh+|erm+|aiyah|aiya|wah|walao|wah lao|ok so|so ah|then ah|then|like that|can you|please|harvey|can harvey|hey harvey|ok harvey|yo harvey|oi harvey|eh harvey)\s+/gi,'');
+
+  // ── Singlish / colloquial → standard ──
+  s=s.replace(/\bwant to (check|see|find|look|know)\b/gi,'show me');
+  s=s.replace(/\bcan (check|see|find|look|know|tell)\b/gi,'show me');
   s=s.replace(/\bwhere got\b/gi,'are there any');
-  s=s.replace(/\bhow much (is|for|the)\b/gi,'what is the price of');
   s=s.replace(/\bgot (any|more)?\s*/gi,'');
+  s=s.replace(/\blow how\b/gi,'lowest');
+  s=s.replace(/\bhow low\b/gi,'lowest');
+  s=s.replace(/\bhigh how\b/gi,'highest');
+  s=s.replace(/\bhow high\b/gi,'highest');
+  s=s.replace(/\bmost cheap\b/gi,'cheapest');
+  s=s.replace(/\bcheap cheap\b/gi,'cheapest');
+  s=s.replace(/\bwhat price\b/gi,'what is the price');
+  s=s.replace(/\bhow much (is|for|the|this|that)?\s*/gi,'price of ');
+  s=s.replace(/\bhow expensive\b/gi,'what is the price');
+  s=s.replace(/\blike that means\b/gi,'that means');
+  s=s.replace(/\bcan lah\b/gi,'yes');
+  s=s.replace(/\bcannot lah\b/gi,'no');
+  s=s.replace(/\bsay again\b/gi,'repeat');
+  s=s.replace(/\btoo fast lah\b/gi,'repeat');
+  s=s.replace(/\bwhat is this\b/gi,'explain this');
+  s=s.replace(/\bdon't understand\b/gi,'explain this');
+  s=s.replace(/\bshowing me\b/gi,'show me');
+  s=s.replace(/\brent or buy\b/gi,'resale');
+
+  // ── Field label normalisations ──
   s=s.replace(/\bblock number\b/gi,'block');
   s=s.replace(/\bunit level\b/gi,'floor');
   s=s.replace(/\bwhich level\b/gi,'floor');
   s=s.replace(/\bfloor number\b/gi,'floor');
+  s=s.replace(/\blevel (\d+)\b/gi,'floor $1');
+  s=s.replace(/\bstorey (\d+)\b/gi,'floor $1');
+  s=s.replace(/\b(three|four|five|two|one)[ -]room\b/gi,(m,n)=>{
+    const map={one:'1',two:'2',three:'3',four:'4',five:'5'};
+    return (map[n.toLowerCase()]||n)+' room';
+  });
+  s=s.replace(/\bexec\b/gi,'executive');
+  s=s.replace(/\bexco\b/gi,'executive');   // common mishear
+  s=s.replace(/\bHDB\b/g,'');               // redundant
+
+  // ── Singapore mispronunciations → correct spellings ──
+  // Street/area names commonly mispronounced or misheard in SG accent
+  s=s.replace(/\bteaban\b/gi,'teban');
+  s=s.replace(/\btiban\b/gi,'teban');
+  s=s.replace(/\btee ban\b/gi,'teban');
+  s=s.replace(/\bcleminty\b/gi,'clementi');
+  s=s.replace(/\bclementy\b/gi,'clementi');
+  s=s.replace(/\bklimenti\b/gi,'clementi');
+  s=s.replace(/\bsengkang\b/gi,'sengkang');  // correct already but ensure
+  s=s.replace(/\bseng kang\b/gi,'sengkang');
+  s=s.replace(/\bpunggol\b/gi,'punggol');
+  s=s.replace(/\bpungol\b/gi,'punggol');
+  s=s.replace(/\bpunggal\b/gi,'punggol');
+  s=s.replace(/\byishun\b/gi,'yishun');
+  s=s.replace(/\byeeshun\b/gi,'yishun');
+  s=s.replace(/\bjurong\b/gi,'jurong');
+  s=s.replace(/\bjurung\b/gi,'jurong');
+  s=s.replace(/\bchoa chu kang\b/gi,'choa chu kang');
+  s=s.replace(/\bchua chu kang\b/gi,'choa chu kang');
+  s=s.replace(/\bcck\b/gi,'choa chu kang');
+  s=s.replace(/\bangmo kio\b/gi,'ang mo kio');
+  s=s.replace(/\bang mo kio\b/gi,'ang mo kio');
+  s=s.replace(/\bamk\b/gi,'ang mo kio');
+  s=s.replace(/\btoa payoh\b/gi,'toa payoh');
+  s=s.replace(/\btoa pay oh\b/gi,'toa payoh');
+  s=s.replace(/\bbishan\b/gi,'bishan');
+  s=s.replace(/\bbeeshun\b/gi,'bishan');
+  s=s.replace(/\bbedock\b/gi,'bedok');
+  s=s.replace(/\bbee dock\b/gi,'bedok');
+  s=s.replace(/\bqueenstown\b/gi,'queenstown');
+  s=s.replace(/\bqueen's town\b/gi,'queenstown');
+  s=s.replace(/\bkallang\b/gi,'kallang');
+  s=s.replace(/\bkaling\b/gi,'kallang');
+  s=s.replace(/\bwoodland\b/gi,'woodlands');   // missing s
+  s=s.replace(/\btampines\b/gi,'tampines');
+  s=s.replace(/\btampinis\b/gi,'tampines');
+  s=s.replace(/\btamping\b/gi,'tampines');
+  s=s.replace(/\bpasir ris\b/gi,'pasir ris');
+  s=s.replace(/\bpasir rice\b/gi,'pasir ris');  // common mishear
+  s=s.replace(/\bserangoon\b/gi,'serangoon');
+  s=s.replace(/\bseragon\b/gi,'serangoon');
+
+  // ── Street type mishears ──
+  s=s.replace(/\bgardens road\b/gi,'gardens road');
+  s=s.replace(/\bgarden road\b/gi,'gardens road');
+  s=s.replace(/\bstreet one\b/gi,'street 1');
+  s=s.replace(/\bstreet two\b/gi,'street 2');
+  s=s.replace(/\bstreet three\b/gi,'street 3');
+  s=s.replace(/\bavenue one\b/gi,'avenue 1');
+  s=s.replace(/\bavenue two\b/gi,'avenue 2');
+  s=s.replace(/\bblk\b/gi,'block');
+
+  // ── Wake/sleep commands — must match exactly so don't over-normalise ──
+  // These are handled before normalise runs so leave them
+
   return s.trim();
 }
 
@@ -11006,7 +11107,12 @@ function buildRecog(){
       if(/wake.?up.?harvey|hey.?harvey|ok.?harvey|harvey.?wake|harvey.?up/i.test(heard)){
         if(isIdle){wakeFromIdle();}
         else{
-          const rep=rand(['Yes, sir. Go ahead.','At your service, sir.','Listening, sir.','Harvey online. What do you need?','Right here, sir. What can I do for you?']);
+          const rep=rand([
+              'Harvey online, sir. All systems ready — say what you need.',
+              'Right here, sir. Voice recognition active. What can I do for you?',
+              'Listening, sir. I am with you — speak freely.',
+              'Yes, sir. Harvey is here. Go ahead.',
+            ]);
           harveyMsg(rep,[{label:'RESALE TRANSACTIONS',val:'search'},{label:'ESTIMATE VALUATION',val:'estimate value'}]);
           speak(rep);mode='menu';
           setTimeout(()=>{micState='query';safeStart();},1200);
@@ -11042,7 +11148,7 @@ function buildRecog(){
         clearTimeout(speechTimer);clearTimeout(voiceModeSilTimer);
         removeLiveBubble();
         let raw=normaliseVoiceInput(final);
-        if(isDeactivationPhrase(raw)){deactivateVoiceMode();return;}
+        if(isDeactivationPhrase(raw)){deactivateVoiceMode(false);return;}
         if(isSkipPhrase(raw)){
           skipPreamble=true;
           raw=raw.replace(/skip|just tell me|get to the point|no need intro|skip all these|just show me|direct answer|just the data|results only/gi,'').trim();
