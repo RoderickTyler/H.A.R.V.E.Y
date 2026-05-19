@@ -2783,7 +2783,7 @@ function showTransactions(recs,params,is6mo){
       {label:'SEARCH AGAIN',val:'search'},
       {label:'CHANGE DETAILS',val:'__searchform__'},
       {label:'START FRESH',val:'__restart__'},
-      ...(params.town&&!params.street?[{label:'COMPARE TOWNS',val:`most expensive town vs ${params.town}`}]:[]),
+      ...(params.false?[]:[]),
       ...(params.street?[{label:'WHY SO EXPENSIVE?',val:`why is ${locLabel} so expensive`}]:[]),
       ...(params.block?[{label:'ESTIMATE THIS UNIT',val:`estimate value block ${params.block} ${params.street||''}`}]:[])
     ];
@@ -4164,6 +4164,24 @@ async function _handleInputInner(raw){
     }
   }
 
+  // ── CHIP: CHANGE DETAILS — must fire before mode checks ──
+  if(raw==='__changedetails__'){
+    const _evCtx={...convCtx};_evCtx.isEV=true;
+    if(!_evCtx.block&&ctx.block) _evCtx.block=ctx.block;
+    if(!_evCtx.floor&&ctx.floor) _evCtx.floor=ctx.floor;
+    if(!_evCtx.flatType&&ctx.flatType) _evCtx.flatType=ctx.flatType;
+    if(!_evCtx.size&&ctx.size) _evCtx.size=ctx.size;
+    if(!_evCtx.leaseYear&&ctx.leaseYear) _evCtx.leaseYear=ctx.leaseYear;
+    const _cdMsg=rand([
+      `Of course, sir. Here are the details — adjust anything and press Estimate Value:`,
+      `Right away, sir. Change what you need and hit Estimate Value:`,
+      `Here we go, sir — adjust and re-run:`,
+    ]);
+    harveyMsg(_cdMsg+'<br><br>'+buildHudForm(_evCtx),[{label:'↺ START FRESH',val:'__restart__'}]);
+    speak(_cdMsg.replace(/<[^>]*>/g,'').slice(0,120));
+    mode='ev_confirm';loading=false;sbEl.disabled=false;return;
+  }
+
   if(raw==='__debug__'||raw==='debug'){
     const _dbState={
       mode, workingCtx, harveyPersona,
@@ -4283,6 +4301,24 @@ async function _handleInputInner(raw){
   // Fix #1: praise ('good work','great work') skips chitchat — won't route to career topic
   const chitChatEarly=(_intent&&_intent.type===INTENT.PRAISE)?null:harveyChitChat(raw,convCtx);
   if(chitChatEarly){
+    const _ccRepeat=_checkRepeat(chitChatEarly.slice(0,30));
+    if(_ccRepeat>=2){
+      const _ccWhere=workingCtx.streetCtx||workingCtx.townCtx||convCtx.street||convCtx.town;
+      const _ccRedir=rand([
+        `I suspect we may have drifted somewhat, sir. Allow me to reset — where would you like to go?`,
+        `I may have misread the room entirely, sir. Let us recalibrate — you call the direction.`,
+        `Something tells me we are talking past each other, sir. No fault assigned. Shall we recalibrate?`,
+      ]);
+      harveyMsg(_ccRedir,[
+        ...(_ccWhere?[{label:`↗ BACK TO ${String(_ccWhere).slice(0,15).toUpperCase()}`,val:'continue'}]:[]),
+        {label:'RESALE SEARCH',val:'search'},
+        {label:'ESTIMATE VALUE',val:'estimate value'},
+        {label:'↺ REINITIALISE',val:'__restart__'},
+      ]);
+      speak(_ccRedir.replace(/<[^>]*>/g,'').slice(0,160));
+      workingCtx._sameReplyCount=0;workingCtx._lastReplyHash=null;
+      mode='menu';loading=false;sbEl.disabled=false;return;
+    }
     const prevMode=mode;
     if(chitChatEarly&&typeof chitChatEarly==='object'&&chitChatEarly._schoolResponse){
       harveyMsg(chitChatEarly.msg, chitChatEarly.chips);
@@ -4516,12 +4552,7 @@ async function _handleInputInner(raw){
   }
 
 
-  if(raw==='__changedetails__'){
-    userMsg('Change details');
-    harveyMsg(`Of course, sir. Here are the details used — adjust anything and press Estimate Value to re-run:<br><br>${buildHudForm(ctx)}`);
-    speak('Here are the details, sir. Adjust and re-run whenever ready.');
-    mode='ev_confirm';return;
-  }
+
 
 
   if(/^recent (flattype .+ all blocks|all blocks) /i.test(raw)){
